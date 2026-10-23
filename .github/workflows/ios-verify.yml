@@ -250,6 +250,18 @@ jobs:
           xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
             --last 5m --style compact --predicate 'process == "Pully"' \
             > ios/build/diagnostics/pully.log 2>&1 || true
+          # Kotlin crashes from any journey in this run, not only the last five minutes.
+          xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
+            --last 90m --style compact \
+            --predicate 'process == "Pully" AND eventMessage CONTAINS "Uncaught Kotlin exception"' \
+            > ios/build/diagnostics/kotlin-crashes.log 2>&1 || true
+          cat ios/build/diagnostics/kotlin-crashes.log || true
+          # The fixture's page stack as it changed, so a failed Back shows which pages it passed.
+          xcrun simctl spawn '${{ steps.simulator.outputs.udid }}' log show \
+            --last 90m --style compact \
+            --predicate 'process == "Pully" AND eventMessage CONTAINS "Pully route stack"' \
+            > ios/build/diagnostics/route-stack.log 2>&1 || true
+          cat ios/build/diagnostics/route-stack.log || true
       - name: Retain simulator test evidence
         if: always()
         uses: actions/upload-artifact@v6

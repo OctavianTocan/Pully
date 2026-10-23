@@ -100,9 +100,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
               let defaults = UserDefaults(suiteName: "com.octaviantocan.pully.root-fixture.\(id.uuidString)") else {
             preconditionFailure("The root journey fixture requires a unique UUID.")
         }
-        defaults.set("https://fixtures.pully.invalid", forKey: "pulls-server.url")
-        defaults.set("claude-code", forKey: "pulls-server.engine")
-        defaults.set("", forKey: "pulls-server.model")
+        // Seeded on this UUID's first launch only, so a relaunch keeps the model chosen in Settings.
+        if defaults.object(forKey: "pulls-server.url") == nil {
+            defaults.set("https://fixtures.pully.invalid", forKey: "pulls-server.url")
+            defaults.set("claude-code", forKey: "pulls-server.engine")
+            defaults.set("", forKey: "pulls-server.model")
+        }
         let storage = AccountStorageHost(
             preferences: DefaultsServerPreferences(defaults: defaults),
             secrets: KeychainSecretStore(service: "com.octaviantocan.pully.root-fixture.\(id.uuidString).credentials")

@@ -778,9 +778,12 @@ fun QuickAction(label: String, onClick: () -> Unit, modifier: Modifier = Modifie
 @Stable
 class ToastMessage(val text: String, val action: String?, val onAction: (() -> Unit)?)
 
-/** `toast()`: one message at a time, with an optional action ("Undo"). */
+/**
+ * `toast()`: one message at a time, with an optional action ("Undo"). [hold] stretches how long a message stays; only
+ * the Debug sample journeys raise it, so a UI test on a slow simulator can still read a 2.4s message.
+ */
 @Stable
-class Toaster {
+class Toaster(val hold: Float = 1f) {
     var message by mutableStateOf<ToastMessage?>(null)
         private set
     private var acting = false
@@ -822,7 +825,7 @@ fun ToastHost(toaster: Toaster, modifier: Modifier = Modifier) {
     LaunchedEffect(current) {
         if (current == null) return@LaunchedEffect
         shown = current
-        delay(if (current.action != null) 4200 else 2400)
+        delay(((if (current.action != null) 4200 else 2400) * toaster.hold).toLong())
         toaster.clear(current)
     }
     val visible by animateFloatAsState(

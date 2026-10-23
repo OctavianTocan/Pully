@@ -104,7 +104,7 @@ class RootJourneyWorkTest {
             assertTrue(sent.any { it.first == "ai-task-wait" })
             session.detach(); runCurrent()
             assertFalse(sent.any { it.first == "ai-task-cancel" })
-            now += 11_000 // The dead client cannot poll or execute a follow-up pass.
+            now += RootJourneyWork.COMPLETION_MILLIS // The dead client cannot poll or execute a follow-up pass.
             val reopenedCalls = mutableListOf<String>()
             val restoredTransport = RootJourneyTransport.fullJourney(disk) { now }
             val reopenedRepo = sampleRepo(RpcTransport { request ->
@@ -146,7 +146,7 @@ class RootJourneyWorkTest {
         wait.cancel(); runCurrent()
         assertTrue(cancelled)
         assertFalse(sent.contains("ai-task-cancel"))
-        now += 11_000
+        now += RootJourneyWork.COMPLETION_MILLIS
         assertTrue(repo.tasks(RootJourneyTransport.KEY).all { it.status == "done" })
         assertNotNull(repo.savedState(RootJourneyTransport.KEY).brief)
         assertEquals(1, sent.count { it == "ai-task-start" })
@@ -175,7 +175,7 @@ class RootJourneyWorkTest {
         session.cancelTask(stopped); runCurrent()
         assertEquals(1, calls.count { it == "ai-task-cancel" })
         session.detach(); runCurrent()
-        now += 11_000
+        now += RootJourneyWork.COMPLETION_MILLIS
 
         val reopenedRepo = trackedRepo(RootJourneyTransport.fullJourney(disk) { now })
         val reopened = ReviewSession(PULL, reopenedRepo, backgroundScope, settings, cache = ReviewSessionCache(backgroundScope), effects = NoSessionEffects)
@@ -194,7 +194,7 @@ class RootJourneyWorkTest {
         runCurrent()
         assertNotEquals(stopped, reopened.taskFor("analyze")?.id)
         reopened.detach(); runCurrent()
-        now += 11_000
+        now += RootJourneyWork.COMPLETION_MILLIS
         val finished = reopenedRepo.tasks(RootJourneyTransport.KEY)
         assertEquals("cancelled", finished.single { it.id == stopped }.status)
         assertEquals(3, finished.count { it.status == "done" })

@@ -18,6 +18,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -113,7 +115,7 @@ fun NeedsHuman(session: ReviewSession, engineAvailable: Boolean, canStartPaidWor
             ) {
                 Box(
                     Modifier.size(TOUCH).clip(CircleShape).then(
-                        if (stop != null) Modifier.cueClickable(role = Role.Button, onClickLabel = "Stop", onClick = stop) else Modifier,
+                        if (stop != null) Modifier.semantics { contentDescription = "Stop" }.cueClickable(role = Role.Button, onClickLabel = "Stop", onClick = stop) else Modifier,
                     ),
                     contentAlignment = Alignment.Center,
                 ) { Orb(size = 22.dp, stop = stop != null) }

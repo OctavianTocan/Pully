@@ -1386,7 +1386,7 @@ mod privacy_tests {
             }
             crate::ai::shutdown(&app).await;
         };
-        tokio::time::timeout(Duration::from_secs(10), verify_ownership)
+        tokio::time::timeout(Duration::from_secs(10), Box::pin(verify_ownership))
             .await
             .expect("bounded posted-task authorization fixture");
         std::fs::remove_dir_all(root).unwrap();

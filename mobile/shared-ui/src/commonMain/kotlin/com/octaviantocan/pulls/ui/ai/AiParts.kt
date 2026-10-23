@@ -69,6 +69,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -538,8 +540,11 @@ fun ErrorBox(title: String, message: String?, onRetry: (() -> Unit)? = null, ret
 /** The orb as the Stop button (rule 87): the turning ring round a small square, in a 44dp target. [onStop] comes from `guardedStop`. */
 @Composable
 fun StopOrb(onStop: () -> Unit, modifier: Modifier = Modifier) {
+    val stop = t("common.stop")
     Box(
-        modifier.size(TOUCH).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = t("common.stop"), onClick = onStop),
+        // The orb has no words, so the button carries its name; a click label alone left VoiceOver a nameless button.
+        modifier.size(TOUCH).clip(CircleShape).semantics { contentDescription = stop }
+            .cueClickable(role = Role.Button, onClickLabel = stop, onClick = onStop),
         contentAlignment = Alignment.Center,
     ) { Orb(size = 22.dp, stop = true) }
 }

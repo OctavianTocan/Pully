@@ -1,5 +1,10 @@
 import XCTest
 
+/// How long a wait for something to be on screen may take. Each query snapshots the whole Compose tree, which takes
+/// seconds on the CI simulator, so a ten-second wait sometimes ran a single stale query and failed on a screen the
+/// recording shows was right. Waits for something to leave keep their own, shorter limits.
+private let presenceTimeout: TimeInterval = 20
+
 final class PullyLaunchTests: XCTestCase {
     private var appForDiagnostics: XCUIApplication?
 
@@ -44,13 +49,18 @@ final class PullyLaunchTests: XCTestCase {
     private func signInToRootJourney(in app: XCUIApplication) {
         assertVisibleLabel("Fixture data", in: app, timeout: 20)
         assertVisibleLabel("Sign in to Pully", in: app)
-        let email = app.textFields["Email"]
-        XCTAssertTrue(email.waitForExistence(timeout: 10))
+        let email = requireInput("Email", in: app)
         email.tap()
         email.typeText("root-fixture@pully.invalid")
         requireVisible("Continue", in: app).tap()
-        let password = app.secureTextFields["Password"]
-        XCTAssertTrue(password.waitForExistence(timeout: 10))
+        // A tap that lands while the keyboard is still settling the scrolled form can miss; Continue is idempotent.
+        let passwordShown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.visibleElement("Password", in: app) != nil
+        }, object: nil)
+        if XCTWaiter.wait(for: [passwordShown], timeout: 5) != .completed, let again = visibleElement("Continue", in: app) {
+            again.tap()
+        }
+        let password = requireInput("Password", in: app)
         password.tap()
         password.typeText("sample-root-password")
         requireVisible("Sign in", in: app).tap()
@@ -308,7 +318,9 @@ final class PullyLaunchTests: XCTestCase {
         openSampleReview(in: app)
         requireVisible("Tour", in: app).tap()
         assertSectionSelected("Tour", in: app)
-        requireVisible("Ask", in: app).tap()
+        // The foot bar's Ask opens an empty question (Q5); the saved conversation is the Ask sheet's, from the Tour's ⋯.
+        requireVisible("More", in: app).tap()
+        requireVisible("Ask about this tour", in: app).tap()
         assertVisibleRow("What changed in this shared review?", in: app)
         assertVisibleRow("The fixture keeps one shared review session and its native adapters.", in: app)
         attachScreenshot(name: "Actual second process reopen restored the saved Chat answer")
@@ -347,13 +359,34 @@ final class PullyLaunchTests: XCTestCase {
 
     private func waitForSampleServerCompletion(since started: Date) {
         // The UI runner waits while the app is backgrounded or dead. It never advances fixture state or calls an app hook.
-        waitForElapsed(since: started, seconds: 11.5)
+        // RootJourneyWork.COMPLETION_MILLIS (48 s) plus margin.
+        waitForElapsed(since: started, seconds: 49.5)
     }
 
     private func waitForElapsed(since started: Date, seconds: TimeInterval) {
         let deadline = started.addingTimeInterval(seconds)
         let elapsed = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in Date() >= deadline }, object: nil)
         XCTAssertEqual(XCTWaiter.wait(for: [elapsed], timeout: seconds + 1.5), .completed)
+    }
+
+    /// Compose exposes its fields as text views whose label is the field label followed by the placeholder.
+    private func requireInput(_ label: String, in app: XCUIApplication,
+                              file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let named = NSPredicate(format: "label == %@ OR label BEGINSWITH %@", label, "\(label),")
+        func input() -> XCUIElement? {
+            (app.textFields.matching(named).allElementsBoundByIndex
+                + app.secureTextFields.matching(named).allElementsBoundByIndex
+                + app.textViews.matching(named).allElementsBoundByIndex).first { element in
+                element.exists && element.isHittable && !element.frame.isEmpty && app.frame.intersects(element.frame)
+            }
+        }
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in input() != nil }, object: nil)
+        guard XCTWaiter.wait(for: [ready], timeout: 10) == .completed, let field = input() else {
+            attachDiagnostics(app, name: "Missing text input: \(label)")
+            XCTFail("Missing text input: \(label)", file: file, line: line)
+            return app.textFields[label]
+        }
+        return field
     }
 
     private func requireEditor(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
@@ -376,8 +409,7 @@ final class PullyLaunchTests: XCTestCase {
                         file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         for _ in 0..<8 {
             if let element = visibleElement(label, contains: contains, in: app), element.isHittable { return element }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.73))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            scrollContent(in: app, from: 0.73, to: 0.32)
         }
         return requireVisible(label, contains: contains, in: app, file: file, line: line)
     }
@@ -414,8 +446,10 @@ final class PullyLaunchTests: XCTestCase {
         assertHiddenLabel("Pully can't open that link", in: app)
         XCUIDevice.shared.press(.home)
         app.activate()
-        assertHiddenLabel("Pully can't open that link", in: app, timeout: 2)
+        // The Inbox is back on screen first: just after activation the accessibility tree can still hold the old toast.
+        // A replayed toast holds for seconds in the sample journeys, so it would still be found here.
         assertAllSelected(in: app)
+        assertHiddenLabel("Pully can't open that link", in: app, timeout: 2)
         assertHiddenLabel("Back", in: app)
 
         app.terminate()
@@ -443,7 +477,10 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func openSystemLink(_ url: URL, in app: XCUIApplication) {
-        app.open(url)
+        // A running app gets the link through the system, as a link tapped in another app arrives: XCUIApplication.open
+        // relaunches the app, so a "warm" link was really a cold one. A stopped app is launched with the link by
+        // XCUIApplication.open, which keeps the test's launch environment (a system launch would start the ordinary app).
+        if app.state == .notRunning { app.open(url) } else { XCUIDevice.shared.system.open(url) }
         let confirmation = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
         if confirmation.waitForExistence(timeout: 2) { confirmation.tap() }
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
@@ -515,8 +552,7 @@ final class PullyLaunchTests: XCTestCase {
         let lastRow = "Fixture row kept after repository navigation"
         for _ in 0..<14 {
             if visibleElement(lastRow, contains: true, in: app) != nil { break }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.76))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            scrollContent(in: app, from: 0.76, to: 0.32)
         }
         assertVisibleRow(lastRow, in: app)
         attachScreenshot(name: "Shared Inbox All filter scrolled")
@@ -557,6 +593,8 @@ final class PullyLaunchTests: XCTestCase {
         assertHiddenLabel("Internal preview limitation", in: app)
         assertAllSelected(in: app)
         requireVisible(title, contains: true, in: app).press(forDuration: 1)
+        // The hold sheet shows the complete pull request first; its GitHub actions sit below the fold.
+        revealInSheet("Copy link", in: app)
         assertVisibleLabel("Copy link", in: app)
         XCTAssertNil(visibleElement("Start a tour", in: app))
         XCTAssertNil(visibleElement("Delete", in: app))
@@ -565,6 +603,32 @@ final class PullyLaunchTests: XCTestCase {
         // The app writes via the real UIKit adapter. Reading another process's pasteboard
         // would add a privacy prompt; native service tests verify the value boundary.
         attachScreenshot(name: "Production hold menu copy confirmation")
+    }
+
+    private func revealInSheet(_ label: String, in app: XCUIApplication) {
+        _ = requireVisible("Close", in: app)
+        for _ in 0..<4 where visibleElement(label, in: app) == nil {
+            scrollContent(in: app, from: 0.85, to: 0.45)
+        }
+    }
+
+    /// Drags the content up without letting it glide on: a Compose list still moving takes the next tap as "stop".
+    private func scrollContent(in app: XCUIApplication, from start: CGFloat, to end: CGFloat) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: end)),
+                   withVelocity: .slow, thenHoldForDuration: 0.2)
+    }
+
+    /// Waits until the element's frame holds still across two reads, so a tap lands on a row at rest.
+    private func settled(_ element: XCUIElement) -> XCUIElement {
+        var last = element.frame
+        for _ in 0..<12 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            let now = element.frame
+            if now == last { return element }
+            last = now
+        }
+        return element
     }
 
     private func leadingEdgeBack(in app: XCUIApplication) {
@@ -595,7 +659,14 @@ final class PullyLaunchTests: XCTestCase {
             return
         }
         filter.tap()
+        // A tap while the first rows are still arriving can be lost; one more tap, then the same selected check.
+        if !waitForSelected(filter, timeout: 5) { filter.tap() }
         assertAllSelected(in: app)
+    }
+
+    private func waitForSelected(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in element.exists && element.isSelected }, object: nil)
+        return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 
     private func allFilter(in app: XCUIApplication) -> XCUIElement {
@@ -607,7 +678,7 @@ final class PullyLaunchTests: XCTestCase {
             let filter = self.allFilter(in: app)
             return filter.exists && filter.isHittable && filter.isSelected
         }, object: nil)
-        guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
+        guard XCTWaiter.wait(for: [selected], timeout: presenceTimeout) == .completed else {
             attachDiagnostics(app, name: "Inbox All filter not selected")
             XCTFail("The production All filter did not retain selected semantics", file: file, line: line)
             return
@@ -619,28 +690,28 @@ final class PullyLaunchTests: XCTestCase {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             self.visibleElement(section, in: app)?.isSelected == true
         }, object: nil)
-        guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
+        guard XCTWaiter.wait(for: [selected], timeout: presenceTimeout) == .completed else {
             attachDiagnostics(app, name: "Shared review section not selected: \(section)")
             XCTFail("The production review segment did not select \(section)", file: file, line: line)
             return
         }
     }
 
-    private func assertVisibleRow(_ text: String, in app: XCUIApplication, timeout: TimeInterval = 10,
+    private func assertVisibleRow(_ text: String, in app: XCUIApplication, timeout: TimeInterval = presenceTimeout,
                                   file: StaticString = #filePath, line: UInt = #line) {
         // Production SwipeRow is clickable and merges title/meta semantics. Keep the
         // exact expected text within that accessible row, independent of UIKit role.
         _ = requireVisible(text, contains: true, in: app, timeout: timeout, file: file, line: line)
     }
 
-    private func assertVisibleLabel(_ label: String, in app: XCUIApplication, timeout: TimeInterval = 10,
+    private func assertVisibleLabel(_ label: String, in app: XCUIApplication, timeout: TimeInterval = presenceTimeout,
                                     file: StaticString = #filePath, line: UInt = #line) {
         _ = requireVisible(label, in: app, timeout: timeout, file: file, line: line)
     }
 
     @discardableResult
     private func requireVisible(_ label: String, contains: Bool = false, in app: XCUIApplication,
-                                timeout: TimeInterval = 10, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+                                timeout: TimeInterval = presenceTimeout, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         // Compose heading() maps to UIKit's Header trait, not StaticText. Check labels
         // across roles and wait for visible geometry through actual page animations.
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
@@ -906,6 +977,9 @@ extension PullyLaunchTests {
 
     private func copyAndVerifyNativeSelection(_ expected: String, editor: XCUIElement, app: XCUIApplication) {
         requireNativeEditAction("Copy", in: app).tap()
+        // Compose ends the selection after Copy, as it does on Android, so Delete would take one letter; select the
+        // words again first so Delete clears them.
+        selectAllNativeText(in: editor, app: app)
         editor.typeText(XCUIKeyboardKey.delete.rawValue)
         assertEditorValue("", editor: editor, in: app)
         pasteNativeText(into: editor, app: app)
@@ -914,20 +988,32 @@ extension PullyLaunchTests {
     }
 
     private func pasteNativeText(into editor: XCUIElement, app: XCUIApplication) {
-        editor.tap()
+        // A tap on the caret of a focused, empty field offers Paste at once (a first tap may only focus it), and a long
+        // press there closes the menu again on release.
+        for _ in 0..<2 {
+            editor.tap()
+            if let paste = nativeEditAction("Paste", in: app, timeout: 3) {
+                paste.tap()
+                return
+            }
+        }
         editor.press(forDuration: 1.2)
         requireNativeEditAction("Paste", in: app).tap()
     }
 
-    private func requireNativeEditAction(_ title: String, in app: XCUIApplication) -> XCUIElement {
-        // Both menu roles are exported by supported iOS text-edit menus; accept no app text/container proxy.
+    private func nativeEditAction(_ title: String, in app: XCUIApplication, timeout: TimeInterval) -> XCUIElement? {
         func action() -> XCUIElement? {
             (app.menuItems.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex +
              app.buttons.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex)
                 .first { $0.exists && $0.isHittable && !$0.frame.isEmpty && app.frame.intersects($0.frame) }
         }
         let available = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in action() != nil }, object: nil)
-        guard XCTWaiter.wait(for: [available], timeout: 10) == .completed, let item = action() else {
+        return XCTWaiter.wait(for: [available], timeout: timeout) == .completed ? action() : nil
+    }
+
+    private func requireNativeEditAction(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        // Both menu roles are exported by supported iOS text-edit menus; accept no app text/container proxy.
+        guard let item = nativeEditAction(title, in: app, timeout: 10) else {
             attachDiagnostics(app, name: "Missing native text edit action: \(title)")
             XCTFail("The actual OS text edit menu did not offer \(title)")
             return app.menuItems[title]
@@ -938,11 +1024,10 @@ extension PullyLaunchTests {
     @discardableResult
     private func revealJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement {
         for _ in 0..<8 {
-            if let button = visibleJourneyButton(title, contains: contains, in: app) { return button }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.73))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            if let button = visibleJourneyButton(title, contains: contains, in: app) { return settled(button) }
+            scrollContent(in: app, from: 0.73, to: 0.32)
         }
-        return requireJourneyButton(title, contains: contains, in: app)
+        return settled(requireJourneyButton(title, contains: contains, in: app))
     }
 
     private func visibleJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement? {

@@ -198,7 +198,12 @@ private fun SheetHost(onClose: () -> Unit, onBack: (() -> Unit)? = null, panel: 
         onDispose { Sheets.open-- }
     }
     SheetPlatform.Dialog(onDismissRequest = { latestBack?.invoke() ?: dismiss() }) {
-        panel(position, dismiss)
+        Box(Modifier.fillMaxSize()) {
+            panel(position, dismiss)
+            // The sheet is a window of its own, over the app's toast, so a toast raised while it is open ("Feedback sent",
+            // "Copied the key") shows here, over the sheet, instead of hidden under it.
+            ToastHost(LocalToaster.current)
+        }
     }
 }
 

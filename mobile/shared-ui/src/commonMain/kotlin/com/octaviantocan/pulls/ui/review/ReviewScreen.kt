@@ -143,6 +143,9 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
     OverviewEffects(session, top, data, overviewReopen)
     // Leaving the diff by Back goes back to the Ask sheet it was opened from, if it was.
     fun pop() {
+        // On iOS one edge swipe on the Changes page reaches both the file swipe (to the Overview) and the page Back, and
+        // the second must not take the last page away: an empty stack crashed the review.
+        if (pages.size <= 1) return
         if (pages.removeAt(pages.lastIndex) == PrView.Diff) askBehind?.let { ask = it.request }
         askBehind = null
     }

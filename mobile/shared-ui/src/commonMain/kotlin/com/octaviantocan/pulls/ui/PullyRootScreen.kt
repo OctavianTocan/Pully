@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
@@ -77,7 +78,7 @@ fun PullyRootScreen(
                 val motion = remember { PageMotion() }
                 val backs = remember { SharedBackDispatcher() }
                 val bars = remember { FootBars() }
-                val toaster = remember { Toaster() }
+                val toaster = remember { Toaster(hold = if (fixture) 3f else 1f) }
                 val scope = rememberCoroutineScope()
                 val moving = rememberMotionEnabled()
                 val dark = wantsDark(settings)
@@ -164,7 +165,7 @@ fun PullyRootScreen(
                             ) {
                                 Column {
                                     Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.lg, color = colors.text)
-                                    if (fixture) Text(t("mobilePreview.fixture"), style = PullsType.sm, color = colors.muted)
+                                    if (fixture) Text(t("mobilePreview.fixtureData"), style = PullsType.sm, color = colors.muted)
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
                                     if (onExplore != null && readySettings == null && signIn?.getOrNull() == null)
@@ -207,7 +208,8 @@ fun PullyRootScreen(
                                 }
                             }
                         }
-                        FootBarLayer(bars)
+                        // At the foot, as on Android; left unaligned it rested at the top, under the status bar.
+                        FootBarLayer(bars, Modifier.align(Alignment.BottomCenter))
                         if (readyHome != null && readySettings != null) {
                             if (navigation.stack.lastOrNull() == Screen.Settings) SettingsScreen(navigation.nav, readySettings,
                                 onGitHubAccount = onGitHubAccount?.let { action -> {
