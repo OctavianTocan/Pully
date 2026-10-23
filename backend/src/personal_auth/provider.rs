@@ -7,6 +7,13 @@ use url::Url;
 
 const AUTHORIZE_URL: &str = "https://github.com/login/oauth/authorize";
 const TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
+const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
+/// Where a person types the device flow's code; the native app opens only this fixed page.
+pub(crate) const DEVICE_VERIFICATION_URL: &str = "https://github.com/login/device";
+/// The GitHub CLI's own OAuth App ID, public in cli/cli (internal/authflow/flow.go). GitHub lists
+/// "GitHub CLI" among its privileged OAuth apps, which organization OAuth restrictions do not block,
+/// so signing in as it reaches what `gh auth login` reaches (Tavi, 23 Oct 2026 13:36).
+pub(crate) const GITHUB_CLI_CLIENT_ID: &str = "178c6fc778ccc68e1d6a";
 const MAX_RESPONSE_BYTES: usize = 32 * 1024;
 const MAX_ACCESS_LIFETIME: u64 = 31 * 24 * 60 * 60;
 const MAX_REFRESH_LIFETIME: u64 = 366 * 24 * 60 * 60;
@@ -29,12 +36,44 @@ pub(crate) enum GitHubAuthority {
     PrivateRepositories,
 }
 
-/// Supplied only by the operator's registered Pully OAuth App configuration.
+/// Supplied only by the operator's startup configuration: a registered Pully OAuth App, or the
+/// GitHub CLI's device flow, which needs no secret or callback.
 pub(crate) struct OAuthConfig {
     client_id: String,
-    client_secret: String,
-    callback: Url,
+    flow: OAuthFlow,
 }
+
+enum OAuthFlow {
+    Web {
+        client_secret: String,
+        callback: Url,
+    },
+    Device,
+}
+
+/// A device-flow start: the code the person types at [DEVICE_VERIFICATION_URL] and the server's own poll handle.
+pub(super) struct DeviceCode {
+    pub device_code: String,
+    pub user_code: String,
+    pub interval: u64,
+    pub expires_in: u64,
+}
+
+pub(super) enum DevicePoll {
+    Pending,
+    SlowDown(u64),
+    Tokens(GitHubTokens),
+}
+
+/// The person declined on GitHub's device page.
+#[derive(Debug)]
+pub(super) struct DeviceDenied;
+impl std::fmt::Display for DeviceDenied {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("GitHub authorization was not approved")
+    }
+}
+impl std::error::Error for DeviceDenied {}
 
 impl OAuthConfig {
     pub(crate) fn new(client_id: String, client_secret: String, callback: &str) -> Result<Self> {
@@ -57,9 +96,23 @@ impl OAuthConfig {
         );
         Ok(Self {
             client_id,
-            client_secret,
-            callback,
+            flow: OAuthFlow::Web {
+                client_secret,
+                callback,
+            },
         })
+    }
+
+    /// Signs in as the GitHub CLI through GitHub's device flow; nothing secret is configured.
+    pub(crate) fn github_cli() -> Self {
+        Self {
+            client_id: GITHUB_CLI_CLIENT_ID.into(),
+            flow: OAuthFlow::Device,
+        }
+    }
+
+    pub(super) fn uses_device_flow(&self) -> bool {
+        matches!(self.flow, OAuthFlow::Device)
     }
 
     pub(super) fn authorize_url(
@@ -72,10 +125,13 @@ impl OAuthConfig {
             url_secret(state, 43, 43) && url_secret(challenge, 43, 43),
             "Invalid authorization attempt"
         );
+        let OAuthFlow::Web { callback, .. } = &self.flow else {
+            bail!("Invalid authorization attempt");
+        };
         let mut url = Url::parse(AUTHORIZE_URL).expect("fixed GitHub authorization URL");
         url.query_pairs_mut()
             .append_pair("client_id", &self.client_id)
-            .append_pair("redirect_uri", self.callback.as_str())
+            .append_pair("redirect_uri", callback.as_str())
             .append_pair("response_type", "code")
             .append_pair("state", state)
             .append_pair("code_challenge", challenge)
@@ -205,6 +261,70 @@ impl GitHubTokens {
     }
 }
 
+impl DeviceCode {
+    fn from_response(body: &[u8]) -> Result<Self> {
+        ensure!(
+            body.len() <= MAX_RESPONSE_BYTES,
+            "Invalid GitHub authorization response"
+        );
+        #[derive(Deserialize)]
+        struct Response {
+            device_code: String,
+            user_code: String,
+            verification_uri: String,
+            expires_in: u64,
+            interval: Option<u64>,
+        }
+        let response: Response = serde_json::from_slice(body)
+            .map_err(|_| anyhow::anyhow!("GitHub authorization is temporarily unavailable"))?;
+        ensure!(
+            valid_secret(&response.device_code, 256)
+                && valid_user_code(&response.user_code)
+                && response.verification_uri == DEVICE_VERIFICATION_URL
+                && (60..=1800).contains(&response.expires_in),
+            "Invalid GitHub authorization response"
+        );
+        Ok(Self {
+            device_code: response.device_code,
+            user_code: response.user_code,
+            interval: response.interval.unwrap_or(5).clamp(1, 60),
+            expires_in: response.expires_in,
+        })
+    }
+}
+
+/// GitHub's codes read like `WDJB-MJHT`; anything else is not shown to the person.
+pub(super) fn valid_user_code(code: &str) -> bool {
+    (4..=32).contains(&code.len())
+        && code
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-')
+}
+
+impl DevicePoll {
+    fn from_response(body: &[u8], now: u64) -> Result<Self> {
+        ensure!(
+            body.len() <= MAX_RESPONSE_BYTES,
+            "Invalid GitHub authorization response"
+        );
+        #[derive(Deserialize)]
+        struct Waiting {
+            error: Option<String>,
+            interval: Option<u64>,
+        }
+        let waiting: Waiting = serde_json::from_slice(body)
+            .map_err(|_| anyhow::anyhow!("Invalid GitHub authorization response"))?;
+        match waiting.error.as_deref() {
+            None => Ok(Self::Tokens(GitHubTokens::from_response(body, now)?)),
+            Some("authorization_pending") => Ok(Self::Pending),
+            Some("slow_down") => Ok(Self::SlowDown(waiting.interval.unwrap_or(10).clamp(1, 60))),
+            Some("access_denied") => Err(DeviceDenied.into()),
+            Some("expired_token" | "incorrect_device_code") => Err(ReconnectRequired.into()),
+            Some(_) => bail!("GitHub authorization is temporarily unavailable"),
+        }
+    }
+}
+
 pub(super) type ProviderFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T>> + Send + 'a>>;
 
 /// The production implementation below has fixed origins; offline fixtures replace the entire provider.
@@ -217,6 +337,16 @@ pub(super) trait GitHubProvider: Send + Sync {
     ) -> ProviderFuture<'a, GitHubTokens>;
     fn refresh<'a>(&'a self, token: &'a str, now: u64) -> ProviderFuture<'a, GitHubTokens>;
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity>;
+    fn device_code<'a>(&'a self, _authority: GitHubAuthority) -> ProviderFuture<'a, DeviceCode> {
+        Box::pin(async { bail!("GitHub device sign-in is not configured") })
+    }
+    fn poll_device<'a>(
+        &'a self,
+        _device_code: &'a str,
+        _now: u64,
+    ) -> ProviderFuture<'a, DevicePoll> {
+        Box::pin(async { bail!("GitHub device sign-in is not configured") })
+    }
 }
 
 /// Only a verified acquisition can create or replace a stable account's credential.
@@ -285,18 +415,35 @@ impl OAuthProvider {
     }
 
     async fn token_request(&self, fields: &[(&str, &str)], now: u64) -> Result<GitHubTokens> {
-        let token_url = TOKEN_URL;
+        let (status, bytes) = self.post_form(TOKEN_URL, fields).await?;
+        let decoded = GitHubTokens::from_response(&bytes, now);
+        if status != reqwest::StatusCode::OK {
+            return match decoded {
+                Err(error) if error.is::<ReconnectRequired>() => Err(error),
+                _ => Err(anyhow::anyhow!(
+                    "GitHub authorization is temporarily unavailable"
+                )),
+            };
+        }
+        decoded
+    }
+
+    /// A bounded form POST to one of GitHub's fixed sign-in endpoints; redirects and large bodies fail.
+    async fn post_form(
+        &self,
+        url: &str,
+        fields: &[(&str, &str)],
+    ) -> Result<(reqwest::StatusCode, Vec<u8>)> {
         #[cfg(test)]
-        let token_url = self
-            .fixture_origin
-            .as_ref()
-            .map(|origin| origin.join("login/oauth/access_token"))
-            .transpose()?
-            .map(|url| url.to_string())
-            .unwrap_or_else(|| token_url.to_owned());
+        let url = match &self.fixture_origin {
+            Some(origin) => origin
+                .join(url.trim_start_matches("https://github.com/"))?
+                .to_string(),
+            None => url.to_owned(),
+        };
         let response = self
             .client
-            .post(token_url)
+            .post(url)
             .header(reqwest::header::ACCEPT, "application/json")
             .header(reqwest::header::USER_AGENT, "pully")
             .form(fields)
@@ -327,16 +474,7 @@ impl OAuthProvider {
             );
             bytes.extend_from_slice(&chunk);
         }
-        let decoded = GitHubTokens::from_response(&bytes, now);
-        if status != reqwest::StatusCode::OK {
-            return match decoded {
-                Err(error) if error.is::<ReconnectRequired>() => Err(error),
-                _ => Err(anyhow::anyhow!(
-                    "GitHub authorization is temporarily unavailable"
-                )),
-            };
-        }
-        decoded
+        Ok((status, bytes))
     }
 }
 
@@ -352,12 +490,19 @@ impl GitHubProvider for OAuthProvider {
                 valid_secret(code, 4096) && url_secret(verifier, 43, 128),
                 "Invalid authorization attempt"
             );
+            let OAuthFlow::Web {
+                client_secret,
+                callback,
+            } = &self.config.flow
+            else {
+                bail!("Invalid authorization attempt");
+            };
             self.token_request(
                 &[
                     ("client_id", &self.config.client_id),
-                    ("client_secret", &self.config.client_secret),
+                    ("client_secret", client_secret),
                     ("code", code),
-                    ("redirect_uri", self.config.callback.as_str()),
+                    ("redirect_uri", callback.as_str()),
                     ("code_verifier", verifier),
                 ],
                 now,
@@ -372,16 +517,67 @@ impl GitHubProvider for OAuthProvider {
                 valid_secret(token, 4096),
                 "GitHub authorization needs reconnecting"
             );
+            // The GitHub CLI's tokens do not expire, so a device sign-in never holds a refresh token.
+            let OAuthFlow::Web { client_secret, .. } = &self.config.flow else {
+                return Err(ReconnectRequired.into());
+            };
             self.token_request(
                 &[
                     ("client_id", &self.config.client_id),
-                    ("client_secret", &self.config.client_secret),
+                    ("client_secret", client_secret),
                     ("grant_type", "refresh_token"),
                     ("refresh_token", token),
                 ],
                 now,
             )
             .await
+        })
+    }
+
+    fn device_code<'a>(&'a self, authority: GitHubAuthority) -> ProviderFuture<'a, DeviceCode> {
+        Box::pin(async move {
+            ensure!(
+                self.config.uses_device_flow(),
+                "GitHub device sign-in is not configured"
+            );
+            let (status, bytes) = self
+                .post_form(
+                    DEVICE_CODE_URL,
+                    &[
+                        ("client_id", &self.config.client_id),
+                        ("scope", device_scope(authority)),
+                    ],
+                )
+                .await?;
+            ensure!(
+                status == reqwest::StatusCode::OK,
+                "GitHub authorization is temporarily unavailable"
+            );
+            DeviceCode::from_response(&bytes)
+        })
+    }
+
+    fn poll_device<'a>(&'a self, device_code: &'a str, now: u64) -> ProviderFuture<'a, DevicePoll> {
+        Box::pin(async move {
+            ensure!(
+                self.config.uses_device_flow() && valid_secret(device_code, 256),
+                "GitHub device sign-in is not configured"
+            );
+            let (status, bytes) = self
+                .post_form(
+                    TOKEN_URL,
+                    &[
+                        ("client_id", &self.config.client_id),
+                        ("device_code", device_code),
+                        ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
+                    ],
+                )
+                .await?;
+            ensure!(
+                status == reqwest::StatusCode::OK,
+                "GitHub authorization is temporarily unavailable"
+            );
+            DevicePoll::from_response(&bytes, now)
         })
     }
 
@@ -413,6 +609,14 @@ impl GitHubProvider for OAuthProvider {
             });
         }
         Box::pin(VerifiedGitHubIdentity::verify(token))
+    }
+}
+
+/// Public sign-in asks for nothing beyond public data; private access asks for what `gh` asks for repositories.
+fn device_scope(authority: GitHubAuthority) -> &'static str {
+    match authority {
+        GitHubAuthority::PublicRead => "",
+        GitHubAuthority::PrivateRepositories => "repo read:org",
     }
 }
 
@@ -583,5 +787,92 @@ mod tests {
                 !error.to_string().contains("fixture-secret") && !error.to_string().contains(code)
             );
         }
+    }
+
+    #[test]
+    fn device_flow_uses_the_github_cli_client_and_never_a_callback() {
+        let cli = OAuthConfig::github_cli();
+        assert!(cli.uses_device_flow());
+        assert_eq!(cli.client_id, "178c6fc778ccc68e1d6a");
+        assert!(cli
+            .authorize_url(
+                &"a".repeat(43),
+                &"b".repeat(43),
+                GitHubAuthority::PublicRead
+            )
+            .is_err());
+        assert_eq!(device_scope(GitHubAuthority::PublicRead), "");
+        assert_eq!(
+            device_scope(GitHubAuthority::PrivateRepositories),
+            "repo read:org"
+        );
+    }
+
+    #[test]
+    fn device_codes_are_checked_before_the_person_sees_them() {
+        let code = |value: serde_json::Value| {
+            DeviceCode::from_response(&serde_json::to_vec(&value).unwrap())
+        };
+        let good = code(json!({"device_code":"3584d83530557fdd1f46af8289938c8ef79f9dc5","user_code":"WDJB-MJHT","verification_uri":"https://github.com/login/device","expires_in":899,"interval":5})).unwrap();
+        assert_eq!(good.user_code, "WDJB-MJHT");
+        assert_eq!((good.interval, good.expires_in), (5, 899));
+        let defaulted = code(json!({"device_code":"d","user_code":"ABCD","verification_uri":"https://github.com/login/device","expires_in":60,"interval":0})).unwrap();
+        assert_eq!(defaulted.interval, 1);
+        for value in [
+            json!({"device_code":"d","user_code":"wdjb-mjht","verification_uri":"https://github.com/login/device","expires_in":899}),
+            json!({"device_code":"d","user_code":"WDJB MJHT","verification_uri":"https://github.com/login/device","expires_in":899}),
+            json!({"device_code":"d","user_code":"WDJB-MJHT","verification_uri":"https://evil.example/login/device","expires_in":899}),
+            json!({"device_code":"d","user_code":"WDJB-MJHT","verification_uri":"https://github.com/login/device","expires_in":5}),
+            json!({"device_code":"","user_code":"WDJB-MJHT","verification_uri":"https://github.com/login/device","expires_in":899}),
+            json!({"error":"device_flow_disabled"}),
+        ] {
+            assert!(code(value).is_err());
+        }
+    }
+
+    #[test]
+    fn device_polls_wait_slow_down_finish_or_stop_for_good() {
+        let poll = |value: serde_json::Value| {
+            DevicePoll::from_response(&serde_json::to_vec(&value).unwrap(), 100)
+        };
+        assert!(matches!(
+            poll(json!({"error":"authorization_pending"})).unwrap(),
+            DevicePoll::Pending
+        ));
+        assert!(matches!(
+            poll(json!({"error":"slow_down","interval":10})).unwrap(),
+            DevicePoll::SlowDown(10)
+        ));
+        assert!(matches!(
+            poll(json!({"error":"slow_down","interval":900})).unwrap(),
+            DevicePoll::SlowDown(60)
+        ));
+        let DevicePoll::Tokens(tokens) = poll(
+            json!({"access_token":"gho_fixture","token_type":"bearer","scope":"repo,read:org"}),
+        )
+        .unwrap() else {
+            panic!("approved device code did not return tokens");
+        };
+        assert!(tokens.refresh.is_none() && tokens.expires_at.is_none());
+        assert_eq!(
+            tokens.authority(GitHubAuthority::PrivateRepositories),
+            GitHubAuthority::PrivateRepositories
+        );
+        assert!(poll(json!({"error":"access_denied"}))
+            .err()
+            .unwrap()
+            .is::<DeviceDenied>());
+        for code in ["expired_token", "incorrect_device_code"] {
+            assert!(poll(json!({"error":code}))
+                .err()
+                .unwrap()
+                .is::<ReconnectRequired>());
+        }
+        let other =
+            poll(json!({"error":"unsupported_grant_type","error_description":"fixture-secret"}))
+                .err()
+                .unwrap();
+        assert!(!other.is::<DeviceDenied>() && !other.is::<ReconnectRequired>());
+        assert!(!other.to_string().contains("fixture-secret"));
     }
 }

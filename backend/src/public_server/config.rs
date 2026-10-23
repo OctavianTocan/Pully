@@ -34,9 +34,22 @@ pub(super) struct Loaded {
     pub auth: PersonalAuthHostConfig,
     pub tenant_root: PathBuf,
 }
+/// Either `{"githubCli": true}`, signing in as the GitHub CLI through the device flow, or a
+/// registered Pully OAuth App's ID, secret and callback.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum OAuthFile {
+    GitHubCli(GitHubCliFile),
+    App(AppFile),
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct OAuthFile {
+struct GitHubCliFile {
+    github_cli: bool,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct AppFile {
     client_id: String,
     client_secret: String,
     callback: String,
@@ -66,7 +79,13 @@ pub(super) async fn load(config: PublicServerConfig) -> Result<Option<Loaded>, P
                 .map_err(|_| anyhow::anyhow!("Invalid vault key"))?;
             keys.insert(version, key);
         }
-        let oauth = OAuthConfig::new(oauth.client_id, oauth.client_secret, &oauth.callback)?;
+        let oauth = match oauth {
+            OAuthFile::GitHubCli(GitHubCliFile { github_cli: true }) => OAuthConfig::github_cli(),
+            OAuthFile::GitHubCli(_) => anyhow::bail!("Invalid OAuth configuration"),
+            OAuthFile::App(app) => {
+                OAuthConfig::new(app.client_id, app.client_secret, &app.callback)?
+            }
+        };
         let keys = VaultKeys::new(supplied.active_version, keys)?;
         Ok(Some(Loaded {
             auth: PersonalAuthHostConfig::new(files.data_root.join("personal-auth"), oauth, keys),

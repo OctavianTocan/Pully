@@ -1,6 +1,7 @@
 # Personal GitHub authorization
 
-This module supplies a Pully-owned GitHub OAuth App flow, encrypted credential
+This module supplies GitHub sign-in (the GitHub CLI device flow, or a registered
+Pully OAuth App), an encrypted credential
 vault, hashed Pully sessions and explicit HTTP router factories. Nothing in the
 module registers a production listener, changes Cloudflare Access or exposes the
 legacy RPC dispatch. The unconfigured factory serves only disabled capability
@@ -8,12 +9,22 @@ discovery and needs no account, provider or store.
 
 ## Configuration and activation boundary
 
-A reviewed host can construct `OAuthConfig` from its own registered Pully OAuth
-App ID, server secret and an exact HTTPS callback ending in
-`/api/personal/v1/auth/github/callback`. It supplies the server-owned Store and
-`VaultKeys` (a positive active version and one to eight versioned 32-byte keys),
-then explicitly installs `configured_router`. No credential is read from `gh`,
-another application's client ID, a shared GitHub token or an account seed.
+A reviewed host constructs `OAuthConfig` in one of two ways:
+
+- `OAuthConfig::github_cli()` (`{"githubCli": true}` in the public server's OAuth
+  file) signs people in exactly as `gh auth login` does: GitHub's device flow with
+  the GitHub CLI's public client ID. GitHub lists that client as a privileged OAuth
+  app, so organization OAuth app restrictions do not block it, and it needs no
+  registration, secret or callback. GitHub's consent page says "GitHub CLI". This
+  is the production choice (Tavi, 23 Oct 2026 13:36: "What I want is what you get
+  when you use GH auth login").
+- `OAuthConfig::new` takes a registered Pully OAuth App ID, server secret and an
+  exact HTTPS callback ending in `/api/personal/v1/auth/github/callback`.
+
+It supplies the server-owned Store and `VaultKeys` (a positive active version and
+one to eight versioned 32-byte keys), then explicitly installs `configured_router`.
+No token is ever read from a local `gh` login, a shared GitHub token or an account
+seed; the GitHub CLI client ID only names who asks GitHub for the person's consent.
 
 Real registration, callback domains/TLS, secure key distribution and public ingress
 limits are external deployment prerequisites. They are not provisioned here. The
@@ -36,14 +47,21 @@ headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configurati
 
 - `GET /api/personal/v1/capabilities` returns `{github:{enabled:Boolean}}`.
 - `POST /api/personal/v1/auth/github/start` accepts only `nativeChallenge` and
-  returns `attemptId`, `authorizeUrl`, `expiresAt` and `pollAfterMs`.
+  returns `attemptId`, `authorizeUrl`, `expiresAt`, `pollAfterMs` and, for device
+  sign-in, `userCode`.
 - The native client makes 32 CSPRNG bytes, encodes them as 43-character base64url
   without padding (`nativeProof`), and sends
   `BASE64URL_NO_PAD(SHA256(ASCII(nativeProof)))` as its challenge.
 - `POST .../status`, `.../claim` and `.../cancel` require `attemptId` and
   `nativeProof` in JSON bodies. They accept no query parameters. State and GitHub
   PKCE use separate server-generated randomness.
-- The system browser uses the fixed GitHub authorize origin. A fixed callback
+- Device sign-in: `start` also returns `userCode`, and `authorizeUrl` is exactly
+  `https://github.com/login/device`. The server keeps GitHub's device code and polls
+  GitHub itself at GitHub's interval (longer after `slow_down`) until the person
+  approves, declines or the attempt ends; cancel stops the polling. The phone shows
+  the code, copies it and opens the page when the person asks, then polls `status`
+  as below. Device tokens do not expire and carry no refresh token.
+- Web sign-in: the system browser uses the fixed GitHub authorize origin. A fixed callback
   consumes state once, exchanges the code with S256 PKCE and verifies `GET /user`.
   The native app resumes polling with the same in-memory proof after browser return.
   Ordinary background pauses polling without cancellation; explicit cancel,
@@ -130,6 +148,10 @@ They do not authenticate a real GitHub account or verify deployed callback links
 
 Current GitHub documentation used for the protocol:
 
+- [Device flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)
+  and [privileged OAuth apps](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/privileged-oauth-apps):
+  `authorization_pending`, `slow_down`, `access_denied`, `expired_token`, and why
+  GitHub CLI is not subject to organization OAuth app restrictions.
 - [OAuth Apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps):
   S256 PKCE, state, fixed token exchange, `offline_access`, expiring access/refresh
   pairs, refresh rotation and revalidating the authenticated user.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sets up the public Pully listener (Explore's public API and Connect GitHub) beside the existing server.
-# Run it once on the server host after registering the Pully GitHub OAuth App; see scripts/README.md.
-# It asks for the OAuth App's client ID and secret, never prints them, and writes them to an owner-only file.
+# Run it once on the server host; see scripts/README.md. Connect GitHub signs in like `gh auth login`
+# (GitHub's device flow as the GitHub CLI), so there is no OAuth App to register and no secret to enter.
 set -euo pipefail
 
 origin="${PULLY_PUBLIC_ORIGIN:-https://prs.octaviantocan.com}"
@@ -20,14 +20,8 @@ mkdir -p "$config" "$data"
 chmod 700 "$config" "$data"
 
 if [[ ! -f "$config/oauth.json" ]]; then
-  read -r -p "Pully GitHub OAuth App client ID: " client_id
-  read -r -s -p "Client secret (not shown): " client_secret; echo
-  [[ -n "$client_id" && -n "$client_secret" ]] || { echo "Both are needed" >&2; exit 1; }
-  CLIENT_ID="$client_id" CLIENT_SECRET="$client_secret" CALLBACK="$origin/api/personal/v1/auth/github/callback" \
-    python3 -c 'import json, os; print(json.dumps({"clientId": os.environ["CLIENT_ID"], "clientSecret": os.environ["CLIENT_SECRET"], "callback": os.environ["CALLBACK"]}))' \
-    > "$config/oauth.json"
-  unset client_id client_secret
-  echo "Wrote $config/oauth.json"
+  echo '{"githubCli":true}' > "$config/oauth.json"
+  echo "Wrote $config/oauth.json (GitHub CLI device sign-in)"
 fi
 
 if [[ ! -f "$config/vault-keys.json" ]]; then
