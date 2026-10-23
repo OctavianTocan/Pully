@@ -9,6 +9,7 @@ pub(super) fn preparation_run(request: Value) -> Run {
         task: true,
         notify: Notify::new().into(),
         cancel: watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Server,
     }
 }
 
@@ -110,6 +111,7 @@ fn tour_stop_previews_include_only_successes() {
         task: true,
         notify: tokio::sync::Notify::new().into(),
         cancel: tokio::sync::watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Server,
     };
     let plan = json!({"title":"Planned","purpose":"Explain","files":["a.rs"]});
     let success = json!({"title":"Written","takeaway":"Useful","blocks":[],"sources":[]});
@@ -369,6 +371,7 @@ fn tour_plan_and_stop_json_survive_task_snapshots_whole() {
         task: true,
         notify: tokio::sync::Notify::new().into(),
         cancel: tokio::sync::watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Server,
     };
     let long = "A useful description. ".repeat(1000);
     let plan = json!({"title":"Plan","overview":long,"stops":[]});

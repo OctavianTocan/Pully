@@ -55,5 +55,5 @@ internal fun iosSettingsServices(
         // Android installer, browser-helper and notification pages have no native renderer in this app.
         pages = emptySet(), beforeStats = {}, afterModel = {}, advancedRows = {}, advancedFooter = {},
         page = { page, _ -> error("No native platform settings page: $page") },
-    ), current, showScreen)
+    ), current, showScreen, SourceAiSignInServices(home.repo, current, home.native::openInBrowser, home.native::copyText))
 }

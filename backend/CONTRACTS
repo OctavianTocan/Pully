@@ -399,3 +399,27 @@ same event, content redaction, size, batching and retention policy as Android/we
 Unknown app labels MUST remain rejected; enabling iOS MUST NOT bypass the cleaner or
 add a telemetry service. Source: Tavi's 21 Oct 2026 full shared iOS app request and
 root analytics-stays-on-our-server and analytics-what-not-how-much.
+
+@cc [owner:OctavianTocan,label:security;product] ai-runs-on-the-callers-own-sign-in
+AI runs and model lists for a signed-in Pully account MUST use only that account's own
+Claude Code and Codex sign-in, kept in its own login volume; they MUST NOT use another
+account's or the server's sign-in, and a session that no longer names an account MUST be
+refused rather than fall back. A running run MUST NOT be joined by another login's
+identical request. Requests without a Pully account and the server's own background work
+use the server's sign-in from setup.sh. Claude Code and Codex MUST NOT be given an API
+key (ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, OPENAI_API_KEY) on any path. Source:
+Tavi, 23 Oct 2026 13:39: "Claude Code and Codex SUBSCRIPTION login. Not any other kind
+of thing. I don't even care to implement API Key for those. We need to be able to use
+people's subscription usage."
+
+@cc [owner:OctavianTocan,label:security] ai-sign-in-is-the-clis-own
+A sign-in MUST run the unmodified CLI's own login (`claude auth login --claudeai`,
+`codex login --device-auth`) in a container holding only that login's volume, with no
+job inputs, PR tools or prompt. The server MUST NOT read or store the resulting tokens;
+it passes the person's pasted code only to that CLI's stdin. Only a signed-in Pully
+account MAY start, finish or sign out a sign-in. The phone MUST be given only links on
+the providers' own sign-in hosts, and status MUST count only subscription sign-ins
+(claude.ai, ChatGPT), never a Console or API key login. Source: Tavi, 23 Oct 2026 13:39,
+and Anthropic's Claude Code legal and compliance page checked that day ("sign-in to a
+Claude account must complete through Anthropic's own flow"; hosting the unmodified
+binary for users who sign in with their own subscription is allowed).

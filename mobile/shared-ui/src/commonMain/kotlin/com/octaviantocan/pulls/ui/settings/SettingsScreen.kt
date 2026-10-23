@@ -81,6 +81,8 @@ fun SettingsPage.title(openedKeyName: String?): String = when (this) {
     SettingsPage.Sound -> "Sound"
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
+    SettingsPage.ClaudeSignIn -> com.octaviantocan.pulls.data.AiCli.Claude.title
+    SettingsPage.CodexSignIn -> com.octaviantocan.pulls.data.AiCli.Codex.title
     SettingsPage.WhatsNew -> "What's new"
     SettingsPage.Stats -> t("stats.title")
     SettingsPage.Links -> "GitHub links"
@@ -132,6 +134,9 @@ fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, services: Sett
         SettingsPage.Sound -> SoundPage(settings, services, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Model -> ModelPage(settings, services.models, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Effort -> EffortPage(settings, services.models, onBack = { onPage(SettingsPage.Main) })
+        SettingsPage.ClaudeSignIn, SettingsPage.CodexSignIn -> services.aiSignIns?.let {
+            AiSignInPage(it, if (page == SettingsPage.ClaudeSignIn) com.octaviantocan.pulls.data.AiCli.Claude else com.octaviantocan.pulls.data.AiCli.Codex, onPage)
+        }
         SettingsPage.Stats -> StatsPage(settings, services.stats)
         SettingsPage.Account -> AccountPage(services.account)
         SettingsPage.AgentKeys -> AgentKeysPage(services.account, open = onPage)
@@ -301,6 +306,8 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
                     LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
                 }
             }
+            // Each person's own Claude Code and Codex sign-in, right under the model they run (agent_login.rs).
+            services.aiSignIns?.let { AiSignInRows(it, open) }
         }
     }
     services.platform.afterModel(this, open)

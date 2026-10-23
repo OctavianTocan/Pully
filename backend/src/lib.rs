@@ -1,4 +1,5 @@
 pub mod account;
+pub mod agent_login;
 pub mod agent_api;
 pub mod agent_process;
 pub mod ai;
@@ -41,6 +42,7 @@ pub struct AppState {
     account_seed: Arc<tokio::sync::OnceCell<bool>>,
     pub http: reqwest::Client,
     pub jobs: ai::Jobs,
+    pub agent_logins: Arc<agent_login::Logins>,
     pub analytics: analytics::Analytics,
     pub(crate) diff_cache: Arc<std::sync::Mutex<review::DiffCache>>,
 }
@@ -85,6 +87,7 @@ impl AppState {
                 .timeout(std::time::Duration::from_secs(60))
                 .build()?,
             jobs: ai::Jobs::default(),
+            agent_logins: Default::default(),
             analytics,
             diff_cache: Arc::new(std::sync::Mutex::new(review::DiffCache::default())),
         }))
@@ -191,9 +194,18 @@ pub fn now_ms() -> u64 {
         .as_millis() as u64
 }
 pub async fn dispatch(state: &Arc<AppState>, name: &str, args: Value) -> Result<Value> {
+    dispatch_as(state, name, args, &agent_login::AgentLogin::Server).await
+}
+/// `login` is the verified Pully account of the request, whose own CLI sign-ins AI work uses.
+pub async fn dispatch_as(
+    state: &Arc<AppState>,
+    name: &str,
+    args: Value,
+    login: &agent_login::AgentLogin,
+) -> Result<Value> {
     let start = std::time::Instant::now();
     let result = match rpc_validation::arguments(name, args) {
-        Ok(args) => dispatch_inner(state, name, args)
+        Ok(args) => dispatch_inner(state, name, args, login)
             .await
             .and_then(|value| rpc_validation::result(name, value)),
         Err(error) => Err(error),
@@ -201,7 +213,12 @@ pub async fn dispatch(state: &Arc<AppState>, name: &str, args: Value) -> Result<
     let _=state.analytics.record("rpc.call",serde_json::json!({"method":name,"ms":start.elapsed().as_millis() as u64,"status":if result.is_ok(){"ok"}else{"error"}})).await;
     result
 }
-async fn dispatch_inner(state: &Arc<AppState>, name: &str, args: Value) -> Result<Value> {
+async fn dispatch_inner(
+    state: &Arc<AppState>,
+    name: &str,
+    args: Value,
+    login: &agent_login::AgentLogin,
+) -> Result<Value> {
     if name == "github-stats" {
         return github_stats::stats(state, args["fresh"] == true).await;
     }
@@ -217,7 +234,7 @@ async fn dispatch_inner(state: &Arc<AppState>, name: &str, args: Value) -> Resul
     if let Some(r) = review::handle(state, name, args.clone()).await {
         return r;
     }
-    if let Some(r) = ai::handle(state, name, args).await {
+    if let Some(r) = ai::handle_as(state, name, args, login).await {
         return r;
     }
     bail!("That method is not available to the app.")

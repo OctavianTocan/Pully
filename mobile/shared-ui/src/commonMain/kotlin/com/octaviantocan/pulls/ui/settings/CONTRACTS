@@ -207,3 +207,12 @@ or synchronize that old choice under the replacement account. Source: the accept
 The nested Settings Theme page MUST consume its SettingsServices-owned picker. Native
 palette sheets MUST retain an explicitly captured picker rather than an unowned default.
 Source: the independently confirmed 22 Oct Guest review and its approved resolution.
+
+@cc [owner:OctavianTocan,label:product;security] settings-ai-sign-ins-are-subscriptions
+Settings' AI group MUST show a Claude Code row and a Codex row under Model, each saying
+whether it is signed in and opening its own page. A page MUST offer only that CLI's own
+subscription sign-in: Claude Code opens Claude's page and takes the code it shows,
+Codex shows its one-time code and finishes by itself. It MUST NOT have an API key field.
+Without a Pully account a page MUST ask for the Pully sign-in first. Source: Tavi,
+23 Oct 2026 13:39: "Claude Code and Codex SUBSCRIPTION login. Not any other kind of
+thing."

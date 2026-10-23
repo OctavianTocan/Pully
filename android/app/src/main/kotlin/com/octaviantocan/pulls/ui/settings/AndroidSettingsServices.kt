@@ -8,7 +8,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
+import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoIdentity
+import com.octaviantocan.pulls.ui.OutsideLinks
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Direction
 import com.octaviantocan.pulls.sound.Emphasis
@@ -73,6 +75,9 @@ internal fun rememberAndroidSettingsServices(): SettingsServices {
                 }
             },
             experimentalRows = { open -> BrowserHelperExperimentRow { open(SettingsPage.BrowserHelper) } },
-        ), { epoch == RepoIdentity.generation }, Analytics::showScreen)
+        ), { epoch == RepoIdentity.generation }, Analytics::showScreen,
+            // The providers' sign-in pages open in the browser, never in their own apps, which do not show the code.
+            SourceAiSignInServices(Repo(context.applicationContext), { epoch == RepoIdentity.generation },
+                { OutsideLinks.open(context, it, browserOnly = true) }, { com.octaviantocan.pulls.ui.book.copyToClipboard(context, it) }))
     }
 }

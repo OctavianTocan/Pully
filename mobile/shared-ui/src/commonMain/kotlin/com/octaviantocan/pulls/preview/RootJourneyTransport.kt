@@ -50,6 +50,8 @@ internal class RootJourneyTransport private constructor(private val work: RootJo
             "pr-text" -> overview.jsonObject.getValue("overview")
             "review-state", "reviewed-get", "review-data" -> JsonObject(emptyMap())
             "ai-task-list" -> JsonArray(emptyList())
+            // Settings' AI rows read the sample account's sign-ins; the fixture never starts one.
+            "ai-login-status" -> json("""{"account":true,"claude":{"signedIn":true,"email":"$EMAIL","plan":"max"},"codex":{"signedIn":false}}""")
             "jev-files" -> json("""{"enabled":false}""")
             "pr-stack" -> json("""{"stack":null}""")
             "file-content" -> json("""{"old":"fun review() = \"android\"\n","new":"fun review() = \"shared\"\n"}""")

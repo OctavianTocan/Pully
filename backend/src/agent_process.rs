@@ -1,5 +1,6 @@
 //! Sandboxed CLI transport. Permission flags are defense in depth, never the sandbox.
-//! Only the job folder is writable. Login state is copied in a separate, non-agent container.
+//! Only the job folder is writable. Login state is copied in a separate, non-agent container,
+//! from the login volume of whoever started the work (agent_login.rs). There are no API keys.
 #[cfg(test)]
 mod lifecycle_tests;
 mod schema;
@@ -13,6 +14,7 @@ use std::{
     sync::{Arc, OnceLock},
     time::Duration,
 };
+use crate::agent_login::AgentLogin;
 use stream::CliParser;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
@@ -25,7 +27,6 @@ const INPUT_LIMIT: usize = 8 * 1024 * 1024;
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
 const MCP_BIN: &str = "/opt/pulls-review-server";
 const PAYLOAD: &str = "/inputs/payload.json";
-const LOGIN_VOLUME: &str = "pulls-review-agents-home";
 pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
 static CLEANUPS: std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>> =
     std::sync::Mutex::new(Vec::new());
@@ -44,14 +45,16 @@ pub async fn shutdown_cleanup() {
 struct Job {
     root: PathBuf,
     name: String,
+    volume: String,
     login: std::sync::Mutex<Option<(String, String)>>,
 }
 impl Job {
-    fn new() -> Self {
+    fn new(login: &AgentLogin) -> Self {
         let name = format!("pulls-agent-{}", Uuid::new_v4());
         Self {
             root: std::env::temp_dir().join(&name),
             name,
+            volume: login.volume(),
             login: std::sync::Mutex::new(None),
         }
     }
@@ -82,7 +85,12 @@ impl Drop for Job {
     fn drop(&mut self) {
         let root = self.root.clone();
         let name = self.name.clone();
-        let login = self.login.lock().unwrap().clone();
+        let login = self
+            .login
+            .lock()
+            .unwrap()
+            .clone()
+            .map(|(binary, image)| (binary, image, self.volume.clone()));
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
             let handle = runtime.spawn(cleanup_job(root, name, login, Duration::from_secs(30)));
             let mut handles = CLEANUPS.lock().unwrap();
@@ -94,7 +102,7 @@ impl Drop for Job {
 async fn cleanup_job(
     root: PathBuf,
     name: String,
-    login: Option<(String, String)>,
+    login: Option<(String, String, String)>,
     login_timeout: Duration,
 ) {
     // Stop model/bootstrap work before copying credentials. The final persistence
@@ -102,8 +110,9 @@ async fn cleanup_job(
     // be started after the delayed removal retries.
     remove_container(&name).await;
     remove_container(&format!("{name}-login")).await;
-    if let Some((binary, image)) = login {
-        let _ = persist_login_with_timeout(&root, &name, &binary, &image, login_timeout).await;
+    if let Some((binary, image, volume)) = login {
+        let _ = persist_login_with_timeout(&root, &name, &binary, &image, &volume, login_timeout)
+            .await;
     }
     for wait in [0, 1, 9] {
         tokio::time::sleep(Duration::from_secs(wait)).await;
@@ -112,7 +121,7 @@ async fn cleanup_job(
     }
     let _ = tokio::fs::remove_dir_all(root).await;
 }
-async fn remove_container(name: &str) {
+pub(crate) async fn remove_container(name: &str) {
     let mut command = Command::new("docker");
     command
         .args(["rm", "--force", name])
@@ -245,7 +254,7 @@ fn setting(request: &Value, key: &str, max: usize) -> Result<Option<String>> {
         _ => bail!("Invalid AI job {key}"),
     }
 }
-fn runtime_image() -> Result<String> {
+pub(crate) fn runtime_image() -> Result<String> {
     let runtime = std::env::var("PULLS_REVIEW_AGENT_RUNTIME").unwrap_or_else(|_| "docker".into());
     if runtime.trim() != "docker" {
         bail!("The Rust server requires PULLS_REVIEW_AGENT_RUNTIME=docker; unsandboxed host execution is disabled");
@@ -263,18 +272,6 @@ fn binary(engine: &str) -> Result<&'static str> {
         "codex" => Ok("codex"),
         _ => bail!("Unsupported sandbox CLI engine"),
     }
-}
-fn credential_names(binary: &str) -> Vec<&'static str> {
-    let names: &[&str] = if binary == "claude" {
-        &["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"]
-    } else {
-        &["OPENAI_API_KEY"]
-    };
-    names
-        .iter()
-        .copied()
-        .filter(|name| std::env::var(name).is_ok_and(|v| !v.trim().is_empty()))
-        .collect()
 }
 fn sandbox_command(root: &Path, name: &str, entrypoint: &str, network: bool) -> Result<Command> {
     let mut command = Command::new("docker");
@@ -338,7 +335,7 @@ async fn create_start(
     start.args(["start", "--attach", "--interactive", name]);
     process_stream(&mut start, input, on_line).await
 }
-// Saved login files carry OAuth state only; API keys enter through credential_names.
+// Saved login files carry the CLIs' own subscription sign-in only; no API key is ever read.
 const LOGIN_BOOTSTRAP_SCRIPT: &str = r#"const fs=require('fs'),crypto=require('crypto'); const kind=process.argv[1];
 function raw(p){const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.size>524288||fs.realpathSync(p)!==p)throw Error('Invalid login');return fs.readFileSync(p,'utf8');}
 function save(p,v){fs.writeFileSync(p,JSON.stringify(v),{mode:0o600});}
@@ -357,21 +354,21 @@ if(kind==='claude'){if(!updated.claudeAiOauth)throw Error('Invalid login');out.c
 else{for(const k of ['auth_mode','tokens','last_refresh'])if(updated[k]!==undefined)out[k]=updated[k];if(!out.tokens)throw Error('Invalid login');}
 const content=JSON.stringify(out),temp=target+'.pulls-'+crypto.randomUUID();
 try{fs.writeFileSync(temp,content,{mode:0o600,flag:'wx'});fs.renameSync(temp,target);fs.writeFileSync('/job/state/auth-original',hash(content),{mode:0o600});}finally{try{fs.unlinkSync(temp);}catch{}}"#;
-/// Only credential files are copied. The agent never mounts the shared volume, settings, skills,
+/// Only credential files are copied. The agent never mounts the login volume, settings, skills,
 /// GitHub login, host home or checkout. A bootstrap never has a network or a model process.
-async fn prepare_login(job: &Job, binary: &str, image: &str) -> Result<()> {
-    if !credential_names(binary).is_empty() {
-        return Ok(());
-    }
+async fn prepare_login(job: &Job, binary: &str, image: &str, login: &AgentLogin) -> Result<()> {
+    let volume = &job.volume;
     let mut inspect = Command::new("docker");
-    inspect.args(["volume", "inspect", "--format", "{{.Name}}", LOGIN_VOLUME]);
-    tokio::time::timeout(Duration::from_secs(15), process(&mut inspect, vec![])).await.context("Docker login volume check timed out")?
-        .map_err(|_| anyhow::anyhow!("Provider authentication is missing. Set the server's provider API key or run docker/agents/setup.sh login-{binary}."))?;
+    inspect.args(["volume", "inspect", "--format", "{{.Name}}", volume]);
+    tokio::time::timeout(Duration::from_secs(15), process(&mut inspect, vec![]))
+        .await
+        .context("Docker login volume check timed out")?
+        .map_err(|_| anyhow::anyhow!(login.missing(binary)))?;
     let name = format!("{}-login", job.name);
     let mut create = sandbox_command(&job.root, &name, "node", false)?;
     create.args([
         "--mount",
-        &format!("type=volume,source={LOGIN_VOLUME},target=/login,readonly"),
+        &format!("type=volume,source={volume},target=/login,readonly"),
     ]);
     // Parse, bound and whitelist auth data; never copy an executable config or a symlink.
     create
@@ -383,20 +380,29 @@ async fn prepare_login(job: &Job, binary: &str, image: &str) -> Result<()> {
     )
     .await;
     remove_container(&name).await;
-    result.context("Sandbox authentication copy timed out")?.map_err(|_| anyhow::anyhow!("Sandbox provider authentication is unavailable. Run docker/agents/setup.sh login-{binary} or configure the provider API key on the server."))?;
+    result
+        .context("Sandbox authentication copy timed out")?
+        .map_err(|_| anyhow::anyhow!(login.missing(binary)))?;
     *job.login.lock().unwrap() = Some((binary.to_owned(), image.to_owned()));
     Ok(())
 }
 // Refresh tokens remain useful across jobs without exposing the shared home to a model.
 // The lock and original fingerprint prevent an older concurrent run replacing a newer login.
-async fn persist_login(root: &Path, job_name: &str, binary: &str, image: &str) -> Result<()> {
-    persist_login_with_timeout(root, job_name, binary, image, Duration::from_secs(30)).await
+async fn persist_login(
+    root: &Path,
+    job_name: &str,
+    binary: &str,
+    image: &str,
+    volume: &str,
+) -> Result<()> {
+    persist_login_with_timeout(root, job_name, binary, image, volume, Duration::from_secs(30)).await
 }
 async fn persist_login_with_timeout(
     root: &Path,
     job_name: &str,
     binary: &str,
     image: &str,
+    volume: &str,
     timeout: Duration,
 ) -> Result<()> {
     if !root.join("work/state/auth-original").is_file() {
@@ -406,7 +412,7 @@ async fn persist_login_with_timeout(
     let mut create = sandbox_command(root, &name, "flock", false)?;
     create.args([
         "--mount",
-        &format!("type=volume,source={LOGIN_VOLUME},target=/login"),
+        &format!("type=volume,source={volume},target=/login"),
     ]);
     create.arg(image).args([
         "--wait",
@@ -447,6 +453,7 @@ fn mcp_helper() -> Result<PathBuf> {
 }
 async fn launch(
     job: &Job,
+    login: &AgentLogin,
     binary: &str,
     args: Vec<String>,
     input: Vec<u8>,
@@ -454,11 +461,8 @@ async fn launch(
     on_line: &mut (dyn FnMut(&str) -> bool + Send),
 ) -> Result<Vec<u8>> {
     let image = runtime_image()?;
-    prepare_login(job, binary, &image).await?;
+    prepare_login(job, binary, &image, login).await?;
     let mut create = sandbox_command(&job.root, &job.name, binary, true)?;
-    for name in credential_names(binary) {
-        create.args(["--env", name]);
-    }
     create.args([
         "--mount",
         &mount(&job.root.join("inputs"), "/inputs", true)?,
@@ -471,7 +475,7 @@ async fn launch(
     remove_container(&job.name).await;
     let shared_login = job.login.lock().unwrap().is_some();
     if shared_login
-        && persist_login(&job.root, &job.name, binary, &image)
+        && persist_login(&job.root, &job.name, binary, &image, &job.volume)
             .await
             .is_err()
     {
@@ -483,11 +487,13 @@ async fn launch(
 /// A job emits bounded activity patches as stdout arrives; final answers stay untruncated.
 pub async fn run_agent(
     request: Value,
+    login: &AgentLogin,
     cancel: watch::Receiver<bool>,
     sink: EventSink,
 ) -> Result<(String, Value)> {
     run_agent_prepared(
         request,
+        login,
         cancel,
         sink,
         crate::ai::StructuredAnswerPreparation::Strict,
@@ -497,6 +503,7 @@ pub async fn run_agent(
 
 pub(crate) async fn run_agent_prepared(
     request: Value,
+    login: &AgentLogin,
     mut cancel: watch::Receiver<bool>,
     sink: EventSink,
     preparation: crate::ai::StructuredAnswerPreparation,
@@ -508,9 +515,9 @@ pub(crate) async fn run_agent_prepared(
         bail!("AI job exceeds the 8 MiB input limit");
     }
     runtime_image()?;
-    let job = Job::new();
+    let job = Job::new(login);
     let result = tokio::select! {
-        result = tokio::time::timeout(Duration::from_secs(30 * 60), run_inner(&request, &job, sink, preparation)) => result.map_err(|_| anyhow::anyhow!("AI job exceeded the 30 minute timeout"))?,
+        result = tokio::time::timeout(Duration::from_secs(30 * 60), run_inner(&request, &job, login, sink, preparation)) => result.map_err(|_| anyhow::anyhow!("AI job exceeded the 30 minute timeout"))?,
         _ = async { loop { if *cancel.borrow_and_update() || cancel.changed().await.is_err() { break; } } } => Err(anyhow::anyhow!("AI task cancelled")),
     };
     remove_container(&job.name).await;
@@ -520,6 +527,7 @@ pub(crate) async fn run_agent_prepared(
 async fn run_inner(
     request: &Value,
     job: &Job,
+    login: &AgentLogin,
     sink: EventSink,
     preparation: crate::ai::StructuredAnswerPreparation,
 ) -> Result<(String, Value)> {
@@ -662,7 +670,7 @@ async fn run_inner(
     let mut parser = CliParser::new(binary, structured, model, sink);
     let input = crate::ai::sanitize(&String::from_utf8(input).context("Invalid prompt encoding")?)
         .into_bytes();
-    launch(job, binary, args, input, context.is_some(), &mut |line| {
+    launch(job, login, binary, args, input, context.is_some(), &mut |line| {
         parser.feed(line);
         false
     })
@@ -676,11 +684,11 @@ async fn run_inner(
 
 /// Catalog queries run in exactly the same image/authentication boundary as paid jobs, but
 /// initialization, debug models and version queries never submit a prompt or start a paid turn.
-pub async fn catalog(engine: &str) -> Result<Value> {
+pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
     static VERSION: OnceLock<regex::Regex> = OnceLock::new();
     let binary = binary(engine)?;
     runtime_image()?;
-    let job = Job::new();
+    let job = Job::new(login);
     let result = tokio::time::timeout(Duration::from_secs(45), async {
         job.prepare().await?;
         let args = if binary == "claude" {
@@ -688,7 +696,7 @@ pub async fn catalog(engine: &str) -> Result<Value> {
         } else { vec!["debug".into(), "models".into()] };
         let input = if binary == "claude" { format!("{}\n",json!({"type":"control_request","request_id":"init","request":{"subtype":"initialize"}})).into_bytes() } else { vec![] };
         let mut initialized = None;
-        let output = launch(&job, binary, args, input, false, &mut |line| {
+        let output = launch(&job, login, binary, args, input, false, &mut |line| {
             if binary == "claude" {
                 if let Ok(event) = serde_json::from_str::<Value>(line) {
                     if event["type"] == "control_response" && event["response"]["request_id"] == "init" { initialized = Some(event["response"].clone()); return true; }
@@ -705,7 +713,7 @@ pub async fn catalog(engine: &str) -> Result<Value> {
         // A second container shares only this job's copied credentials; version failures do not
         // invalidate a catalog. The first initialized Claude process is stopped before reuse.
         remove_container(&job.name).await;
-        let version = tokio::time::timeout(Duration::from_secs(10), launch(&job, binary, vec!["--version".into()], vec![], false, &mut |_| false)).await;
+        let version = tokio::time::timeout(Duration::from_secs(10), launch(&job, login, binary, vec!["--version".into()], vec![], false, &mut |_| false)).await;
         if let Ok(Ok(bytes)) = version {
             if let Some(version) = VERSION.get_or_init(|| regex::Regex::new(r"\d+\.\d+\.\d[^\s]*").unwrap()).find(&String::from_utf8_lossy(&bytes)) { result["version"] = json!(version.as_str()); }
         }

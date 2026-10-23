@@ -386,6 +386,11 @@ async fn native_response(state: &HttpState, headers: &HeaderMap, rpc: Rpc) -> Re
     if let Some(response) = account::call(&state.app, headers, &rpc.name, &rpc.args).await {
         return response;
     }
+    if let Some(response) =
+        account::agent_login_call(&state.app, headers, &rpc.name, &rpc.args).await
+    {
+        return response;
+    }
     if !phone_allowed(&rpc.name) {
         return error(
             StatusCode::NOT_FOUND,
@@ -400,7 +405,16 @@ async fn native_response(state: &HttpState, headers: &HeaderMap, rpc: Rpc) -> Re
     {
         return response;
     }
-    let result = crate::dispatch(&state.app, &rpc.name, rpc.args).await;
+    // AI work and model lists use the caller's own Claude Code and Codex sign-ins.
+    let login = if matches!(rpc.name.as_str(), "ai-task-start" | "ai-models") {
+        match account::agent_login(&state.app, headers).await {
+            Ok(login) => login,
+            Err(response) => return response,
+        }
+    } else {
+        crate::agent_login::AgentLogin::Server
+    };
+    let result = crate::dispatch_as(&state.app, &rpc.name, rpc.args, &login).await;
     if rpc.name == "github-stats" {
         return match result {
             Ok(value) => reply(Ok(value)),

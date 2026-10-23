@@ -211,6 +211,16 @@ class Repo(
     /** `ai-models` for an engine: `{ models: [{ id, name, description, efforts, defaultEffort, isDefault }], account, version }`. */
     suspend fun models(engine: String, refresh: Boolean = false): JsonObject = call("ai-models") { put("engine", engine); put("refresh", refresh) }.jsonObject
 
+    // --- Claude Code and Codex sign-ins, each person's own (backend/src/agent_login.rs) ---
+
+    suspend fun aiSignIns(): AiSignIns = call("ai-login-status").jsonObject.asAiSignIns()
+    suspend fun startAiSignIn(cli: AiCli): AiSignInStart = call("ai-login-start") { put("engine", cli.engine) }.jsonObject.asAiSignInStart()
+    /** True once signed in; false while Codex still waits for the code to be entered. */
+    suspend fun finishAiSignIn(cli: AiCli, code: String? = null): Boolean =
+        call("ai-login-finish") { put("engine", cli.engine); code?.let { put("code", it) } }.jsonObject.b("signedIn")
+    suspend fun cancelAiSignIn(cli: AiCli) { call("ai-login-cancel") { put("engine", cli.engine) } }
+    suspend fun signOutAi(cli: AiCli) { call("ai-login-sign-out") { put("engine", cli.engine) } }
+
     suspend fun postCritique(key: String, critique: Critique, ids: List<String>, body: String?): List<String> =
         call("critique-post") {
             put("key", key)

@@ -382,6 +382,7 @@ mod tests {
             task: false,
             notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
+            login: crate::agent_login::AgentLogin::Server,
         });
         stream.record(&Activity::new(&run), 0, true);
         let published = run.snapshot.lock().unwrap()["activities"].to_string();
@@ -432,6 +433,7 @@ mod tests {
             task: false,
             notify: tokio::sync::Notify::new().into(),
             cancel: tokio::sync::watch::channel(false).0,
+            login: crate::agent_login::AgentLogin::Server,
         });
         let activity = Activity::new(&run);
         stream.record(&activity, 0, false);

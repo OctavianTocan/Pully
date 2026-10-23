@@ -16,6 +16,18 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.62.0
+
+Sign in to your own Claude Code and Codex for Pully's AI.
+
+- Settings, AI has Claude Code and Codex rows under Model. Each opens a page that signs in with your own Claude or ChatGPT subscription, and Pully's AI for your account runs on it.
+![Settings' AI group with Model, Effort, and Claude Code and Codex rows showing whether each is signed in](changelog/0.62.0/rows.png)
+- Claude Code opens Claude's sign-in page and takes the code it shows; Codex shows a code to enter on OpenAI's page and finishes by itself.
+![Claude Code's sign-in page asking for the code from Claude's page](changelog/0.62.0/claude-code.png)
+![Codex's sign-in page showing its one-time code with Copy](changelog/0.62.0/codex.png)
+- A signed-in page shows the account and plan, with Sign out. There are no API keys anywhere.
+![Claude Code signed in with the account's email and Max plan, and a Sign out button](changelog/0.62.0/signed-in.png)
+
 ## 0.61.0
 
 Public pull requests open in Pully, and server sign-in works.

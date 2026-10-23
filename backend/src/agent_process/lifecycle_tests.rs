@@ -57,7 +57,6 @@ if args[0]=='create': print(args[args.index('--name')+1])
             .env("PULLS_TEST_DOCKER_PHASE", phase)
             .env("PULLS_REVIEW_AGENT_RUNTIME", "docker")
             .env("PULLS_REVIEW_AGENT_IMAGE", "offline-fixture")
-            .env("OPENAI_API_KEY", "synthetic-test-credential")
             .spawn()
             .unwrap();
         children.push(child);
@@ -95,12 +94,16 @@ async fn fake_docker_child() {
         return;
     }
     let (cancel, receiver) = watch::channel(false);
-    let task = tokio::spawn(run_agent_prepared(
-        json!({"engine":"codex","prompt":"offline fixture"}),
-        receiver,
-        Arc::new(|_| {}),
-        crate::ai::StructuredAnswerPreparation::Strict,
-    ));
+    let task = tokio::spawn(async move {
+        run_agent_prepared(
+            json!({"engine":"codex","prompt":"offline fixture"}),
+            &AgentLogin::Account("offline-account".into()),
+            receiver,
+            Arc::new(|_| {}),
+            crate::ai::StructuredAnswerPreparation::Strict,
+        )
+        .await
+    });
     tokio::time::timeout(Duration::from_secs(5), async {
         while !dir.join("ready").exists() {
             tokio::time::sleep(Duration::from_millis(5)).await;
@@ -120,7 +123,12 @@ async fn fake_docker_child() {
         .as_array()
         .unwrap();
     let index = create.iter().position(|v| v == "--name").unwrap();
-    let name = create[index + 1].as_str().unwrap().to_owned();
+    // The first container copies the account's own login; the job folder takes the base name.
+    let name = create[index + 1]
+        .as_str()
+        .unwrap()
+        .trim_end_matches("-login")
+        .to_owned();
     let job = dir.join(&name);
     assert!(job.join("work").is_dir());
     cancel.send(true).unwrap();
@@ -164,7 +172,11 @@ async fn final_login_helper_cleanup(dir: &Path) {
     let cleanup = tokio::spawn(cleanup_job(
         root.clone(),
         name.clone(),
-        Some(("codex".into(), "offline-fixture".into())),
+        Some((
+            "codex".into(),
+            "offline-fixture".into(),
+            AgentLogin::Account("offline-account".into()).volume(),
+        )),
         Duration::from_millis(250),
     ));
     CLEANUPS.lock().unwrap().push(cleanup);

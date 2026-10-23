@@ -1,4 +1,5 @@
 use super::*;
+use crate::agent_login::AgentLogin;
 
 fn session(headers: &HeaderMap) -> Option<&str> {
     headers.get("x-pully-session").and_then(|v| v.to_str().ok())
@@ -145,6 +146,88 @@ async fn google_sign_in(app: &Arc<AppState>, args: &Value, client_id: Option<&st
         ),
         Err(e) => reply(Err(e)),
     }
+}
+
+/// Whose Claude Code and Codex sign-ins this request's AI work uses. A session header that no
+/// longer names an account is refused, never answered with the server's own sign-in.
+pub(super) async fn agent_login(
+    app: &Arc<AppState>,
+    headers: &HeaderMap,
+) -> std::result::Result<AgentLogin, Response> {
+    let Some(token) = session(headers).filter(|token| !token.is_empty()) else {
+        return Ok(AgentLogin::Server);
+    };
+    app.ensure_account().await.map_err(|e| reply(Err(e)))?;
+    match app.accounts.by_session_async(Some(token)).await {
+        Ok(Some(user)) => Ok(AgentLogin::Account(user.id)),
+        Ok(None) => Err(error(
+            StatusCode::UNAUTHORIZED,
+            "Your Pully sign-in ended. Sign in again.",
+        )),
+        Err(e) => Err(reply(Err(e))),
+    }
+}
+
+/// Signing Claude Code and Codex in and out with each CLI's own sign-in. Only a signed-in Pully
+/// account may change a sign-in; the server's own one is set up on the server with setup.sh.
+pub(super) async fn agent_login_call(
+    app: &Arc<AppState>,
+    headers: &HeaderMap,
+    name: &str,
+    args: &Value,
+) -> Option<Response> {
+    if !matches!(
+        name,
+        "ai-login-status"
+            | "ai-login-start"
+            | "ai-login-finish"
+            | "ai-login-cancel"
+            | "ai-login-sign-out"
+    ) {
+        return None;
+    }
+    let login = match agent_login(app, headers).await {
+        Ok(login) => login,
+        Err(response) => return Some(response),
+    };
+    if name == "ai-login-status" {
+        let result = crate::agent_login::status(&login).await.map(|mut value| {
+            value["account"] = json!(matches!(login, AgentLogin::Account(_)));
+            value
+        });
+        return Some(reply(result));
+    }
+    if login == AgentLogin::Server {
+        return Some(error(
+            StatusCode::UNAUTHORIZED,
+            "Sign in to your Pully account first, so the AI sign-in is yours.",
+        ));
+    }
+    let binary = match args.get("engine").and_then(Value::as_str) {
+        Some("claude") => "claude",
+        Some("codex") => "codex",
+        _ => return Some(reply(Err(anyhow::anyhow!("That method received invalid arguments.")))),
+    };
+    let logins = &app.agent_logins;
+    let result = match name {
+        "ai-login-start" => logins.start(&login, binary).await,
+        "ai-login-finish" => {
+            let code = args.get("code").and_then(Value::as_str);
+            logins.finish(&login, binary, code).await
+        }
+        "ai-login-cancel" => {
+            logins.cancel(&login, binary).await;
+            Ok(json!(true))
+        }
+        _ => {
+            logins.cancel(&login, binary).await;
+            crate::agent_login::sign_out(&login, binary).await.map(|_| json!(true))
+        }
+    };
+    if name != "ai-login-start" {
+        app.jobs.forget_catalogs(&login).await;
+    }
+    Some(reply(result))
 }
 
 pub(super) async fn authorize_posted(
@@ -369,6 +452,50 @@ mod tests {
             .await
             .unwrap()
             .is_none());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ai_sign_ins_belong_to_the_signed_in_account_only() {
+        let root = std::env::temp_dir().join(format!("agent-login-{}", uuid::Uuid::new_v4()));
+        let app = AppState::new(root.clone(), root.clone()).unwrap();
+        app.host
+            .storage
+            .set(
+                "account:person",
+                &json!({"id":"person","email":"person@example.invalid","createdAt":"2026-10-23T00:00:00Z",
+                    "password":{"salt":"","hash":"","iterations":1}}),
+            )
+            .unwrap();
+        app.host
+            .storage
+            .set(
+                &format!("account-session:{}", crate::account::sha256("person-session")),
+                &json!({"accountId":"person"}),
+            )
+            .unwrap();
+        let mut signed_in = HeaderMap::new();
+        signed_in.insert("x-pully-session", "person-session".parse().unwrap());
+        let mut ended = HeaderMap::new();
+        ended.insert("x-pully-session", "ended-session".parse().unwrap());
+        assert_eq!(agent_login(&app, &HeaderMap::new()).await.unwrap(), AgentLogin::Server);
+        assert_eq!(
+            agent_login(&app, &signed_in).await.unwrap(),
+            AgentLogin::Account("person".into())
+        );
+        // An ended session never quietly falls back to the server's own sign-in.
+        assert_eq!(
+            agent_login(&app, &ended).await.unwrap_err().status(),
+            StatusCode::UNAUTHORIZED
+        );
+        // Without a Pully account nothing can change a sign-in, and an unknown CLI is refused.
+        let args = json!({"engine":"claude"});
+        let refused = agent_login_call(&app, &HeaderMap::new(), "ai-login-start", &args).await;
+        assert_eq!(refused.unwrap().status(), StatusCode::UNAUTHORIZED);
+        let unknown = json!({"engine":"pi"});
+        let refused = agent_login_call(&app, &signed_in, "ai-login-start", &unknown).await;
+        assert_eq!(refused.unwrap().status(), StatusCode::BAD_REQUEST);
+        assert!(agent_login_call(&app, &signed_in, "account-me", &args).await.is_none());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

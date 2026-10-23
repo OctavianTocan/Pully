@@ -36,6 +36,8 @@ class SettingsServices(
     val platform: SettingsPlatformContent,
     private val owner: () -> Boolean,
     val showScreen: (String) -> Unit,
+    /** Each person's own Claude Code and Codex sign-ins; null where the host has no private server. */
+    val aiSignIns: AiSignInServices? = null,
 ) {
     private var closed = false
     val colorThemes = ColorThemePicker(settings, ::current)
