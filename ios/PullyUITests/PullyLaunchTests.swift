@@ -441,8 +441,10 @@ final class PullyLaunchTests: XCTestCase {
         assertHiddenLabel("Pully can't open that link", in: app)
         XCUIDevice.shared.press(.home)
         app.activate()
-        assertHiddenLabel("Pully can't open that link", in: app, timeout: 2)
+        // The Inbox is back on screen first: just after activation the accessibility tree can still hold the old toast.
+        // A replayed toast holds for seconds in the sample journeys, so it would still be found here.
         assertAllSelected(in: app)
+        assertHiddenLabel("Pully can't open that link", in: app, timeout: 2)
         assertHiddenLabel("Back", in: app)
 
         app.terminate()
