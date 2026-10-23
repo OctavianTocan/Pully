@@ -77,7 +77,7 @@ fun PullyRootScreen(
                 val motion = remember { PageMotion() }
                 val backs = remember { SharedBackDispatcher() }
                 val bars = remember { FootBars() }
-                val toaster = remember { Toaster() }
+                val toaster = remember { Toaster(hold = if (fixture) 3f else 1f) }
                 val scope = rememberCoroutineScope()
                 val moving = rememberMotionEnabled()
                 val dark = wantsDark(settings)

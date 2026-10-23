@@ -402,8 +402,7 @@ final class PullyLaunchTests: XCTestCase {
                         file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         for _ in 0..<8 {
             if let element = visibleElement(label, contains: contains, in: app), element.isHittable { return element }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.73))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            scrollContent(in: app, from: 0.73, to: 0.32)
         }
         return requireVisible(label, contains: contains, in: app, file: file, line: line)
     }
@@ -541,8 +540,7 @@ final class PullyLaunchTests: XCTestCase {
         let lastRow = "Fixture row kept after repository navigation"
         for _ in 0..<14 {
             if visibleElement(lastRow, contains: true, in: app) != nil { break }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.76))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            scrollContent(in: app, from: 0.76, to: 0.32)
         }
         assertVisibleRow(lastRow, in: app)
         attachScreenshot(name: "Shared Inbox All filter scrolled")
@@ -598,9 +596,27 @@ final class PullyLaunchTests: XCTestCase {
     private func revealInSheet(_ label: String, in app: XCUIApplication) {
         _ = requireVisible("Close", in: app)
         for _ in 0..<4 where visibleElement(label, in: app) == nil {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)))
+            scrollContent(in: app, from: 0.85, to: 0.45)
         }
+    }
+
+    /// Drags the content up without letting it glide on: a Compose list still moving takes the next tap as "stop".
+    private func scrollContent(in app: XCUIApplication, from start: CGFloat, to end: CGFloat) {
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: start))
+            .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: end)),
+                   withVelocity: .slow, thenHoldForDuration: 0.2)
+    }
+
+    /// Waits until the element's frame holds still across two reads, so a tap lands on a row at rest.
+    private func settled(_ element: XCUIElement) -> XCUIElement {
+        var last = element.frame
+        for _ in 0..<12 {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+            let now = element.frame
+            if now == last { return element }
+            last = now
+        }
+        return element
     }
 
     private func leadingEdgeBack(in app: XCUIApplication) {
@@ -974,11 +990,10 @@ extension PullyLaunchTests {
     @discardableResult
     private func revealJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement {
         for _ in 0..<8 {
-            if let button = visibleJourneyButton(title, contains: contains, in: app) { return button }
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.73))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)))
+            if let button = visibleJourneyButton(title, contains: contains, in: app) { return settled(button) }
+            scrollContent(in: app, from: 0.73, to: 0.32)
         }
-        return requireJourneyButton(title, contains: contains, in: app)
+        return settled(requireJourneyButton(title, contains: contains, in: app))
     }
 
     private func visibleJourneyButton(_ title: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement? {
