@@ -1,5 +1,10 @@
 import XCTest
 
+/// How long a wait for something to be on screen may take. Each query snapshots the whole Compose tree, which takes
+/// seconds on the CI simulator, so a ten-second wait sometimes ran a single stale query and failed on a screen the
+/// recording shows was right. Waits for something to leave keep their own, shorter limits.
+private let presenceTimeout: TimeInterval = 20
+
 final class PullyLaunchTests: XCTestCase {
     private var appForDiagnostics: XCUIApplication?
 
@@ -472,9 +477,10 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func openSystemLink(_ url: URL, in app: XCUIApplication) {
-        // Through the system, as a link tapped in another app arrives: XCUIApplication.open relaunches the app with
-        // the URL, so a running app lost its pages and a "warm" link was really a cold one.
-        XCUIDevice.shared.system.open(url)
+        // A running app gets the link through the system, as a link tapped in another app arrives: XCUIApplication.open
+        // relaunches the app, so a "warm" link was really a cold one. A stopped app is launched with the link by
+        // XCUIApplication.open, which keeps the test's launch environment (a system launch would start the ordinary app).
+        if app.state == .notRunning { app.open(url) } else { XCUIDevice.shared.system.open(url) }
         let confirmation = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Open"]
         if confirmation.waitForExistence(timeout: 2) { confirmation.tap() }
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 20))
@@ -672,7 +678,7 @@ final class PullyLaunchTests: XCTestCase {
             let filter = self.allFilter(in: app)
             return filter.exists && filter.isHittable && filter.isSelected
         }, object: nil)
-        guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
+        guard XCTWaiter.wait(for: [selected], timeout: presenceTimeout) == .completed else {
             attachDiagnostics(app, name: "Inbox All filter not selected")
             XCTFail("The production All filter did not retain selected semantics", file: file, line: line)
             return
@@ -684,28 +690,28 @@ final class PullyLaunchTests: XCTestCase {
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             self.visibleElement(section, in: app)?.isSelected == true
         }, object: nil)
-        guard XCTWaiter.wait(for: [selected], timeout: 10) == .completed else {
+        guard XCTWaiter.wait(for: [selected], timeout: presenceTimeout) == .completed else {
             attachDiagnostics(app, name: "Shared review section not selected: \(section)")
             XCTFail("The production review segment did not select \(section)", file: file, line: line)
             return
         }
     }
 
-    private func assertVisibleRow(_ text: String, in app: XCUIApplication, timeout: TimeInterval = 10,
+    private func assertVisibleRow(_ text: String, in app: XCUIApplication, timeout: TimeInterval = presenceTimeout,
                                   file: StaticString = #filePath, line: UInt = #line) {
         // Production SwipeRow is clickable and merges title/meta semantics. Keep the
         // exact expected text within that accessible row, independent of UIKit role.
         _ = requireVisible(text, contains: true, in: app, timeout: timeout, file: file, line: line)
     }
 
-    private func assertVisibleLabel(_ label: String, in app: XCUIApplication, timeout: TimeInterval = 10,
+    private func assertVisibleLabel(_ label: String, in app: XCUIApplication, timeout: TimeInterval = presenceTimeout,
                                     file: StaticString = #filePath, line: UInt = #line) {
         _ = requireVisible(label, in: app, timeout: timeout, file: file, line: line)
     }
 
     @discardableResult
     private func requireVisible(_ label: String, contains: Bool = false, in app: XCUIApplication,
-                                timeout: TimeInterval = 10, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+                                timeout: TimeInterval = presenceTimeout, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         // Compose heading() maps to UIKit's Header trait, not StaticText. Check labels
         // across roles and wait for visible geometry through actual page animations.
         let visible = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
