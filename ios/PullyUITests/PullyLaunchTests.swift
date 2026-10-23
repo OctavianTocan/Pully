@@ -313,7 +313,9 @@ final class PullyLaunchTests: XCTestCase {
         openSampleReview(in: app)
         requireVisible("Tour", in: app).tap()
         assertSectionSelected("Tour", in: app)
-        requireVisible("Ask", in: app).tap()
+        // The foot bar's Ask opens an empty question (Q5); the saved conversation is the Ask sheet's, from the Tour's ⋯.
+        requireVisible("More", in: app).tap()
+        requireVisible("Ask about this tour", in: app).tap()
         assertVisibleRow("What changed in this shared review?", in: app)
         assertVisibleRow("The fixture keeps one shared review session and its native adapters.", in: app)
         attachScreenshot(name: "Actual second process reopen restored the saved Chat answer")
@@ -969,20 +971,32 @@ extension PullyLaunchTests {
     }
 
     private func pasteNativeText(into editor: XCUIElement, app: XCUIApplication) {
-        editor.tap()
+        // A tap on the caret of a focused, empty field offers Paste at once (a first tap may only focus it), and a long
+        // press there closes the menu again on release.
+        for _ in 0..<2 {
+            editor.tap()
+            if let paste = nativeEditAction("Paste", in: app, timeout: 3) {
+                paste.tap()
+                return
+            }
+        }
         editor.press(forDuration: 1.2)
         requireNativeEditAction("Paste", in: app).tap()
     }
 
-    private func requireNativeEditAction(_ title: String, in app: XCUIApplication) -> XCUIElement {
-        // Both menu roles are exported by supported iOS text-edit menus; accept no app text/container proxy.
+    private func nativeEditAction(_ title: String, in app: XCUIApplication, timeout: TimeInterval) -> XCUIElement? {
         func action() -> XCUIElement? {
             (app.menuItems.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex +
              app.buttons.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex)
                 .first { $0.exists && $0.isHittable && !$0.frame.isEmpty && app.frame.intersects($0.frame) }
         }
         let available = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in action() != nil }, object: nil)
-        guard XCTWaiter.wait(for: [available], timeout: 10) == .completed, let item = action() else {
+        return XCTWaiter.wait(for: [available], timeout: timeout) == .completed ? action() : nil
+    }
+
+    private func requireNativeEditAction(_ title: String, in app: XCUIApplication) -> XCUIElement {
+        // Both menu roles are exported by supported iOS text-edit menus; accept no app text/container proxy.
+        guard let item = nativeEditAction(title, in: app, timeout: 10) else {
             attachDiagnostics(app, name: "Missing native text edit action: \(title)")
             XCTFail("The actual OS text edit menu did not offer \(title)")
             return app.menuItems[title]

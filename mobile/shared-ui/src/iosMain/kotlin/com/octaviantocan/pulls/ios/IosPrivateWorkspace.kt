@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import platform.Foundation.NSBundle
+import platform.Foundation.NSLog
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSHomeDirectory
 import com.octaviantocan.pulls.data.RpcTransport
@@ -160,6 +161,13 @@ internal class IosPrivateWorkspace(
                 snapshotFlow { account.state to account.sourceEpoch }.collect { (settled, epoch) ->
                     if (closed || !current() || account.state !== settled || account.sourceEpoch != epoch || settled.problem != null) return@collect
                     if (settled.phase == AccountPhase.SignIn || settled.phase == AccountPhase.Ready && owner() == null) shareHandoff.revoke()
+                }
+            }
+            // Debug fixture only: each change to the page stack goes to the system log, so a UI test whose Back lands
+            // on the wrong page shows which pages were there.
+            if (fixture) scope.launch {
+                snapshotFlow { root.navigation.stack.joinToString(" > ") { it::class.simpleName ?: "Page" } }.collect { pages ->
+                    NSLog("Pully route stack: " + pages.replace("%", "%%"))
                 }
             }
             if (!resumed) account.start()
