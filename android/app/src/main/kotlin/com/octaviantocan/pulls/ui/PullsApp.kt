@@ -133,6 +133,15 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
         }
     }
     val personalBrowse = remember { PersonalBrowseMount(personal, scope, source, navigation) }
+    val homeActions = com.octaviantocan.pulls.ui.home.rememberAndroidNativeHomeActions()
+    val publicReview = remember(homeActions) {
+        com.octaviantocan.pulls.ui.review.PublicReviewFrame(
+            JvmRpcTransport(), scope, com.octaviantocan.pulls.data.AppSettings.get(context), homeActions,
+            com.octaviantocan.pulls.ui.review.AndroidReviewFrameBack, current = { session.current }, nowMillis = System::currentTimeMillis,
+        )
+    }
+    DisposableEffect(publicReview) { onDispose { publicReview.close() } }
+    val welcomePrefs = remember { context.getSharedPreferences("pully-explore", android.content.Context.MODE_PRIVATE) }
     val githubAccountEntry = remember(personalBrowse, lifecycle) {
         GitHubAccountEntry(
             current = { session.current },
@@ -194,12 +203,20 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
             },
         )
     }
-    CompositionLocalProvider(LocalToaster provides toaster) {
+    val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
+    CompositionLocalProvider(
+        LocalToaster provides toaster, com.octaviantocan.pulls.ui.home.LocalNativeHomeActions provides homeActions,
+        androidx.compose.ui.platform.LocalUriHandler provides uriHandler,
+    ) {
         val openGitHub = rememberOpenOnGithub()
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
                 onGitHubSignIn = { githubAccountEntry.open() },
-                onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse)
+                onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse,
+                publicReview = publicReview,
+                links = { com.octaviantocan.pulls.ui.settings.GithubLinksPrompt() },
+                welcomeSeen = welcomePrefs.getBoolean("welcomeSeen", false),
+                onWelcomeSeen = { welcomePrefs.edit().putBoolean("welcomeSeen", true).apply() })
             PersonalBrowseAccountSheet(personalBrowse,
                 onOpenBrowser = { url ->
                     context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
@@ -335,6 +352,13 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     // outside otherwise; "on GitHub" actions go outside on their own (`rememberOpenOnGithub`).
     val uriHandler = remember(context, toaster) { PullyUriHandler(context, toaster) }
     val nativeHomeActions = com.octaviantocan.pulls.ui.home.rememberAndroidNativeHomeActions()
+    // Once Pully is connected and settled on Home, it offers to open GitHub links once, while Android has them off.
+    var linksOffer by remember { mutableStateOf(false) }
+    LaunchedEffect(com.octaviantocan.pulls.data.Account.needsConnectionHelp, com.octaviantocan.pulls.data.Account.mustSignIn) {
+        kotlinx.coroutines.delay(2_000)
+        linksOffer = !com.octaviantocan.pulls.data.Account.needsConnectionHelp && !com.octaviantocan.pulls.data.Account.mustSignIn &&
+            Updates.available == null && whatsNew.isEmpty() && stack.size == 1 && com.octaviantocan.pulls.ui.settings.GithubLinksOffer.due(context)
+    }
     CompositionLocalProvider(
         com.octaviantocan.pulls.ui.home.LocalNativeHomeActions provides nativeHomeActions,
         LocalToaster provides toaster, LocalFootBars provides footBars,
@@ -365,6 +389,9 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
+            if (linksOffer) com.octaviantocan.pulls.ui.settings.GithubLinksOfferSheet(onClose = {
+                com.octaviantocan.pulls.ui.settings.GithubLinksOffer.done(context); linksOffer = false
+            })
             CommandPalette()
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)

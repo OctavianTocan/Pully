@@ -126,7 +126,7 @@ class ExploreStateTest {
         assertEquals(20, state.pulls.size)
         val retained = state.pulls.first()
         var opened: String? = null
-        state.open(retained) { opened = it }
+        state.open(retained) { opened = it.url }
         assertEquals("https://github.com/public-owner/public-repo/pull/1", opened)
         h.answer = { json(repository(99)) }
         state.loadMore()

@@ -22,18 +22,19 @@ Tavi's 21 Oct 2026 reinstall screenshot and no-sign-in public browsing request.
 
 @cc [owner:OctavianTocan,label:architecture;security] guest-links-keep-public-and-private-authority-separate
 Guest links MUST use the same Compose navigation stack and MUST NOT mount private
-review/repository clients. Until native public review exists, a verified-format GitHub
-link MAY offer an explicit fixed-origin Open on GitHub action. Private/server links
+review/repository clients. A verified-format github.com PR link MUST open the read-only
+public review (public-pull-requests-open-in-pully); other verified-format GitHub links
+MAY offer an explicit fixed-origin Open on GitHub action. Private/server links
 MUST offer the existing-account entry or public browsing without fetching private data.
-Source: Tavi's 21 Oct 2026 public browsing decision, nav-links-inside-open-like-outside
-and the approved staged public list/PR implementation.
+Source: Tavi's 21 Oct 2026 public browsing decision, nav-links-inside-open-like-outside,
+the approved staged public list/PR implementation and recording 23 Oct 12:12, 00:50 to 01:12.
 
 @cc [owner:OctavianTocan,label:design;architecture] explore-reuses-pully-and-the-shared-stack
 Android and iOS MUST use the same Explore state and presentation, Pully's existing
 design kit and the host's shared Compose route stack. Opening a repository MUST use
 the host navigation callback; Explore MUST NOT create an independent native/child
-back stack. The initial list slice MUST label PR actions as opening GitHub until a
-public review route actually exists. Account invitations MUST reflect real server
+back stack. Public PR rows open inside Pully and MUST NOT be labelled as opening
+GitHub (recording 23 Oct 12:12, 00:50 to 01:12). Account invitations MUST reflect real server
 sign-in capability rather than inventing OAuth success or sending operator secrets.
 Public PR list titles MUST keep the existing two-line ellipsis limit; ordinary
 sheet labels MUST retain their full wrapping (android-whole-identifiers).
@@ -55,3 +56,21 @@ loaded pagination until a complete current answer replaces them. A confirmed
 repository visibility/identity denial MUST still clear its prior PR rows. Explore
 MUST NOT expose a Refresh action or refresh indicator. Source: android-no-loading-screens,
 android-refresh-is-silent and the 22 Oct 2026 guest contract review.
+
+@cc [owner:OctavianTocan,label:product;design] explore-is-the-repositories
+The Explore page is its title, an account button and the repositories: Popular or the
+search results, then the search field. The intro, Connect GitHub and Use an existing
+Pully account MUST live in a bottom sheet the account button opens, shown by itself
+once on a fresh install and then only on request ("we would open a bottom sheet with
+these things", recording 23 Oct 12:12, 00:26 to 00:30). The sheet MUST say so when
+GitHub sign-in is not set up on the server rather than offer a button that fails.
+
+@cc [owner:OctavianTocan,label:product;security;architecture] public-pull-requests-open-in-pully
+Tapping a public PR in Explore, or a github.com PR link in guest mode, MUST open Pully's
+own review page, never GitHub ("if I click on one of these, I am taken to GitHub ... make
+it so that those for sure do not open in GitHub", recording 23 Oct 12:12, 00:50 to 01:12).
+It is read-only: it MUST read only tokenless HTTPS api.github.com GETs through its own
+transport and session cache, carry no Pully server, Access, session or personal GitHub
+credential, refuse every write, AI or private RPC with a sign-in message, and keep reads
+for a few minutes to spare GitHub's hourly limit. A repository GitHub reports as private,
+a redirect or a rate limit MUST end the read with the fixed public-browsing errors.

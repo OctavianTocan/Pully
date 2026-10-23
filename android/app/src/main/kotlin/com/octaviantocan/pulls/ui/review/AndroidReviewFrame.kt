@@ -43,7 +43,7 @@ internal fun rememberAndroidReviewFrameServices(): ReviewFrameServices {
     }
 }
 
-private object AndroidReviewFrameBack : ReviewFrameBack {
+internal object AndroidReviewFrameBack : ReviewFrameBack {
     @Composable override fun Page(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) = PageBack(motion, enabled, onBack)
     @Composable override fun Priority(enabled: Boolean, onBack: () -> Unit) {
         // motion-ok: Back restores an Ask sheet; it does not move a page (rule 108).
