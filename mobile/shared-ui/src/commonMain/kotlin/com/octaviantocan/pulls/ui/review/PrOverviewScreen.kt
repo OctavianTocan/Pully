@@ -717,7 +717,8 @@ fun FileRow(session: ReviewSession, file: ReviewFile, state: ReviewState, note: 
         Modifier.fillMaxWidth().then(if (ruled) Modifier.hairlineTop(c.borderMute) else Modifier).padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        PullsCheck(reviewed, onClick = onToggle, label = "Mark ${file.path} reviewed")
+        // A read-only public review has nowhere to keep ticks, so it draws none.
+        if (LocalReviewCapabilities.current.canMarkReviewed) PullsCheck(reviewed, onClick = onToggle, label = "Mark ${file.path} reviewed")
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 file.path.substringAfterLast('/'),

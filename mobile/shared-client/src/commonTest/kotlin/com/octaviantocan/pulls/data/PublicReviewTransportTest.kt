@@ -52,6 +52,8 @@ class PublicReviewTransportTest {
         assertEquals("open", overview["state"]!!.jsonPrimitive.content)
         assertEquals("<p>Nice</p>", overview["timeline"]!!.let { it as kotlinx.serialization.json.JsonArray }.single().jsonObject["bodyHTML"]!!.jsonPrimitive.content)
         assertEquals("false", overview["viewer"]!!.jsonObject["canUpdate"]!!.jsonPrimitive.content)
+        assertEquals("conflicting", overview["mergeable"]!!.jsonPrimitive.content)
+        assertEquals("dirty", overview["mergeStateStatus"]!!.jsonPrimitive.content)
     }
 
     @Test
@@ -89,7 +91,7 @@ class PublicReviewTransportTest {
     companion object {
         private fun ok(body: String) = RpcResponse(200, body, "application/json")
         private val PULL = """{"id":99,"number":7,"title":"Make the app say two","body":"Body text","body_html":"<p>Body text</p>",
-            "html_url":"https://github.com/public-owner/public-repo/pull/7","state":"open","draft":false,"merged_at":null,"closed_at":null,
+            "html_url":"https://github.com/public-owner/public-repo/pull/7","state":"open","draft":false,"merged_at":null,"closed_at":null,"mergeable":false,"mergeable_state":"dirty",
             "created_at":"2026-10-21T10:00:00Z","updated_at":"2026-10-22T10:00:00Z","user":{"login":"reader","avatar_url":"https://avatars.example/u","type":"User"},
             "base":{"sha":"base-sha","ref":"main","repo":{"private":false}},"head":{"sha":"head-sha","ref":"two","repo":{"owner":{"login":"reader"}}}}"""
         private val FILES = """[{"filename":"src/App.kt","status":"modified","additions":1,"deletions":1,"sha":"blob","patch":"@@ -1 +1 @@\n-fun app() = 1\n+fun app() = 2"}]"""

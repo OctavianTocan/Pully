@@ -16,6 +16,19 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.61.0
+
+Public pull requests open in Pully, and server sign-in works.
+
+- Explore is just the projects now. Connecting GitHub and your Pully account sit in a sheet behind the round button at the top, shown once when Pully is new.
+![Explore's welcome sheet with Connect GitHub, Use an existing Pully account and Open GitHub links in Pully](changelog/0.61.0/welcome.png)
+![Explore listing popular public projects under the title and the account button](changelog/0.61.0/explore.png)
+- A public pull request opens in Pully, not on GitHub: its summary, files and changes, read-only. Commenting and AI still need your account.
+![A public pull request open in Pully, its summary and files](changelog/0.61.0/public-pull.png)
+![The changes of a public pull request in Pully's diff](changelog/0.61.0/public-diff.png)
+- Pully asks once whether it may open GitHub links, and takes you to the switch Android keeps for it.
+- Use an existing Pully account can now sign in to a server behind Cloudflare Access from inside Pully, with the code it emails you.
+
 ## 0.60.0
 
 Browse public GitHub projects without signing in.
