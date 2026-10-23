@@ -6,14 +6,18 @@ import com.octaviantocan.pulls.preview.RootJourneyStateStore
 import com.octaviantocan.pulls.preview.RootJourneyScenario
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import com.octaviantocan.pulls.ui.settings.AccountStorage
+import platform.Foundation.NSLog
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSProcessInfo
 import kotlin.native.Platform
+import kotlin.native.setUnhandledExceptionHook
 
 /** Explicit Debug test entry only. It cannot use standard preferences, real accounts or a network transport. */
 @OptIn(kotlin.experimental.ExperimentalNativeApi::class)
 fun rootJourneyFixtureApplication(homeActions: NativeHomeActions, accountStorage: AccountStorage, defaults: NSUserDefaults): IosPullyApp {
     check(Platform.isDebugBinary) { "The root journey fixture requires a Debug framework." }
+    // Kotlin writes an uncaught exception only to stderr, which the UI test run does not keep; the system log does.
+    setUnhandledExceptionHook { error -> NSLog("Uncaught Kotlin exception: %@", error.stackTraceToString().take(900)) }
     require(defaults != NSUserDefaults.standardUserDefaults) { "The fixture requires its isolated preferences suite." }
     require(accountStorage.connection(false)?.server == PREVIEW_SERVER) { "The fixture requires its sample server." }
     val headers = requireNotNull(accountStorage.connection(true)).headers

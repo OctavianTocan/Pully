@@ -48,6 +48,13 @@ final class PullyLaunchTests: XCTestCase {
         email.tap()
         email.typeText("root-fixture@pully.invalid")
         requireVisible("Continue", in: app).tap()
+        // A tap that lands while the keyboard is still settling the scrolled form can miss; Continue is idempotent.
+        let passwordShown = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            self.visibleElement("Password", in: app) != nil
+        }, object: nil)
+        if XCTWaiter.wait(for: [passwordShown], timeout: 5) != .completed, let again = visibleElement("Continue", in: app) {
+            again.tap()
+        }
         let password = requireInput("Password", in: app)
         password.tap()
         password.typeText("sample-root-password")
@@ -345,7 +352,8 @@ final class PullyLaunchTests: XCTestCase {
 
     private func waitForSampleServerCompletion(since started: Date) {
         // The UI runner waits while the app is backgrounded or dead. It never advances fixture state or calls an app hook.
-        waitForElapsed(since: started, seconds: 11.5)
+        // RootJourneyWork.COMPLETION_MILLIS (28 s) plus margin.
+        waitForElapsed(since: started, seconds: 29.5)
     }
 
     private func waitForElapsed(since started: Date, seconds: TimeInterval) {

@@ -88,7 +88,7 @@ class RootJourneyFailureTest {
         assertTrue(session.runAnalyze(models, AiCapabilities.Full, AnalyzeChoice.of(AnalyzePreset.Standard)))
         runCurrent()
         session.detach(); runCurrent()
-        h.now += 11_000
+        h.now += RootJourneyWork.COMPLETION_MILLIS
 
         val reopenedRepo = h.repo()
         val reopened = h.session(reopenedRepo, backgroundScope)
@@ -107,7 +107,7 @@ class RootJourneyFailureTest {
         assertTrue(reopened.runAnalyze(currentModels, AiCapabilities.Full, AnalyzeChoice.of(AnalyzePreset.Standard)))
         runCurrent()
         reopened.detach(); runCurrent()
-        h.now += 11_000
+        h.now += RootJourneyWork.COMPLETION_MILLIS
 
         val complete = h.session(h.repo(), backgroundScope)
         complete.load(); runCurrent()
