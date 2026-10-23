@@ -98,6 +98,27 @@ class PersonalAuthClientTest {
     }
 
     @Test
+    fun githubCliDeviceSignInCarriesOnlyGithubsDevicePageAndAShortCode() = runTest {
+        val f = Fixture()
+        f.respond = { f.startReply(GITHUB_DEVICE_URL, "WDJB-MJHT") }
+        val attempt = f.client.start(f.proof)
+        assertEquals("https://github.com/login/device", attempt.authorizeUrl)
+        assertEquals("WDJB-MJHT", attempt.userCode)
+        for ((url, code) in listOf(
+            GITHUB_DEVICE_URL to null,
+            GITHUB_DEVICE_URL to "wdjb-mjht",
+            GITHUB_DEVICE_URL to "WDJB MJHT",
+            GITHUB_DEVICE_URL to "ABC",
+            "https://github.com/login/device?user_code=WDJB-MJHT" to "WDJB-MJHT",
+            "https://github.com.evil/login/device" to "WDJB-MJHT",
+            f.authorize to "WDJB-MJHT",
+        )) {
+            f.respond = { f.startReply(url, code) }
+            assertEquals(PersonalAuthProblem.InvalidResponse, assertFailsWith<PersonalAuthError> { f.client.start(f.proof) }.problem)
+        }
+    }
+
+    @Test
     fun statusAndAccountFieldsRequireTheirActualTypesAndApplicationAuthority() = runTest {
         val f = Fixture()
         val attempt = f.client.start(f.proof)
@@ -209,7 +230,10 @@ class PersonalAuthClientTest {
             else -> json("true")
         } }
         val client = PersonalAuthClient(PersonalAuthOrigin.parse("https://accounts.example"), RpcTransport { requests += it; respond(it) }, { generation })
-        fun startReply(url: String = authorize): RpcResponse = json(buildJsonObject { put("attemptId", id); put("authorizeUrl", url); put("expiresAt", 1800); put("pollAfterMs", 2000) }.toString())
+        fun startReply(url: String = authorize, userCode: String? = null): RpcResponse = json(buildJsonObject {
+            put("attemptId", id); put("authorizeUrl", url); put("expiresAt", 1800); put("pollAfterMs", 2000)
+            if (userCode != null) put("userCode", userCode)
+        }.toString())
     }
 
     companion object {

@@ -135,7 +135,7 @@ async fn start(
     headers: HeaderMap,
     body: std::result::Result<Bytes, BytesRejection>,
 ) -> Result<Json<wire::StartReply>, AuthError> {
-    service.start(parse(&headers, body)?).map(Json)
+    service.start(parse(&headers, body)?).await.map(Json)
 }
 async fn repository_consent(
     State(service): State<PersonalAuth>,

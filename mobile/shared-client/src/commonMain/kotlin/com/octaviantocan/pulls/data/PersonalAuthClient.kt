@@ -77,6 +77,8 @@ class PersonalAuthAttempt internal constructor(
     internal val authority: PersonalAuthority = PersonalAuthority.PublicRead,
     internal val accountId: String? = null,
     internal val githubId: Long? = null,
+    /** Set for GitHub CLI device sign-in: the person types it at [authorizeUrl], which is then github.com/login/device. */
+    val userCode: String? = null,
 ) {
     override fun toString(): String = "PersonalAuthAttempt([redacted])"
 }
@@ -114,9 +116,12 @@ class PersonalAuthClient(
     private fun attempt(value: JsonObject, proof: PersonalAuthProof, source: RpcSource, session: StoredPersonalSession? = null): PersonalAuthAttempt {
         val authority = if (session == null) PersonalAuthority.PublicRead else PersonalAuthority.PrivateRepositories
         val id = value.string("attemptId").takeIf(::canonicalPersonalSecret) ?: invalidPersonal()
-        val url = value.string("authorizeUrl").also { validateAuthorizeUrl(it, origin, authority) }
+        val url = value.string("authorizeUrl")
+        val userCode = value["userCode"]?.string()
+        if (url == GITHUB_DEVICE_URL) { if (userCode == null || !validUserCode(userCode)) invalidPersonal() }
+        else { validateAuthorizeUrl(url, origin, authority); if (userCode != null) invalidPersonal() }
         return PersonalAuthAttempt(url, value.positive("expiresAt"), value.positive("pollAfterMs").takeIf { it in 1_000L..30_000L } ?: invalidPersonal(), id, proof, source,
-            authority, session?.accountId, session?.githubId)
+            authority, session?.accountId, session?.githubId, userCode)
     }
 
     suspend fun status(attempt: PersonalAuthAttempt): PersonalAttemptStatus {
@@ -259,6 +264,10 @@ private fun parseAccount(value: JsonObject): PersonalAccountStatus {
     val access = value["accessExpiresAt"]?.takeUnless { it == JsonNull }?.let { it.long().takeIf { n -> n > 0 } ?: invalidPersonal() }
     return PersonalAccountStatus(account, value.positive("githubId"), login, authority, value.positive("sessionExpiresAt"), access, value.bool("refreshAvailable"))
 }
+
+/** GitHub CLI device sign-in sends the person here with a short code instead of an authorize URL. */
+internal const val GITHUB_DEVICE_URL = "https://github.com/login/device"
+private fun validUserCode(code: String) = code.length in 4..32 && code.all { it in 'A'..'Z' || it in '0'..'9' || it == '-' }
 
 private fun validateAuthorizeUrl(url: String, origin: PersonalAuthOrigin, authority: PersonalAuthority) {
     val prefix = "https://github.com/login/oauth/authorize?"

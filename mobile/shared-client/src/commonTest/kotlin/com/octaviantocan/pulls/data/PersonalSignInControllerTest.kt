@@ -57,6 +57,32 @@ class PersonalSignInControllerTest {
     }
 
     @Test
+    fun aDeviceCodeIsShownAndGithubOpensOnlyWhenThePersonAsks() = runTest {
+        val h = Harness(this)
+        val original = h.network.respond
+        var statuses = 0
+        h.network.respond = { request -> when {
+            request.url.endsWith("/start") -> h.network.startReply(GITHUB_DEVICE_URL, "WDJB-MJHT")
+            request.url.endsWith("/status") && ++statuses < 3 -> PersonalAuthClientTest.json("""{"phase":"pending"}""")
+            else -> original(request)
+        } }
+        h.controller.start()
+        runCurrent()
+        assertTrue(h.browser.isEmpty(), "The code is shown before GitHub opens")
+        assertEquals(PersonalSignInState.Waiting(1800, userCode = "WDJB-MJHT"), h.controller.state.value)
+        assertEquals(1, h.count("/status"), "The server is polled while the person copies the code")
+        assertTrue(h.controller.openGitHub())
+        assertEquals(listOf("https://github.com/login/device"), h.browser)
+        h.controller.foreground(true)
+        runCurrent()
+        advanceTimeBy(4_100)
+        runCurrent()
+        assertEquals(1, h.accepted.size)
+        assertEquals(1, h.browser.size)
+        h.close()
+    }
+
+    @Test
     fun aStartThatFinishesInBackgroundWaitsBeforeOpeningTheBrowser() = runTest {
         val h = Harness(this)
         h.controller.foreground(false)

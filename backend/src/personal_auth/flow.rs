@@ -1,5 +1,8 @@
 use super::{
-    provider::{GitHubAuthority, GitHubProvider, OAuthConfig, OAuthProvider, VerifiedLogin},
+    provider::{
+        DeviceDenied, DevicePoll, GitHubAuthority, GitHubProvider, GitHubTokens, OAuthConfig,
+        OAuthProvider, VerifiedLogin, DEVICE_VERIFICATION_URL,
+    },
     vault::{random_secret, LegacyLink, PersonalVault},
     wire::{
         self, AttemptPhase, AttemptRequest, CancelReply, Capabilities, ClaimReply, FailureKind,
@@ -51,11 +54,15 @@ impl std::fmt::Display for AuthError {
 impl std::error::Error for AuthError {}
 type Result<T> = std::result::Result<T, AuthError>;
 
-struct Pending {
-    verifier: String,
+/// What an attempt will install once GitHub answers, whichever way it was asked.
+struct Grant {
     authority: GitHubAuthority,
     link: Option<LegacyLink>,
     upgrade: Option<CurrentPersonalSession>,
+}
+struct Pending {
+    verifier: String,
+    grant: Grant,
 }
 struct Ready {
     login: VerifiedLogin,
@@ -65,6 +72,8 @@ struct Ready {
 }
 enum Phase {
     Pending(Pending),
+    /// Waiting for the person to enter the device code; the server polls GitHub itself.
+    Device(Grant),
     Exchanging,
     Ready(Ready),
     Claiming,
@@ -202,8 +211,9 @@ impl PersonalAuth {
         }
     }
 
-    pub(crate) fn start(&self, request: StartRequest) -> Result<StartReply> {
+    pub(crate) async fn start(&self, request: StartRequest) -> Result<StartReply> {
         self.begin(request, GitHubAuthority::PublicRead, None, None)
+            .await
     }
 
     /// The separate repository-consent action captures the existing personal source.
@@ -220,6 +230,7 @@ impl PersonalAuth {
             None,
             Some(source),
         )
+        .await
     }
 
     /// Private hosts may explicitly link an already authenticated compatibility account; the public router has no link route.
@@ -233,9 +244,10 @@ impl PersonalAuth {
             .await
             .map_err(|_| AuthError::Unauthorized)?;
         self.begin(request, GitHubAuthority::PublicRead, Some(link), None)
+            .await
     }
 
-    fn begin(
+    async fn begin(
         &self,
         request: StartRequest,
         authority: GitHubAuthority,
@@ -244,6 +256,14 @@ impl PersonalAuth {
     ) -> Result<StartReply> {
         let challenge = wire::parse_fixed_secret(&request.native_challenge)
             .map_err(|_| AuthError::InvalidRequest)?;
+        let grant = Grant {
+            authority,
+            link,
+            upgrade,
+        };
+        if self.0.config.uses_device_flow() {
+            return self.begin_device(challenge, grant).await;
+        }
         let (id, state, verifier) = (
             random_secret().map_err(|_| AuthError::Unavailable)?,
             random_secret().map_err(|_| AuthError::Unavailable)?,
@@ -265,11 +285,7 @@ impl PersonalAuth {
             .ok_or(AuthError::Unavailable)?;
         {
             let mut attempts = self.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
-            attempts.purge(now);
-            if attempts.attempts.len() >= MAX_ATTEMPTS || attempts.starts.len() >= STARTS_PER_MINUTE
-            {
-                return Err(AuthError::RateLimited);
-            }
+            Self::admit(&mut attempts, now)?;
             if attempts.attempts.contains_key(&id) || attempts.states.contains_key(&sha256(&state))
             {
                 return Err(AuthError::Unavailable);
@@ -282,32 +298,182 @@ impl PersonalAuth {
                     proof: hmac::sign(&self.0.proof_key, &challenge),
                     expires_at,
                     next_poll: now,
-                    phase: Phase::Pending(Pending {
-                        verifier,
-                        authority,
-                        link,
-                        upgrade,
-                    }),
+                    phase: Phase::Pending(Pending { verifier, grant }),
                 },
             );
         }
-        let weak = Arc::downgrade(&self.0);
-        let timer_id = id.clone();
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(ATTEMPT_LIFETIME)).await;
-            if let Some(inner) = weak.upgrade() {
-                if let Ok(mut attempts) = inner.attempts.lock() {
-                    attempts.attempts.remove(&timer_id);
-                    attempts.states.retain(|_, id| *id != timer_id);
-                }
-            }
-        });
+        self.retire_after(id.clone(), ATTEMPT_LIFETIME);
         Ok(StartReply {
             attempt_id: id,
             authorize_url,
+            user_code: None,
             expires_at,
             poll_after_ms: (POLL_SECONDS * 1000) as u32,
         })
+    }
+
+    /// @cc [owner:OctavianTocan,label:security;product] personal-device-sign-in-is-server-polled
+    /// A device sign-in MUST ask GitHub for its code only after the start passes the attempt limits,
+    /// MUST show the person only GitHub's user code and fixed device page, and MUST keep the device
+    /// code on the server, which alone polls GitHub at GitHub's interval (slowing when told) until
+    /// approval, denial or the attempt's end. Approval MUST pass the same identity verification and
+    /// single-use claim as the callback. Source: Tavi, 23 Oct 2026 13:36 ("what you get when you use
+    /// GH auth login") and GitHub's device flow documentation.
+    async fn begin_device(&self, challenge: [u8; 32], grant: Grant) -> Result<StartReply> {
+        let id = random_secret().map_err(|_| AuthError::Unavailable)?;
+        {
+            let mut attempts = self.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
+            let now = self.0.clock.now();
+            Self::admit(&mut attempts, now)?;
+            attempts.starts.push_back(now);
+        }
+        let code = self
+            .0
+            .provider
+            .device_code(grant.authority)
+            .await
+            .map_err(|_| AuthError::Unavailable)?;
+        let now = self.0.clock.now();
+        let lifetime = ATTEMPT_LIFETIME.min(code.expires_in);
+        let expires_at = now.checked_add(lifetime).ok_or(AuthError::Unavailable)?;
+        {
+            let mut attempts = self.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
+            if attempts.attempts.len() >= MAX_ATTEMPTS || attempts.attempts.contains_key(&id) {
+                return Err(AuthError::RateLimited);
+            }
+            attempts.attempts.insert(
+                id.clone(),
+                Attempt {
+                    proof: hmac::sign(&self.0.proof_key, &challenge),
+                    expires_at,
+                    next_poll: now,
+                    phase: Phase::Device(grant),
+                },
+            );
+        }
+        self.retire_after(id.clone(), lifetime);
+        self.poll_device(id.clone(), code.device_code, code.interval);
+        Ok(StartReply {
+            attempt_id: id,
+            authorize_url: DEVICE_VERIFICATION_URL.into(),
+            user_code: Some(code.user_code),
+            expires_at,
+            poll_after_ms: (POLL_SECONDS * 1000) as u32,
+        })
+    }
+
+    fn admit(attempts: &mut Attempts, now: u64) -> Result<()> {
+        attempts.purge(now);
+        if attempts.attempts.len() >= MAX_ATTEMPTS || attempts.starts.len() >= STARTS_PER_MINUTE {
+            return Err(AuthError::RateLimited);
+        }
+        Ok(())
+    }
+
+    fn retire_after(&self, id: String, seconds: u64) {
+        let weak = Arc::downgrade(&self.0);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_secs(seconds)).await;
+            if let Some(inner) = weak.upgrade() {
+                if let Ok(mut attempts) = inner.attempts.lock() {
+                    attempts.attempts.remove(&id);
+                    attempts.states.retain(|_, state| *state != id);
+                }
+            }
+        });
+    }
+
+    /// Polls GitHub for the person's approval while the attempt still waits for it; a cancelled,
+    /// expired or dropped attempt ends the loop at its next turn.
+    fn poll_device(&self, id: String, device_code: String, mut interval: u64) {
+        let weak = Arc::downgrade(&self.0);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(interval)).await;
+                let Some(inner) = weak.upgrade() else { return };
+                let this = PersonalAuth(inner);
+                let now = this.0.clock.now();
+                let waiting = this.0.attempts.lock().is_ok_and(|attempts| {
+                    attempts.attempts.get(&id).is_some_and(|attempt| {
+                        attempt.expires_at > now && matches!(attempt.phase, Phase::Device(_))
+                    })
+                });
+                if !waiting {
+                    return;
+                }
+                let polled = this.0.provider.poll_device(&device_code, now).await;
+                let tokens = match polled {
+                    Ok(DevicePoll::Pending) => continue,
+                    Ok(DevicePoll::SlowDown(next)) => {
+                        interval = next.max(interval + 5).min(60);
+                        continue;
+                    }
+                    Ok(DevicePoll::Tokens(tokens)) => Ok(tokens),
+                    Err(error) if error.is::<DeviceDenied>() => Err(AuthError::Denied),
+                    Err(error) if error.is::<super::provider::ReconnectRequired>() => {
+                        Err(AuthError::Reconnect)
+                    }
+                    // A passing GitHub or network failure is retried until the attempt ends.
+                    Err(_) => continue,
+                };
+                let grant = {
+                    let Ok(mut attempts) = this.0.attempts.lock() else {
+                        return;
+                    };
+                    let Some(attempt) = attempts.attempts.get_mut(&id) else {
+                        return;
+                    };
+                    let Phase::Device(grant) =
+                        std::mem::replace(&mut attempt.phase, Phase::Exchanging)
+                    else {
+                        return;
+                    };
+                    grant
+                };
+                let _ = this.complete(&id, tokens, grant).await;
+                return;
+            }
+        });
+    }
+
+    /// Verifies freshly acquired tokens and moves the exchanging attempt to Ready, or to its failure.
+    async fn complete(&self, id: &str, tokens: Result<GitHubTokens>, grant: Grant) -> Result<()> {
+        let acquired = async {
+            if let Some(source) = &grant.upgrade {
+                source.identity().map_err(|_| AuthError::Denied)?;
+            }
+            let login = VerifiedLogin::acquire(self.0.provider.as_ref(), tokens?)
+                .await
+                .map_err(|_| AuthError::Unavailable)?;
+            if let Some(source) = &grant.upgrade {
+                let status = source.status().map_err(|_| AuthError::Denied)?;
+                if status.github_id != login.github_id() {
+                    return Err(AuthError::Denied);
+                }
+            }
+            Ok(Ready {
+                login,
+                authority: grant.authority,
+                link: grant.link,
+                upgrade: grant.upgrade,
+            })
+        }
+        .await;
+        let mut attempts = self.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
+        let attempt = attempts.attempts.get_mut(id).ok_or(AuthError::Expired)?;
+        if attempt.expires_at <= self.0.clock.now() {
+            return Err(AuthError::Expired);
+        }
+        if !matches!(attempt.phase, Phase::Exchanging) {
+            return Err(AuthError::Unauthorized);
+        }
+        attempt.phase = match acquired {
+            Ok(ready) => Phase::Ready(ready),
+            Err(AuthError::Denied) => Phase::Failed(FailureKind::Denied),
+            Err(AuthError::Reconnect) => Phase::Failed(FailureKind::Reconnect),
+            Err(_) => Phase::Failed(FailureKind::Unavailable),
+        };
+        Ok(())
     }
 
     pub(crate) fn status(&self, request: AttemptRequest) -> Result<StatusReply> {
@@ -319,10 +485,12 @@ impl PersonalAuth {
         }
         attempt.next_poll = now.saturating_add(POLL_SECONDS);
         Ok(match attempt.phase {
-            Phase::Pending(_) | Phase::Exchanging | Phase::Claiming => StatusReply {
-                phase: AttemptPhase::Pending,
-                failure: None,
-            },
+            Phase::Pending(_) | Phase::Device(_) | Phase::Exchanging | Phase::Claiming => {
+                StatusReply {
+                    phase: AttemptPhase::Pending,
+                    failure: None,
+                }
+            }
             Phase::Ready(_) => StatusReply {
                 phase: AttemptPhase::Ready,
                 failure: None,
@@ -381,58 +549,23 @@ impl PersonalAuth {
         };
         let this = self.clone();
         tokio::spawn(async move {
-            let acquired = async {
-                if let Some(source) = &pending.upgrade {
-                    source.identity().map_err(|_| AuthError::Denied)?;
-                }
-                let tokens = this
-                    .0
-                    .provider
-                    .exchange(
-                        code.as_deref().ok_or(AuthError::InvalidRequest)?,
-                        &pending.verifier,
-                        this.0.clock.now(),
-                    )
-                    .await
-                    .map_err(|error| {
-                        if error.is::<super::provider::ReconnectRequired>() {
-                            AuthError::Reconnect
-                        } else {
-                            AuthError::Unavailable
-                        }
-                    })?;
-                let login = VerifiedLogin::acquire(this.0.provider.as_ref(), tokens)
-                    .await
-                    .map_err(|_| AuthError::Unavailable)?;
-                if let Some(source) = &pending.upgrade {
-                    let status = source.status().map_err(|_| AuthError::Denied)?;
-                    if status.github_id != login.github_id() {
-                        return Err(AuthError::Denied);
+            let tokens = this
+                .0
+                .provider
+                .exchange(
+                    code.as_deref().ok_or(AuthError::InvalidRequest)?,
+                    &pending.verifier,
+                    this.0.clock.now(),
+                )
+                .await
+                .map_err(|error| {
+                    if error.is::<super::provider::ReconnectRequired>() {
+                        AuthError::Reconnect
+                    } else {
+                        AuthError::Unavailable
                     }
-                }
-                Ok(Ready {
-                    login,
-                    authority: pending.authority,
-                    link: pending.link,
-                    upgrade: pending.upgrade,
-                })
-            }
-            .await;
-            let mut attempts = this.0.attempts.lock().map_err(|_| AuthError::Unavailable)?;
-            let attempt = attempts.attempts.get_mut(&id).ok_or(AuthError::Expired)?;
-            if attempt.expires_at <= this.0.clock.now() {
-                return Err(AuthError::Expired);
-            }
-            if !matches!(attempt.phase, Phase::Exchanging) {
-                return Err(AuthError::Unauthorized);
-            }
-            attempt.phase = match acquired {
-                Ok(ready) => Phase::Ready(ready),
-                Err(AuthError::Denied) => Phase::Failed(FailureKind::Denied),
-                Err(AuthError::Reconnect) => Phase::Failed(FailureKind::Reconnect),
-                Err(_) => Phase::Failed(FailureKind::Unavailable),
-            };
-            Ok(())
+                });
+            this.complete(&id, tokens, pending.grant).await
         })
         .await
         .map_err(|_| AuthError::Unavailable)?

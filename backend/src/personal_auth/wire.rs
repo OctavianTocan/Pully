@@ -38,6 +38,9 @@ pub(crate) struct StartRequest {
 pub(crate) struct StartReply {
     pub attempt_id: String,
     pub authorize_url: String,
+    /// Present only for a device sign-in: the code the person types at `authorizeUrl`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_code: Option<String>,
     pub expires_at: u64,
     pub poll_after_ms: u32,
 }
@@ -145,11 +148,23 @@ mod tests {
             serde_json::to_value(StartReply {
                 attempt_id: "opaque-attempt".into(),
                 authorize_url: "https://github.com/login/oauth/authorize".into(),
+                user_code: None,
                 expires_at: 1792627200,
                 poll_after_ms: 2000
             })
             .unwrap(),
             json!({"attemptId":"opaque-attempt","authorizeUrl":"https://github.com/login/oauth/authorize","expiresAt":1792627200u64,"pollAfterMs":2000})
+        );
+        assert_eq!(
+            serde_json::to_value(StartReply {
+                attempt_id: "opaque-attempt".into(),
+                authorize_url: "https://github.com/login/device".into(),
+                user_code: Some("WDJB-MJHT".into()),
+                expires_at: 1792627200,
+                poll_after_ms: 2000
+            })
+            .unwrap(),
+            json!({"attemptId":"opaque-attempt","authorizeUrl":"https://github.com/login/device","userCode":"WDJB-MJHT","expiresAt":1792627200u64,"pollAfterMs":2000})
         );
         let result = serde_json::to_value(ClaimReply {
             session: "one-time-pully-session".into(),

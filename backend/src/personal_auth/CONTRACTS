@@ -1,10 +1,12 @@
 @cc [owner:OctavianTocan,label:security;architecture] personal-auth-never-adopts-operator-authority
-Personal authorization MUST use only the fixed Pully-owned OAuth configuration and
-the verified user's GitHub credential. Guest, missing, revoked, expired or failed
+Personal authorization MUST use only the fixed operator-chosen OAuth configuration
+(the GitHub CLI device sign-in, or a registered Pully OAuth App) and the verified
+user's GitHub credential; it MUST NOT read tokens from gh or any other local tool. Guest, missing, revoked, expired or failed
 personal authorization MUST NOT fall back to environment/CLI GitHub credentials,
 legacy account data or operator caches. This additive module MUST NOT activate a
 public listener or expose legacy RPC. Source: Tavi's 21 Oct 2026 any-account GitHub
-sign-in and anonymous public-browsing decision and its approved multiuser plan.
+sign-in and anonymous public-browsing decision and its approved multiuser plan; the
+GitHub CLI client is Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security] personal-vault-authenticates-its-stable-owner
 GitHub access and refresh tokens MUST remain server-side and encrypted at rest with
@@ -16,25 +18,31 @@ No token, key or plaintext payload MAY appear in Debug output, status, logs or e
 Source: Tavi's 21 Oct 2026 encrypted per-user credential-vault and identity plan.
 
 @cc [owner:OctavianTocan,label:security] personal-oauth-fixed-client-and-bounded-exchange
-Authorization and token exchange MUST use the operator-configured Pully OAuth App,
-fixed GitHub.com endpoints, a fixed HTTPS callback, random state and S256 PKCE.
-Native input MUST NOT replace the app credentials, callback, provider or token URL.
+Authorization MUST use the operator-configured client and fixed GitHub.com endpoints.
+A registered Pully OAuth App MUST use a fixed HTTPS callback, random state and S256
+PKCE. GitHub CLI device sign-in MUST use the GitHub CLI's fixed public client ID, the
+server MUST hold the device code and poll GitHub itself at no less than GitHub's
+interval, and only the short user code and github.com/login/device MAY reach the
+phone. Native input MUST NOT replace the client, callback, provider or token URL.
 Exchange MUST refuse redirects and bound its time, response and credential sizes;
 provider error text MUST NOT escape. Every acquired access token MUST be verified
 against GitHub's authenticated user before use. Source: Tavi's 21 Oct 2026 personal
-GitHub authentication plan and GitHub's current OAuth App authorization docs.
+GitHub authentication plan and GitHub's current OAuth App authorization docs; device
+sign-in as the GitHub CLI is Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security;product] personal-app-authority-is-not-inherited-scope
 Public-read sign-in MUST retain public-read application authority even if GitHub
 returns previously granted broader scopes. Private repository authority MUST require
 an explicit upgrade and its actual repo grant. Expiring access/refresh responses
 MUST retain both expirations and rotate the pair; reduced grants MUST NOT preserve
-broader application authority. Scope MUST NOT bypass organization approval or SSO.
-Source: Tavi's 21 Oct 2026 public-first and explicit private-access decision and the
-current GitHub OAuth App scope and refresh documentation.
+broader application authority. Scope MUST NOT bypass organization approval or SSO;
+the GitHub CLI client is exempt from organization OAuth app restrictions only because
+GitHub lists it as a privileged app, and SAML SSO still applies. Source: Tavi's 21 Oct
+2026 public-first and explicit private-access decision, the current GitHub OAuth App
+scope and refresh documentation, and Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security;product] personal-repository-consent-is-source-and-session-bound
-Repository consent MUST require a current personal session, fixed Pully-owned
+Repository consent MUST require a current personal session, the fixed configured
 GitHub repo authorization, the same immutable GitHub subject and a still-current
 initiating session/revision at credential installation. Sign-out, source replacement
 or a different selected GitHub user MUST deny the upgrade. Each Pully session MUST
