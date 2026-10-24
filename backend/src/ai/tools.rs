@@ -364,12 +364,12 @@ async fn search_source(state: Option<&AppState>, ctx: &Value, args: &Value) -> R
         (path, result)
     }))
     .buffered(8);
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(60);
+    let deadline = crate::rt::Instant::now() + Duration::from_secs(60);
     let (mut scanned, mut unavailable, mut bytes) = (0usize, 0usize, 0usize);
     let mut hits = vec![];
     let mut stopped = None;
     loop {
-        let next = match tokio::time::timeout_at(deadline, reads.next()).await {
+        let next = match crate::rt::timeout_at(deadline, reads.next()).await {
             Ok(next) => next,
             Err(_) => {
                 stopped = Some("time limit");

@@ -1,5 +1,6 @@
 use super::*;
-use tokio::{runtime::Handle, sync::oneshot, task::JoinHandle};
+use crate::rt::{Handle, JoinHandle};
+use tokio::sync::oneshot;
 
 /// A task's residency lease does not count as a user view. Dropping it only
 /// signals the tracked cleanup task; the pin stays registered until eviction runs.
@@ -37,7 +38,7 @@ pub(crate) async fn pin_diff(state: &Arc<crate::AppState>, key: &str) -> Result<
             bail!("Server is shutting down");
         }
         handles.retain(|h| !h.is_finished());
-        handles.push(tokio::task::spawn_blocking(move || {
+        handles.push(crate::rt::spawn_blocking(move || {
             // If the waiter was cancelled, sending drops the returned lease and
             // signals its cleanup. The tracked acquisition finishes afterwards.
             let _ = send.send(pin_diff_blocking(&stored_state, &key));
@@ -62,7 +63,7 @@ pub(crate) fn pin_diff_blocking(state: &Arc<crate::AppState>, key: &str) -> Diff
     track(state, || {
         runtime.spawn(async move {
             let _ = released.await;
-            let _ = tokio::task::spawn_blocking(move || {
+            let _ = crate::rt::spawn_blocking(move || {
                 let mut cache = stored_state.diff_cache.lock().unwrap();
                 if let Some(count) = cache.pins.get_mut(&key) {
                     *count -= 1;

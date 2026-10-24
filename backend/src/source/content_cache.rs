@@ -76,7 +76,7 @@ pub async fn get_async(
 ) -> Result<Option<String>> {
     let store = store.clone();
     let (scope, sha, path) = (scope.to_owned(), sha.to_owned(), path.to_owned());
-    tokio::task::spawn_blocking(move || get(&store, &scope, &sha, &path))
+    crate::rt::spawn_blocking(move || get(&store, &scope, &sha, &path))
         .await
         .context("Full-file cache read task failed")?
 }
@@ -94,7 +94,7 @@ pub async fn set_async(
         path.to_owned(),
         content.to_owned(),
     );
-    tokio::task::spawn_blocking(move || set(&store, &scope, &sha, &path, &content))
+    crate::rt::spawn_blocking(move || set(&store, &scope, &sha, &path, &content))
         .await
         .context("Full-file cache write task failed")?
 }
@@ -279,7 +279,7 @@ mod tests {
         let mut read = Box::pin(super::super::load_file(&state, &args));
         assert!(futures_util::poll!(&mut read).is_pending());
         assert_eq!(
-            tokio::spawn(async { "runtime available" }).await.unwrap(),
+            crate::rt::spawn(async { "runtime available" }).await.unwrap(),
             "runtime available"
         );
         held.release();
@@ -289,7 +289,7 @@ mod tests {
         let held = HeldCache::new(&store);
         let mut write = Box::pin(set_async(&store, &scope, "h", "other.rs", "new text"));
         assert!(futures_util::poll!(&mut write).is_pending());
-        assert_eq!(tokio::spawn(async { 42 }).await.unwrap(), 42);
+        assert_eq!(crate::rt::spawn(async { 42 }).await.unwrap(), 42);
         held.release();
         write.await.unwrap();
         assert_eq!(

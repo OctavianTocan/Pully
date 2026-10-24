@@ -372,8 +372,8 @@ impl PersonalAuth {
 
     fn retire_after(&self, id: String, seconds: u64) {
         let weak = Arc::downgrade(&self.0);
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_secs(seconds)).await;
+        crate::rt::spawn(async move {
+            crate::rt::sleep(Duration::from_secs(seconds)).await;
             if let Some(inner) = weak.upgrade() {
                 if let Ok(mut attempts) = inner.attempts.lock() {
                     attempts.attempts.remove(&id);
@@ -387,9 +387,9 @@ impl PersonalAuth {
     /// expired or dropped attempt ends the loop at its next turn.
     fn poll_device(&self, id: String, device_code: String, mut interval: u64) {
         let weak = Arc::downgrade(&self.0);
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             loop {
-                tokio::time::sleep(Duration::from_secs(interval)).await;
+                crate::rt::sleep(Duration::from_secs(interval)).await;
                 let Some(inner) = weak.upgrade() else { return };
                 let this = PersonalAuth(inner);
                 let now = this.0.clock.now();
@@ -548,7 +548,7 @@ impl PersonalAuth {
             (id, pending)
         };
         let this = self.clone();
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             let tokens = this
                 .0
                 .provider
@@ -584,7 +584,7 @@ impl PersonalAuth {
             (ready, attempt.expires_at)
         };
         let this = self.clone();
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             let install = match ready.upgrade {
                 Some(source) => {
                     this.0
@@ -661,7 +661,7 @@ impl PersonalAuth {
         };
         if let Some(hash) = hash {
             let vault = self.0.vault.clone();
-            tokio::spawn(async move { vault.sign_out_hash(hash).await })
+            crate::rt::spawn(async move { vault.sign_out_hash(hash).await })
                 .await
                 .map_err(|_| AuthError::Unavailable)?
                 .map_err(|_| AuthError::Unavailable)?;

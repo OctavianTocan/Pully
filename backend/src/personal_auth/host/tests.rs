@@ -24,13 +24,13 @@ impl Drop for Root {
 struct Server {
     origin: String,
     client: reqwest::Client,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Server {
     async fn new(router: Router) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let task = crate::rt::spawn(async move { axum::serve(listener, router).await.unwrap() });
         let client = reqwest::Client::builder()
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())

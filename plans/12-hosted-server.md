@@ -6,8 +6,39 @@
 > `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
 > has been removed. Cloudflare deployment remains separately approved work.
 
-Status: **step 1 built** (the host seam). Nothing is deployed; each step that creates
-or changes anything on Cloudflare waits for Tavi's go-ahead.
+Status: **step 1 built** (the host seam); **the container host built** (24 Oct, below).
+Nothing is deployed; each step that creates or changes anything on Cloudflare waits for
+Tavi's go-ahead.
+
+## Update, 24 October 2026: the server as a Worker
+
+Tavi chose "Move the server, AI last" (24 Oct 12:57), then "Rewrite it as a Worker" over
+running today's server in a container (13:29). Steps 3 and 4 below were written for the
+TypeScript server; the server is now Rust, so the Rust server itself is built for Workers
+(`wasm32-unknown-unknown`, workers-rs), the way mymind-reconstruction runs on Workers.
+
+- **One crate, two hosts.** `backend/` builds both the native server and the Worker. The
+  differences sit in four small modules: `rt` (tasks, timers, environment, and `fs` and
+  `process` that refuse every call in the Worker), `net` (outbound HTTP; the Worker sends
+  through `fetch` with `redirect: "manual"`, so redirects stay refused), `store::Records`
+  (files natively, SQLite in the Worker), and `cfg` gates on the native-only modules
+  (`public_server`, `public_api`, `personal_auth`, `personal_provider`, `scheduler`,
+  `devframe`). Native behaviour is unchanged and its tests pass as before.
+- **`packages/worker`** is the Rust Worker crate: every request goes to one `PullyServer`
+  Durable Object, which answers through the server's own `transport::router` and keeps
+  records in its SQLite storage, split below the 2 MB row limit. Variables and secrets
+  reach the server only when named in `SERVER_ENVIRONMENT`.
+- **Milestones.** M1 the server builds for Workers; M2 sign-in, agent keys, settings and
+  posted diffs from Durable Object SQLite (both done, checked with `wrangler dev`); M3
+  GitHub pull requests, the Inbox and reviews; M4 background refresh on the Durable
+  Object's alarm; M5 analytics and APK downloads from R2; M6 AI per Pully account in its
+  own container (`/mnt/project-files/plans/ai-on-cloudflare.md`).
+- **Cost:** Workers Paid ($5 a month, already on the account for mymind). The Worker is
+  about 3.9 MB compressed, under the paid plan's 10 MB.
+
+Deploying needs Tavi: the go-ahead, a hostname with an Access policy, Worker secrets
+(`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), and
+an import of today's data so nothing starts empty.
 
 ## Why
 

@@ -6,7 +6,8 @@ use crate::{text, AppState};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::sync::{Arc, OnceLock};
-use tokio::time::{Duration, Instant};
+use crate::rt::Instant;
+use std::time::Duration;
 
 const PI_TOTAL_LIMIT: Duration = Duration::from_secs(30 * 60);
 
@@ -14,13 +15,13 @@ async fn within_pi_deadline<T>(
     deadline: Instant,
     work: impl std::future::Future<Output = Result<T>>,
 ) -> Result<T> {
-    tokio::time::timeout_at(deadline, work)
+    crate::rt::timeout_at(deadline, work)
         .await
         .context("Pi did not finish within 30 minutes")?
 }
 
 fn config() -> Result<(String, String)> {
-    let base = std::env::var("PULLS_REVIEW_PI_BASE_URL").unwrap_or_default();
+    let base = crate::rt::env::var("PULLS_REVIEW_PI_BASE_URL").unwrap_or_default();
     if base.trim().is_empty() {
         bail!("Pi is not set up. Set PULLS_REVIEW_PI_BASE_URL and PULLS_REVIEW_PI_API_KEY on the server.")
     };
@@ -36,7 +37,7 @@ fn config() -> Result<(String, String)> {
     };
     Ok((
         base.trim().trim_end_matches('/').to_owned(),
-        std::env::var("PULLS_REVIEW_PI_API_KEY")
+        crate::rt::env::var("PULLS_REVIEW_PI_API_KEY")
             .unwrap_or_default()
             .trim()
             .to_owned(),
@@ -132,8 +133,7 @@ async fn pi_catalog(state: &AppState) -> Result<Value> {
     if !key.is_empty() {
         req = req.bearer_auth(key);
     }
-    let response = req
-        .send()
+    let response = crate::net::send(req)
         .await
         .map_err(|_| anyhow::anyhow!("Could not reach the Pi model endpoint"))?;
     if !response.status().is_success() {
@@ -143,7 +143,7 @@ async fn pi_catalog(state: &AppState) -> Result<Value> {
         );
     }
     let body = bounded_json(response, 4 * 1024 * 1024).await?;
-    let preferred = std::env::var("PULLS_REVIEW_PI_MODEL")
+    let preferred = crate::rt::env::var("PULLS_REVIEW_PI_MODEL")
         .unwrap_or_default()
         .trim()
         .to_owned();
@@ -299,7 +299,7 @@ async fn run_pi(
 ) -> Result<(String, Value)> {
     let (base, key) = config()?;
     let requested = text(req, "model").trim().to_owned();
-    let preferred = std::env::var("PULLS_REVIEW_PI_MODEL")
+    let preferred = crate::rt::env::var("PULLS_REVIEW_PI_MODEL")
         .unwrap_or_default()
         .trim()
         .to_owned();
@@ -367,8 +367,7 @@ async fn run_pi(
             request = request.bearer_auth(&key)
         }
         activity.record("request", "status", "Thinking", None, "running");
-        let response = request
-            .send()
+        let response = crate::net::send(request)
             .await
             .map_err(|_| anyhow::anyhow!("Pi model request could not be completed"))?;
         if !response.status().is_success() {
@@ -473,7 +472,7 @@ async fn run_pi(
     bail!("Model exceeded the tool-loop turn limit")
 }
 
-async fn bounded_json(mut response: reqwest::Response, limit: usize) -> Result<Value> {
+async fn bounded_json(mut response: crate::net::Response, limit: usize) -> Result<Value> {
     if response.content_length().is_some_and(|n| n > limit as u64) {
         bail!("Pi response exceeded its size limit")
     }
@@ -889,12 +888,12 @@ mod tests {
                     maximum.clone(),
                     launches.clone(),
                 );
-                work.push(tokio::spawn(async move {
+                work.push(crate::rt::spawn(async move {
                     let _permit = acquire_provider(&jobs, &run).await.unwrap();
                     let live = active.fetch_add(1, Ordering::SeqCst) + 1;
                     maximum.fetch_max(live, Ordering::SeqCst);
                     launches.fetch_add(1, Ordering::SeqCst);
-                    tokio::time::sleep(Duration::from_millis(10)).await;
+                    crate::rt::sleep(Duration::from_millis(10)).await;
                     active.fetch_sub(1, Ordering::SeqCst);
                 }));
             }
@@ -962,7 +961,7 @@ mod tests {
         let queued = async {
             let _permit = acquire_provider(&jobs, &run).await?;
             within_pi_deadline(Instant::now() + PI_TOTAL_LIMIT, async {
-                tokio::time::sleep(Duration::from_secs(60)).await;
+                crate::rt::sleep(Duration::from_secs(60)).await;
                 Ok(())
             })
             .await
@@ -1019,7 +1018,7 @@ mod tests {
             .insert("pi".into(), (crate::now_ms(), json!({"models":["cached"]})));
         let entered = Arc::new(tokio::sync::Notify::new());
         let release = Arc::new(tokio::sync::Notify::new());
-        let pending = tokio::spawn({
+        let pending = crate::rt::spawn({
             let jobs = jobs.clone();
             let entered = entered.clone();
             let release = release.clone();
@@ -1033,7 +1032,7 @@ mod tests {
             }
         });
         entered.notified().await;
-        let cached = tokio::time::timeout(
+        let cached = crate::rt::timeout(
             Duration::from_secs(1),
             cached_catalog(&jobs, "pi", false, async {
                 bail!("cache should be reused")
@@ -1054,11 +1053,11 @@ mod tests {
             let tools_finished = std::cell::Cell::new(0);
             let outcome = within_pi_deadline(started + PI_TOTAL_LIMIT, async {
                 // Both 20-minute HTTP turns fit the former per-request budget.
-                tokio::time::sleep(Duration::from_secs(20 * 60)).await;
+                crate::rt::sleep(Duration::from_secs(20 * 60)).await;
                 requests_finished.set(1);
-                tokio::time::sleep(tool_duration).await;
+                crate::rt::sleep(tool_duration).await;
                 tools_finished.set(1);
-                tokio::time::sleep(Duration::from_secs(20 * 60)).await;
+                crate::rt::sleep(Duration::from_secs(20 * 60)).await;
                 requests_finished.set(2);
                 Ok(())
             })
@@ -1072,7 +1071,7 @@ mod tests {
             assert_eq!(tools_finished.get(), usize::from(tool_duration.is_zero()));
         }
         assert!(within_pi_deadline(Instant::now() + PI_TOTAL_LIMIT, async {
-            tokio::time::sleep(Duration::from_secs(60)).await;
+            crate::rt::sleep(Duration::from_secs(60)).await;
             Ok(())
         })
         .await

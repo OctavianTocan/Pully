@@ -36,15 +36,15 @@ impl HeldLock {
         tokio::select! {
             biased;
             _ = &mut future => panic!("operation completed before its storage lock was released"),
-            _ = tokio::time::sleep(Duration::from_millis(10)) => {},
+            _ = crate::rt::sleep(Duration::from_millis(10)) => {},
         }
-        assert!(tokio::spawn(async { true }).await.unwrap());
+        assert!(crate::rt::spawn(async { true }).await.unwrap());
         let _ = self.release.send(());
         assert!(
             self.holder.take().unwrap().join().unwrap(),
             "storage lock watchdog fired"
         );
-        tokio::time::timeout(Duration::from_secs(5), future)
+        crate::rt::timeout(Duration::from_secs(5), future)
             .await
             .expect("storage operation did not complete")
     }

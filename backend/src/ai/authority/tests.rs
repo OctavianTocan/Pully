@@ -90,10 +90,10 @@ async fn source_retirement_cancels_a_held_authorization_without_a_new_token() {
         AiConnectionAuthority::new(owner.clone(), reference(1), authorizer.clone()).unwrap();
     let lease = authority.capture().unwrap();
     let observed = lease.clone();
-    let task = tokio::spawn(async move { observed.authorize_request(request()).await });
+    let task = crate::rt::spawn(async move { observed.authorize_request(request()).await });
     authorizer.entered.notified().await;
     owner.retire();
-    assert!(tokio::time::timeout(Duration::from_secs(1), task)
+    assert!(crate::rt::timeout(Duration::from_secs(1), task)
         .await
         .unwrap()
         .unwrap()
@@ -134,7 +134,7 @@ async fn retirement_before_subscription_is_observed_synchronously() {
     let lease = authority.capture().unwrap();
     owner.retire();
     assert!(owner.subscribe_retirement().is_err());
-    tokio::time::timeout(Duration::from_secs(1), lease.retired())
+    crate::rt::timeout(Duration::from_secs(1), lease.retired())
         .await
         .unwrap()
         .unwrap();
@@ -151,7 +151,7 @@ async fn dropping_connection_owner_retires_captured_observers() {
     let lease = authority.capture().unwrap();
     drop(authority);
     assert!(lease.ensure_current().await.is_err());
-    tokio::time::timeout(Duration::from_secs(1), lease.retired())
+    crate::rt::timeout(Duration::from_secs(1), lease.retired())
         .await
         .unwrap()
         .unwrap();

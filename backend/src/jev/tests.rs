@@ -102,7 +102,7 @@ async fn preparation_waits_in_memory_and_caches_completed_triage() {
     tokio::pin!(waiting);
     tokio::select! {
         _ = &mut waiting => panic!("shared file and pull jobs are still pending"),
-        _ = tokio::time::sleep(Duration::from_millis(80)) => {}
+        _ = crate::rt::sleep(Duration::from_millis(80)) => {}
     }
     assert_eq!(reads.get(), 3);
     assert_eq!(svc.key_computations.load(Ordering::Relaxed), 3);
@@ -117,14 +117,14 @@ async fn preparation_waits_in_memory_and_caches_completed_triage() {
     }
     tokio::select! {
         _ = &mut waiting => panic!("the shared pull job is still pending"),
-        _ = tokio::time::sleep(Duration::from_millis(30)) => {}
+        _ = crate::rt::sleep(Duration::from_millis(30)) => {}
     }
     svc.ratings
         .lock()
         .unwrap()
         .running_pulls
         .remove(pull_version);
-    let result = tokio::time::timeout(Duration::from_secs(1), &mut waiting)
+    let result = crate::rt::timeout(Duration::from_secs(1), &mut waiting)
         .await
         .expect("completed shared jobs should release preparation");
     assert_eq!(result["pending"], 0);
@@ -285,13 +285,13 @@ impl HeldTransaction {
     async fn assert_responsive<T>(mut self, work: impl std::future::Future<Output = T>) -> T {
         tokio::pin!(work);
         tokio::select! {
-            _ = tokio::time::sleep(Duration::from_millis(30)) => {
+            _ = crate::rt::sleep(Duration::from_millis(30)) => {
                 assert!(!self.expired.load(Ordering::Relaxed), "a TypeSafe lock blocked the async runtime");
             }
             _ = &mut work => panic!("the transaction should still be waiting on its held lock"),
         }
         self.release();
-        tokio::time::timeout(Duration::from_secs(1), work)
+        crate::rt::timeout(Duration::from_secs(1), work)
             .await
             .expect("released transaction should finish")
     }

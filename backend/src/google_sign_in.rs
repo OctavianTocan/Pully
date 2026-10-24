@@ -4,8 +4,9 @@ use jsonwebtoken::{decode, decode_header, Algorithm, DecodingKey, Validation};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 use tokio::sync::Mutex;
 
 const KEYS_URL: &str = "https://www.googleapis.com/oauth2/v3/certs";
@@ -19,7 +20,7 @@ pub fn allowed(email: &str) -> bool {
         || (who.ends_with("@octaviantocan.com") && who.len() > "@octaviantocan.com".len())
 }
 pub fn client_id() -> Option<String> {
-    std::env::var("PULLY_GOOGLE_CLIENT_ID")
+    crate::rt::env::var("PULLY_GOOGLE_CLIENT_ID")
         .ok()
         .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())
@@ -69,9 +70,8 @@ fn optional_number<'de, D: serde::Deserializer<'de>>(
 impl GoogleSignIn {
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
-            http: reqwest::Client::builder()
+            http: crate::net::client()
                 .https_only(true)
-                .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(3))
                 .timeout(Duration::from_secs(5))
                 .build()?,
@@ -88,7 +88,7 @@ impl GoogleSignIn {
             return None;
         }
         let kid = token_kid(token)?;
-        let key = tokio::time::timeout(Duration::from_secs(7), self.key(&kid))
+        let key = crate::rt::timeout(Duration::from_secs(7), self.key(&kid))
             .await
             .ok()??;
         verify(token, client_id, &key)
@@ -122,10 +122,7 @@ impl GoogleSignIn {
         cache.keys.get(kid).cloned()
     }
     async fn fetch(&self) -> Option<(HashMap<String, DecodingKey>, Duration)> {
-        let mut response = self
-            .http
-            .get(KEYS_URL)
-            .send()
+        let mut response = crate::net::send(self.http.get(KEYS_URL))
             .await
             .ok()?
             .error_for_status()

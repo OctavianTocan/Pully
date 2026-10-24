@@ -22,8 +22,8 @@ async fn ce_private_later_denial_or_replacement_retires_an_older_final_200() {
                 .client
                 .get(format!("{}{path}", fixture.server.origin))
                 .bearer_auth(&a);
-            let older = tokio::spawn(async move { request.send().await.unwrap() });
-            tokio::time::timeout(
+            let older = crate::rt::spawn(async move { request.send().await.unwrap() });
+            crate::rt::timeout(
                 Duration::from_secs(2),
                 fixture.github.repo_entered.notified(),
             )
@@ -36,7 +36,7 @@ async fn ce_private_later_denial_or_replacement_retires_an_older_final_200() {
             let newer = fixture.server.get(selected, Some(&a)).await;
             assert!(newer.status().is_client_error());
             fixture.github.repo_release.notify_one();
-            let response = tokio::time::timeout(Duration::from_secs(2), older)
+            let response = crate::rt::timeout(Duration::from_secs(2), older)
                 .await
                 .unwrap()
                 .unwrap();

@@ -164,7 +164,7 @@ pub async fn handle(app: Arc<AppState>, request: Request, path: &str) -> Respons
         Ok(Some(caller)) => caller,
         _ => return unauthorized(),
     };
-    let origin = std::env::var("PULLY_PUBLIC_URL")
+    let origin = crate::rt::env::var("PULLY_PUBLIC_URL")
         .ok()
         .filter(|v| !v.trim().is_empty())
         .map(|v| v.trim().to_owned())

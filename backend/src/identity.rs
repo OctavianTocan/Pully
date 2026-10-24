@@ -73,20 +73,19 @@ impl VerifiedGitHubIdentity {
             !token.is_empty() && token.len() <= 4096 && token.bytes().all(|v| v.is_ascii_graphic()),
             "Invalid GitHub credential"
         );
-        let http = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
+        let http = crate::net::client()
             .connect_timeout(std::time::Duration::from_secs(10))
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .context("GitHub sign-in is unavailable")?;
-        let response = http
-            .get("https://api.github.com/user")
+        let response = crate::net::send(
+            http.get("https://api.github.com/user")
             .header("User-Agent", "pully")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", "2022-11-28")
-            .bearer_auth(&token)
-            .send()
-            .await
+            .bearer_auth(&token),
+        )
+        .await
             .map_err(|_| anyhow::anyhow!("GitHub could not verify this sign-in"))?;
         ensure!(
             response.status() == reqwest::StatusCode::OK,
@@ -246,6 +245,7 @@ impl RequestIdentity {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// One bounded owner for each tenant's caches, jobs, model catalog and analytics in this server lifetime.
 pub(crate) struct TenantStates {
     root: PathBuf,
@@ -253,6 +253,7 @@ pub(crate) struct TenantStates {
     states: Arc<Mutex<HashMap<String, Arc<AppState>>>>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl TenantStates {
     pub(crate) fn new(root: PathBuf, limit: usize) -> Result<Self> {
         ensure!((1..=1024).contains(&limit), "Invalid tenant-state limit");

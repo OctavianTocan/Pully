@@ -7,11 +7,11 @@ async fn ce_public_single_read_rejects_name_replacement_before_pr_inventory() {
     let client = Arc::new(fixture.client());
     let pending = Arc::new(DeferredReply::default());
     fixture.state.lock().unwrap().pending_repository = Some(pending.clone());
-    let old = tokio::spawn({
+    let old = crate::rt::spawn({
         let client = client.clone();
         async move { client.pulls("public-owner", "public-repo", 1).await }
     });
-    tokio::time::timeout(Duration::from_secs(2), pending.arrived.notified())
+    crate::rt::timeout(Duration::from_secs(2), pending.arrived.notified())
         .await
         .unwrap();
     {
@@ -43,11 +43,11 @@ async fn ce_public_single_read_reconfirms_visibility_and_id_before_cache_publica
         let client = Arc::new(fixture.client());
         let pending = Arc::new(DeferredReply::default());
         fixture.state.lock().unwrap().pending_pull = Some(pending.clone());
-        let old = tokio::spawn({
+        let old = crate::rt::spawn({
             let client = client.clone();
             async move { client.pulls("public-owner", "public-repo", 1).await }
         });
-        tokio::time::timeout(Duration::from_secs(2), pending.arrived.notified())
+        crate::rt::timeout(Duration::from_secs(2), pending.arrived.notified())
             .await
             .unwrap();
         {

@@ -340,7 +340,7 @@ impl Inner {
             .clone()
             .try_acquire_owned()
             .map_err(|_| ReadError::rate(5))?;
-        tokio::time::timeout(ROUTE_DEADLINE, operation)
+        crate::rt::timeout(ROUTE_DEADLINE, operation)
             .await
             .map_err(|_| ReadError::new(Code::Unavailable))?
     }

@@ -323,7 +323,7 @@ impl ChatGptJobSession {
             handles.retain(|handle| !handle.is_finished());
             // This handle owns both admission and execution. Dropping the caller never cancels
             // an accepted operation or loses the worker between durable admission and spawn.
-            handles.push(tokio::spawn(async move {
+            handles.push(crate::rt::spawn(async move {
                 match session.admit(request_id, request).await {
                     Ok(Admitted::Joined(task)) => {
                         let receipt = session.publish(task).await;
@@ -453,7 +453,7 @@ impl ChatGptJobSession {
                 _ = changed.changed() => {},
                 _ = retired.changed() => bail!("AI authority changed"),
                 _ = self.0.lease.retired() => bail!("AI authority changed"),
-                _ = tokio::time::sleep(Duration::from_secs(25)) => return self.poll(id).await,
+                _ = crate::rt::sleep(Duration::from_secs(25)) => return self.poll(id).await,
             }
         }
     }
@@ -713,7 +713,7 @@ impl Session {
             let tools = BoundTools {session:self.clone(),specs};
             let (updates,mut receive)=mpsc::channel::<ResponsesProgress>(64);
             let session=self.clone();let publishing=run.clone();
-            let publisher=tokio::spawn(async move {
+            let publisher=crate::rt::spawn(async move {
                 while let Some(update)=receive.recv().await {
                     let session=session.clone();let publishing=publishing.clone();
                     crate::store::blocking(move || session.progress(&publishing,update)).await?;

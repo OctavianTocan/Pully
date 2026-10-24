@@ -72,13 +72,13 @@ fn configuration(root: &Root) -> PublicServerConfig {
 struct Server {
     origin: String,
     client: reqwest::Client,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Server {
     async fn new(router: Router) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         let client = reqwest::Client::builder()
@@ -898,10 +898,10 @@ async fn held_private_prs_cannot_publish_after_revocation_permission_loss_or_rep
         );
         let captured = private.clone();
         let request =
-            tokio::spawn(
+            crate::rt::spawn(
                 async move { client.get(path).bearer_auth(captured).send().await.unwrap() },
             );
-        tokio::time::timeout(Duration::from_secs(2), fixture.github.entered.notified())
+        crate::rt::timeout(Duration::from_secs(2), fixture.github.entered.notified())
             .await
             .unwrap();
         match mode {
@@ -919,7 +919,7 @@ async fn held_private_prs_cannot_publish_after_revocation_permission_loss_or_rep
             _ => fixture.github.replacement.store(true, Ordering::SeqCst),
         }
         fixture.github.release.notify_one();
-        let response = tokio::time::timeout(Duration::from_secs(2), request)
+        let response = crate::rt::timeout(Duration::from_secs(2), request)
             .await
             .unwrap()
             .unwrap();
@@ -1042,10 +1042,10 @@ async fn held_inventory_cannot_publish_after_sign_out_visibility_denial_or_repos
         );
         let captured = session.clone();
         let work =
-            tokio::spawn(
+            crate::rt::spawn(
                 async move { client.get(path).bearer_auth(captured).send().await.unwrap() },
             );
-        tokio::time::timeout(Duration::from_secs(2), fixture.github.entered.notified())
+        crate::rt::timeout(Duration::from_secs(2), fixture.github.entered.notified())
             .await
             .unwrap();
         match mode {
@@ -1067,7 +1067,7 @@ async fn held_inventory_cannot_publish_after_sign_out_visibility_denial_or_repos
             }
         }
         fixture.github.release.notify_one();
-        let response = tokio::time::timeout(Duration::from_secs(2), work)
+        let response = crate::rt::timeout(Duration::from_secs(2), work)
             .await
             .unwrap()
             .unwrap();

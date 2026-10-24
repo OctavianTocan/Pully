@@ -1,0 +1,16 @@
+{
+  "name": "@pulls.review/worker",
+  "type": "module",
+  "version": "0.3.0",
+  "private": true,
+  "description": "The hosted Pully server on Cloudflare: the Rust server built for Workers, with its data in a Durable Object's SQLite storage.",
+  "license": "MIT",
+  "scripts": {
+    "build": "worker-build --release",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "catalog:cloudflare"
+  }
+}

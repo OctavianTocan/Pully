@@ -386,7 +386,7 @@ mod tests {
     #[test]
     fn codex_terminal_text_preserves_suffixes_and_redacts_secrets() {
         const CHILD: &str = "PULLS_REVIEW_TEST_CODEX_ACTIVITY";
-        if std::env::var_os(CHILD).is_none() {
+        if crate::rt::env::var_os(CHILD).is_none() {
             let test_name = format!(
                 "{}::codex_terminal_text_preserves_suffixes_and_redacts_secrets",
                 module_path!().split_once("::").unwrap().1
@@ -407,7 +407,7 @@ mod tests {
             assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
             return;
         }
-        assert_eq!(std::env::var("OPENAI_API_KEY").unwrap(), "sk-test");
+        assert_eq!(crate::rt::env::var("OPENAI_API_KEY").unwrap(), "sk-test");
         for item_type in ["agent_message", "reasoning"] {
             let events = Arc::new(std::sync::Mutex::new(vec![]));
             let copy = events.clone();

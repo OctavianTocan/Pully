@@ -16,9 +16,9 @@ use std::{
 };
 use crate::agent_login::AgentLogin;
 use stream::CliParser;
+use crate::rt::process::Command;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
-    process::Command,
     sync::watch,
 };
 use uuid::Uuid;
@@ -28,7 +28,7 @@ const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
 const MCP_BIN: &str = "/opt/pulls-review-server";
 const PAYLOAD: &str = "/inputs/payload.json";
 pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
-static CLEANUPS: std::sync::Mutex<Vec<tokio::task::JoinHandle<()>>> =
+static CLEANUPS: std::sync::Mutex<Vec<crate::rt::JoinHandle<()>>> =
     std::sync::Mutex::new(Vec::new());
 
 pub async fn shutdown_cleanup() {
@@ -59,13 +59,13 @@ impl Job {
         }
     }
     async fn prepare(&self) -> Result<()> {
-        tokio::fs::create_dir(&self.root)
+        crate::rt::fs::create_dir(&self.root)
             .await
             .context("Could not create sandbox job folder")?;
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            tokio::fs::set_permissions(&self.root, std::fs::Permissions::from_mode(0o700)).await?;
+            crate::rt::fs::set_permissions(&self.root, std::fs::Permissions::from_mode(0o700)).await?;
         }
         for folder in [
             "inputs",
@@ -76,7 +76,7 @@ impl Job {
             "work/tmp",
             "work/state",
         ] {
-            tokio::fs::create_dir(self.root.join(folder)).await?;
+            crate::rt::fs::create_dir(self.root.join(folder)).await?;
         }
         Ok(())
     }
@@ -91,7 +91,7 @@ impl Drop for Job {
             .unwrap()
             .clone()
             .map(|(binary, image)| (binary, image, self.volume.clone()));
-        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+        if let Ok(runtime) = crate::rt::Handle::try_current() {
             let handle = runtime.spawn(cleanup_job(root, name, login, Duration::from_secs(30)));
             let mut handles = CLEANUPS.lock().unwrap();
             handles.retain(|h| !h.is_finished());
@@ -115,11 +115,11 @@ async fn cleanup_job(
             .await;
     }
     for wait in [0, 1, 9] {
-        tokio::time::sleep(Duration::from_secs(wait)).await;
+        crate::rt::sleep(Duration::from_secs(wait)).await;
         remove_container(&name).await;
         remove_container(&format!("{name}-login")).await;
     }
-    let _ = tokio::fs::remove_dir_all(root).await;
+    let _ = crate::rt::fs::remove_dir_all(root).await;
 }
 pub(crate) async fn remove_container(name: &str) {
     let mut command = Command::new("docker");
@@ -129,7 +129,7 @@ pub(crate) async fn remove_container(name: &str) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true);
-    let _ = tokio::time::timeout(Duration::from_secs(15), command.status()).await;
+    let _ = crate::rt::timeout(Duration::from_secs(15), command.status()).await;
 }
 async fn read_bounded<R: AsyncRead + Unpin>(mut input: R, limit: usize) -> Result<Vec<u8>> {
     let mut result = Vec::new();
@@ -255,12 +255,12 @@ fn setting(request: &Value, key: &str, max: usize) -> Result<Option<String>> {
     }
 }
 pub(crate) fn runtime_image() -> Result<String> {
-    let runtime = std::env::var("PULLS_REVIEW_AGENT_RUNTIME").unwrap_or_else(|_| "docker".into());
+    let runtime = crate::rt::env::var("PULLS_REVIEW_AGENT_RUNTIME").unwrap_or_else(|_| "docker".into());
     if runtime.trim() != "docker" {
         bail!("The Rust server requires PULLS_REVIEW_AGENT_RUNTIME=docker; unsandboxed host execution is disabled");
     }
     let image =
-        std::env::var("PULLS_REVIEW_AGENT_IMAGE").unwrap_or_else(|_| "pulls-review-agents".into());
+        crate::rt::env::var("PULLS_REVIEW_AGENT_IMAGE").unwrap_or_else(|_| "pulls-review-agents".into());
     if image.is_empty() || image.starts_with('-') || image.chars().any(char::is_whitespace) {
         bail!("Invalid PULLS_REVIEW_AGENT_IMAGE");
     }
@@ -328,7 +328,7 @@ async fn create_start(
     input: Vec<u8>,
     on_line: &mut (dyn FnMut(&str) -> bool + Send),
 ) -> Result<Vec<u8>> {
-    tokio::time::timeout(Duration::from_secs(60), process(command, vec![]))
+    crate::rt::timeout(Duration::from_secs(60), process(command, vec![]))
         .await
         .context("Docker create timed out")??;
     let mut start = Command::new("docker");
@@ -360,7 +360,7 @@ async fn prepare_login(job: &Job, binary: &str, image: &str, login: &AgentLogin)
     let volume = &job.volume;
     let mut inspect = Command::new("docker");
     inspect.args(["volume", "inspect", "--format", "{{.Name}}", volume]);
-    tokio::time::timeout(Duration::from_secs(15), process(&mut inspect, vec![]))
+    crate::rt::timeout(Duration::from_secs(15), process(&mut inspect, vec![]))
         .await
         .context("Docker login volume check timed out")?
         .map_err(|_| anyhow::anyhow!(login.missing(binary)))?;
@@ -374,7 +374,7 @@ async fn prepare_login(job: &Job, binary: &str, image: &str, login: &AgentLogin)
     create
         .arg(image)
         .args(["-e", LOGIN_BOOTSTRAP_SCRIPT, binary]);
-    let result = tokio::time::timeout(
+    let result = crate::rt::timeout(
         Duration::from_secs(30),
         create_start(&mut create, &name, vec![], &mut |_| false),
     )
@@ -423,7 +423,7 @@ async fn persist_login_with_timeout(
         LOGIN_PERSIST_SCRIPT,
         binary,
     ]);
-    let result = tokio::time::timeout(
+    let result = crate::rt::timeout(
         timeout,
         create_start(&mut create, &name, vec![], &mut |_| false),
     )
@@ -435,7 +435,7 @@ async fn persist_login_with_timeout(
 /// Docker always needs a Linux helper, even when its server runs on macOS or Windows.
 /// A configured helper must be an ELF executable; otherwise use the Linux server itself.
 fn mcp_helper() -> Result<PathBuf> {
-    let path = match std::env::var_os("PULLS_REVIEW_AGENT_MCP_BINARY") {
+    let path = match crate::rt::env::var_os("PULLS_REVIEW_AGENT_MCP_BINARY") {
         Some(path) => PathBuf::from(path),
         None if cfg!(target_os = "linux") => std::env::current_exe()?,
         None => bail!("Set PULLS_REVIEW_AGENT_MCP_BINARY to a Linux build of pulls-review-server for the Docker image's architecture."),
@@ -517,7 +517,7 @@ pub(crate) async fn run_agent_prepared(
     runtime_image()?;
     let job = Job::new(login);
     let result = tokio::select! {
-        result = tokio::time::timeout(Duration::from_secs(30 * 60), run_inner(&request, &job, login, sink, preparation)) => result.map_err(|_| anyhow::anyhow!("AI job exceeded the 30 minute timeout"))?,
+        result = crate::rt::timeout(Duration::from_secs(30 * 60), run_inner(&request, &job, login, sink, preparation)) => result.map_err(|_| anyhow::anyhow!("AI job exceeded the 30 minute timeout"))?,
         _ = async { loop { if *cancel.borrow_and_update() || cancel.changed().await.is_err() { break; } } } => Err(anyhow::anyhow!("AI task cancelled")),
     };
     remove_container(&job.name).await;
@@ -552,14 +552,14 @@ async fn run_inner(
     let context = request.get("context").filter(|v| v.is_object());
     job.prepare().await?;
     if let Some(context) = context {
-        tokio::fs::write(
+        crate::rt::fs::write(
             job.root.join("inputs/payload.json"),
             serde_json::to_vec(context)?,
         )
         .await?;
     }
     if structured {
-        tokio::fs::write(
+        crate::rt::fs::write(
             job.root.join("inputs/schema.json"),
             serde_json::to_vec(&schema::for_cli(binary, &request["schema"]))?,
         )
@@ -689,7 +689,7 @@ pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
     let binary = binary(engine)?;
     runtime_image()?;
     let job = Job::new(login);
-    let result = tokio::time::timeout(Duration::from_secs(45), async {
+    let result = crate::rt::timeout(Duration::from_secs(45), async {
         job.prepare().await?;
         let args = if binary == "claude" {
             ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--setting-sources", "", "--strict-mcp-config", "--tools", "", "--disable-slash-commands", "--no-session-persistence"].iter().map(|s| s.to_string()).collect()
@@ -713,7 +713,7 @@ pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
         // A second container shares only this job's copied credentials; version failures do not
         // invalidate a catalog. The first initialized Claude process is stopped before reuse.
         remove_container(&job.name).await;
-        let version = tokio::time::timeout(Duration::from_secs(10), launch(&job, login, binary, vec!["--version".into()], vec![], false, &mut |_| false)).await;
+        let version = crate::rt::timeout(Duration::from_secs(10), launch(&job, login, binary, vec!["--version".into()], vec![], false, &mut |_| false)).await;
         if let Ok(Ok(bytes)) = version {
             if let Some(version) = VERSION.get_or_init(|| regex::Regex::new(r"\d+\.\d+\.\d[^\s]*").unwrap()).find(&String::from_utf8_lossy(&bytes)) { result["version"] = json!(version.as_str()); }
         }
@@ -892,10 +892,10 @@ for(const invalid of [{regular:false},{symlink:true},{size:524289},{realpath:'/o
 "#;
         let mut node = Command::new("node");
         node.env_clear();
-        if let Some(path) = std::env::var_os("PATH") {
+        if let Some(path) = crate::rt::env::var_os("PATH") {
             node.env("PATH", path);
         }
-        let output = tokio::time::timeout(
+        let output = crate::rt::timeout(
             Duration::from_secs(5),
             node.args(["-e", fixture, LOGIN_BOOTSTRAP_SCRIPT, LOGIN_PERSIST_SCRIPT])
                 .kill_on_drop(true)
@@ -932,7 +932,7 @@ for(const invalid of [{regular:false},{symlink:true},{size:524289},{realpath:'/o
     #[tokio::test]
     async fn stdout_streaming_handles_chunked_unicode_and_early_catalog() {
         let (mut writer, reader) = tokio::io::duplex(128);
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             writer.write_all(b"{\"text\":\"\xe2").await.unwrap();
             writer.write_all(b"\x98\x83\"}\nlast").await.unwrap();
         });
@@ -955,7 +955,7 @@ for(const invalid of [{regular:false},{symlink:true},{size:524289},{realpath:'/o
         for capacity in [1, 3, 8192] {
             let bytes = input.as_bytes().to_vec();
             let (mut writer, reader) = tokio::io::duplex(capacity);
-            let task = tokio::spawn(async move {
+            let task = crate::rt::spawn(async move {
                 writer.write_all(&bytes).await.unwrap();
             });
             let mut seen = vec![];

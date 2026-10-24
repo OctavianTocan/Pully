@@ -12,7 +12,7 @@ struct Secret {
 struct Secrets(Vec<Secret>);
 impl Secrets {
     fn from_environment() -> Self {
-        Self::from_entries(std::env::vars())
+        Self::from_entries(crate::rt::env::vars())
     }
     fn from_entries(entries: impl Iterator<Item = (String, String)>) -> Self {
         Self(

@@ -338,7 +338,7 @@ impl HeldDiffCache {
                 .recv_timeout(std::time::Duration::from_secs(2))
                 .is_ok()
         });
-        tokio::time::timeout(std::time::Duration::from_secs(1), started)
+        crate::rt::timeout(std::time::Duration::from_secs(1), started)
             .await
             .unwrap()
             .unwrap();
@@ -356,11 +356,11 @@ impl HeldDiffCache {
     async fn assert_responsive<T>(mut self, work: impl std::future::Future<Output = T>) -> T {
         tokio::pin!(work);
         let waiting = futures_util::poll!(&mut work).is_pending();
-        assert_eq!(tokio::spawn(async { 42 }).await.unwrap(), 42);
+        assert_eq!(crate::rt::spawn(async { 42 }).await.unwrap(), 42);
         let on_time = self.release();
         assert!(waiting, "pin acquisition must wait for the held cache lock");
         assert!(on_time, "pin transaction blocked the async runtime");
-        tokio::time::timeout(std::time::Duration::from_secs(1), work)
+        crate::rt::timeout(std::time::Duration::from_secs(1), work)
             .await
             .unwrap()
     }
@@ -389,7 +389,7 @@ async fn pin_acquisition_and_drop_yield_while_the_cache_lock_is_held() {
         .unwrap();
     let mut held = HeldDiffCache::new(&state).await;
     drop(pin);
-    assert_eq!(tokio::spawn(async { 42 }).await.unwrap(), 42);
+    assert_eq!(crate::rt::spawn(async { 42 }).await.unwrap(), 42);
     assert!(held.release(), "dropping a pin must not block the runtime");
     shutdown_diff_pins(&state).await;
     assert!(state.diff_cache.lock().unwrap().pins.is_empty());
@@ -403,8 +403,8 @@ async fn cancelled_pin_acquisition_is_balanced_and_shutdown_drains_cleanup() {
     let state = crate::AppState::new(root.clone(), root.clone()).unwrap();
     let mut held = HeldDiffCache::new(&state).await;
     let acquiring = state.clone();
-    let task = tokio::spawn(async move { pin_diff(&acquiring, "github:owner/repo#1").await });
-    tokio::task::yield_now().await;
+    let task = crate::rt::spawn(async move { pin_diff(&acquiring, "github:owner/repo#1").await });
+    crate::rt::yield_now().await;
     assert!(!state.jobs.diff_pin_tasks.lock().unwrap().is_empty());
     task.abort();
     assert!(matches!(task.await, Err(error) if error.is_cancelled()));
@@ -438,8 +438,8 @@ async fn ai_admission_yields_and_releases_pins_when_the_request_is_cancelled() {
     let mut held = HeldDiffCache::new(&state).await;
     let admitting = state.clone();
     let task =
-        tokio::spawn(async move { crate::ai::handle(&admitting, "ai-task-start", request).await });
-    tokio::task::yield_now().await;
+        crate::rt::spawn(async move { crate::ai::handle(&admitting, "ai-task-start", request).await });
+    crate::rt::yield_now().await;
     task.abort();
     assert!(matches!(task.await, Err(error) if error.is_cancelled()));
     assert!(held.release());
@@ -481,7 +481,7 @@ async fn queued_analysis_admission_preserves_its_reserved_head() {
         assert!(held.release());
         admission.await.unwrap().unwrap()
     };
-    let settled = tokio::time::timeout(std::time::Duration::from_secs(1), async {
+    let settled = crate::rt::timeout(std::time::Duration::from_secs(1), async {
         let mut revision = 0;
         loop {
             let run = crate::ai::handle(&state, "ai-task-wait", json!({"id":id,"after":revision}))

@@ -185,7 +185,7 @@ mod tests {
         root: PathBuf,
         artifacts: PathBuf,
         url: String,
-        task: tokio::task::JoinHandle<()>,
+        task: crate::rt::JoinHandle<()>,
         client: reqwest::Client,
     }
     impl Server {
@@ -211,7 +211,7 @@ mod tests {
             let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
             let port = listener.local_addr().unwrap().port();
             let state = HttpState::new(app, "127.0.0.1", port, vec![], true, Some(assets)).unwrap();
-            let task = tokio::spawn(async move {
+            let task = crate::rt::spawn(async move {
                 axum::serve(listener, router(state)).await.unwrap();
             });
             let client = reqwest::Client::builder()

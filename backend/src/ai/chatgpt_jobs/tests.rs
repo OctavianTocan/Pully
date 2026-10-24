@@ -33,7 +33,7 @@ struct Wire {
 struct Provider {
     endpoint: String,
     state: Arc<Wire>,
-    server: tokio::task::JoinHandle<()>,
+    server: crate::rt::JoinHandle<()>,
 }
 impl Provider {
     async fn new(replies: Vec<Reply>) -> Self {
@@ -48,7 +48,7 @@ impl Provider {
         let router = Router::new()
             .route("/responses", post(provider))
             .with_state(state.clone());
-        let server = tokio::spawn(async move {
+        let server = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         Self {
@@ -58,7 +58,7 @@ impl Provider {
         }
     }
     async fn entered(&self, count: usize) {
-        tokio::time::timeout(Duration::from_secs(5), async {
+        crate::rt::timeout(Duration::from_secs(5), async {
             loop {
                 let notice = self.state.entered.notified();
                 if self.state.requests.lock().unwrap().len() >= count {
@@ -183,7 +183,7 @@ impl HeldFence {
         }
     }
     async fn entered(&self) {
-        tokio::time::timeout(Duration::from_secs(5), self.entered.notified())
+        crate::rt::timeout(Duration::from_secs(5), self.entered.notified())
             .await
             .unwrap();
     }
@@ -390,7 +390,7 @@ async fn bind(runtime: &Arc<ChatGptJobs>, scope: &Arc<Scope>) -> ChatGptJobSessi
     runtime.bind(scope.lease(), scope.clone()).await.unwrap()
 }
 async fn terminal(session: &ChatGptJobSession, id: &str) -> Value {
-    tokio::time::timeout(Duration::from_secs(5), async {
+    crate::rt::timeout(Duration::from_secs(5), async {
         let mut value = session.poll(id).await.unwrap();
         while value["status"] == "running" {
             value = session
@@ -405,7 +405,7 @@ async fn terminal(session: &ChatGptJobSession, id: &str) -> Value {
 }
 async fn worker_finished(session: &ChatGptJobSession) {
     let run = session.0.live.lock().unwrap().clone().unwrap();
-    tokio::time::timeout(Duration::from_secs(5), wait_finished(&run))
+    crate::rt::timeout(Duration::from_secs(5), wait_finished(&run))
         .await
         .unwrap();
 }
@@ -729,7 +729,7 @@ async fn revoked_tool_permission_during_held_call_cannot_commit_or_trigger_anoth
         .start("first".into(), request("Review"))
         .await
         .unwrap();
-    tokio::time::timeout(Duration::from_secs(5), scope.tool_entered.notified())
+    crate::rt::timeout(Duration::from_secs(5), scope.tool_entered.notified())
         .await
         .unwrap();
     scope.gate.lock().unwrap().tools = false;
@@ -755,7 +755,7 @@ async fn accepted_admission_survives_lost_http_observer_while_real_store_lock_is
     fence.arm();
     let holding = fence.clone();
     let store = root.store.clone();
-    let lock = tokio::task::spawn_blocking(move || {
+    let lock = crate::rt::spawn_blocking(move || {
         store.update("fixture:store-lock", |_| {
             holding.before_lock();
             Ok(json!(true))
@@ -763,17 +763,17 @@ async fn accepted_admission_survives_lost_http_observer_while_real_store_lock_is
     });
     fence.entered().await;
     let caller_session = session.clone();
-    let caller = tokio::spawn(async move {
+    let caller = crate::rt::spawn(async move {
         caller_session
             .start("lost-observer".into(), request("Review"))
             .await
     });
-    tokio::time::timeout(Duration::from_secs(5), async {
+    crate::rt::timeout(Duration::from_secs(5), async {
         loop {
             if !jobs.handles.lock().unwrap().is_empty() {
                 break;
             }
-            tokio::task::yield_now().await;
+            crate::rt::yield_now().await;
         }
     })
     .await

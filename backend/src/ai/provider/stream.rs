@@ -245,7 +245,7 @@ fn append_reasoning_detail(details: &mut Vec<Value>, detail: &Value) {
 }
 
 pub(super) async fn completion(
-    mut response: reqwest::Response,
+    mut response: crate::net::Response,
     activity: &Activity,
     turn: usize,
 ) -> Result<Value> {

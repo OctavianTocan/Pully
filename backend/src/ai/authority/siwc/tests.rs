@@ -147,7 +147,7 @@ struct Upstream {
 struct Fixture {
     provider: OpenAiSiwc,
     state: Arc<Upstream>,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Drop for Fixture {
     fn drop(&mut self) {
@@ -190,7 +190,7 @@ impl Fixture {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin =
             url::Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             axum::serve(listener, routes).await.unwrap();
         });
         Self {

@@ -64,7 +64,7 @@ pub(super) fn response(
 async fn replay<T>(replies: Vec<Reply>, future: impl Future<Output = T>) -> T {
     RESPONSES
         .scope(RefCell::new(replies.into()), async {
-            let result = tokio::time::timeout(Duration::from_secs(10), future)
+            let result = crate::rt::timeout(Duration::from_secs(10), future)
                 .await
                 .expect("offline GitHub fixture timed out");
             RESPONSES

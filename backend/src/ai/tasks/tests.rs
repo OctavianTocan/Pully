@@ -627,7 +627,7 @@ async fn ai_storage_grouping_tool_transaction_yields_and_preserves_guards() {
     assert!(futures_util::poll!(&mut update).is_pending());
     cancel(&run);
     drop(held);
-    assert!(tokio::time::timeout(Duration::from_secs(1), update)
+    assert!(crate::rt::timeout(Duration::from_secs(1), update)
         .await
         .unwrap()
         .is_err());

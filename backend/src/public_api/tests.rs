@@ -30,14 +30,14 @@ struct DeferredReply {
 }
 struct Server {
     origin: url::Url,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Server {
     async fn start(router: Router) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin =
             url::Url::parse(&format!("http://{}/", listener.local_addr().unwrap())).unwrap();
-        let task = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let task = crate::rt::spawn(async move { axum::serve(listener, router).await.unwrap() });
         Self { origin, task }
     }
 }
@@ -412,11 +412,11 @@ async fn a_confirmed_visibility_denial_retires_an_older_pending_pr_response_and_
     let client = Arc::new(fixture.client());
     let pending = Arc::new(DeferredReply::default());
     fixture.state.lock().unwrap().pending_pull = Some(pending.clone());
-    let old = tokio::spawn({
+    let old = crate::rt::spawn({
         let client = client.clone();
         async move { client.pulls("public-owner", "public-repo", 1).await }
     });
-    tokio::time::timeout(
+    crate::rt::timeout(
         std::time::Duration::from_secs(2),
         pending.arrived.notified(),
     )
@@ -483,11 +483,11 @@ async fn an_older_visibility_response_cannot_roll_back_a_newer_confirmed_reposit
     let client = Arc::new(fixture.client());
     let pending = Arc::new(DeferredReply::default());
     fixture.state.lock().unwrap().pending_repository = Some(pending.clone());
-    let old = tokio::spawn({
+    let old = crate::rt::spawn({
         let client = client.clone();
         async move { client.pulls("public-owner", "public-repo", 1).await }
     });
-    tokio::time::timeout(
+    crate::rt::timeout(
         std::time::Duration::from_secs(2),
         pending.arrived.notified(),
     )

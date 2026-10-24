@@ -11,9 +11,9 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
+use crate::rt::process::{Child, ChildStdin, Command};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
-    process::{Child, ChildStdin, Command},
     sync::watch,
 };
 
@@ -112,8 +112,8 @@ impl Logins {
         let output = Arc::new(Mutex::new(String::new()));
         let stdout = child.stdout.take().context("Sign-in output unavailable")?;
         let stderr = child.stderr.take().context("Sign-in output unavailable")?;
-        tokio::spawn(collect(stdout, output.clone()));
-        tokio::spawn(collect(stderr, output.clone()));
+        crate::rt::spawn(collect(stdout, output.clone()));
+        crate::rt::spawn(collect(stderr, output.clone()));
         let (sender, done) = watch::channel(None);
         let pending = Arc::new(Pending {
             container: container.clone(),
@@ -121,9 +121,9 @@ impl Logins {
             output,
             done,
         });
-        tokio::spawn(supervise(child, container, sender));
+        crate::rt::spawn(supervise(child, container, sender));
         // The link comes first; a CLI that ends before printing one has failed to start.
-        let link = tokio::time::timeout(Duration::from_secs(45), async {
+        let link = crate::rt::timeout(Duration::from_secs(45), async {
             loop {
                 let found = {
                     let output = pending.output.lock().unwrap();
@@ -136,7 +136,7 @@ impl Logins {
                 if ended {
                     return None;
                 }
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                crate::rt::sleep(Duration::from_millis(100)).await;
             }
         })
         .await
@@ -187,7 +187,7 @@ impl Logins {
             Duration::from_secs(25)
         };
         let mut done = pending.done.clone();
-        let finished = tokio::time::timeout(wait, async {
+        let finished = crate::rt::timeout(wait, async {
             done.wait_for(Option::is_some)
                 .await
                 .ok()
@@ -241,7 +241,7 @@ pub async fn status(login: &AgentLogin) -> Result<Value> {
         "-c",
         "claude auth status --json 2>/dev/null; echo; echo @@codex@@; codex login status 2>&1",
     ]);
-    let output = tokio::time::timeout(
+    let output = crate::rt::timeout(
         Duration::from_secs(30),
         command.stdin(Stdio::null()).kill_on_drop(true).output(),
     )
@@ -267,7 +267,7 @@ pub async fn sign_out(login: &AgentLogin, binary: &str) -> Result<()> {
     } else {
         command.arg("logout");
     }
-    let result = tokio::time::timeout(
+    let result = crate::rt::timeout(
         Duration::from_secs(45),
         command
             .stdin(Stdio::null())
@@ -402,7 +402,7 @@ async fn volume_exists(volume: &str) -> bool {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .kill_on_drop(true);
-    matches!(tokio::time::timeout(Duration::from_secs(15), inspect.status()).await, Ok(Ok(status)) if status.success())
+    matches!(crate::rt::timeout(Duration::from_secs(15), inspect.status()).await, Ok(Ok(status)) if status.success())
 }
 
 async fn collect<R: AsyncRead + Unpin>(mut input: R, output: Arc<Mutex<String>>) {
@@ -421,7 +421,7 @@ async fn collect<R: AsyncRead + Unpin>(mut input: R, output: Arc<Mutex<String>>)
 }
 
 async fn supervise(mut child: Child, container: String, done: watch::Sender<Option<bool>>) {
-    let status = tokio::time::timeout(LOGIN_LIFETIME, child.wait()).await;
+    let status = crate::rt::timeout(LOGIN_LIFETIME, child.wait()).await;
     let success = matches!(&status, Ok(Ok(status)) if status.success());
     if status.is_err() {
         let _ = child.kill().await;

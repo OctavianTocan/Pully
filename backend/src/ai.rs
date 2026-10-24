@@ -43,19 +43,14 @@ pub async fn mcp_context(
         {
             return failure();
         }
-        let Ok(client) = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
+        let Ok(client) = crate::net::client()
             .timeout(Duration::from_secs(120))
             .build()
         else {
             return failure();
         };
-        let Ok(mut response) = client
-            .post(url)
-            .bearer_auth(token)
-            .json(&request)
-            .send()
-            .await
+        let Ok(mut response) =
+            crate::net::send(client.post(url).bearer_auth(token).json(&request)).await
         else {
             return failure();
         };
@@ -90,8 +85,8 @@ pub struct Jobs {
     provider_slots: Arc<Semaphore>,
     runs: Arc<Mutex<HashMap<String, Arc<Run>>>>,
     sessions: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
-    handles: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
-    pub(crate) diff_pin_tasks: Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>,
+    handles: Arc<Mutex<Vec<crate::rt::JoinHandle<()>>>>,
+    pub(crate) diff_pin_tasks: Arc<Mutex<Vec<crate::rt::JoinHandle<()>>>>,
     pub(crate) stopping: Arc<std::sync::atomic::AtomicBool>,
     update_shutdown: Arc<Notify>,
     catalogs: Arc<tokio::sync::Mutex<HashMap<String, (u64, Value)>>>,
@@ -241,7 +236,7 @@ const TEXT_FLUSH_DELAY: Duration = Duration::from_millis(250);
 #[derive(Default)]
 struct ActivityPublication {
     pending: std::collections::BTreeMap<usize, Value>,
-    timer: Option<tokio::task::JoinHandle<()>>,
+    timer: Option<crate::rt::JoinHandle<()>>,
     timer_generation: u64,
 }
 impl ActivityPublication {
@@ -351,10 +346,10 @@ pub(super) fn record_patch(run: &Run, patch: Value) {
         let pending = Arc::downgrade(&run.publication);
         let snapshot = Arc::downgrade(&run.snapshot);
         let notify = Arc::downgrade(&run.notify);
-        let deadline = tokio::time::Instant::now() + TEXT_FLUSH_DELAY;
+        let deadline = crate::rt::Instant::now() + TEXT_FLUSH_DELAY;
         let generation = publication.timer_generation;
-        publication.timer = Some(tokio::spawn(async move {
-            tokio::time::sleep_until(deadline).await;
+        publication.timer = Some(crate::rt::spawn(async move {
+            crate::rt::sleep_until(deadline).await;
             let (Some(pending), Some(snapshot), Some(notify)) =
                 (pending.upgrade(), snapshot.upgrade(), notify.upgrade())
             else {
@@ -534,7 +529,7 @@ async fn run_storage<T: Send + 'static>(
     {
         let mut handles = state.jobs.handles.lock().unwrap();
         handles.retain(|h| !h.is_finished());
-        handles.push(tokio::task::spawn_blocking(move || {
+        handles.push(crate::rt::spawn_blocking(move || {
             let _ = send.send(operation(&stored_state, &run));
         }));
     }
@@ -565,7 +560,7 @@ async fn start_async(
         let stored_state = state.clone();
         let login = login.clone();
         handles.retain(|h| !h.is_finished());
-        handles.push(tokio::task::spawn_blocking(move || {
+        handles.push(crate::rt::spawn_blocking(move || {
             let _ = send.send(start(&stored_state, req, task, None, login));
         }));
     }
@@ -730,7 +725,7 @@ fn start(
     record(&run, "start", "status", "Started", None, "done");
     let handles = state.jobs.handles.clone();
     let state = state.clone();
-    let handle = tokio::spawn(async move {
+    let handle = crate::rt::spawn(async move {
         let mut receiver = run.cancel.subscribe();
         // Keep the large provider/task state machine out of this poll frame.
         // Tokio's outer task boxing does not shrink nested inline polling frames.
@@ -882,13 +877,13 @@ const KNOWN_SECRETS: &[&str] = &[
 pub(super) fn sanitize(s: &str) -> String {
     let mut out = s.to_owned();
     for &name in KNOWN_SECRETS {
-        if let Ok(key) = std::env::var(name) {
+        if let Ok(key) = crate::rt::env::var(name) {
             if !key.is_empty() {
                 out = out.replace(&key, "[redacted]")
             }
         }
     }
-    for (name, value) in std::env::vars() {
+    for (name, value) in crate::rt::env::vars() {
         if value.len() >= 6
             && ["TOKEN", "KEY", "SECRET", "PASSWORD"]
                 .iter()
@@ -916,7 +911,7 @@ pub(super) fn sanitize_value(value: &Value) -> Value {
 /// Withhold an unfinished secret prefix so streaming cannot leak a key across chunks.
 pub(super) fn safe_stream_text(s: &str) -> String {
     let mut cut = s.len();
-    for (name, value) in std::env::vars() {
+    for (name, value) in crate::rt::env::vars() {
         if value.is_empty()
             || !["TOKEN", "KEY", "SECRET", "PASSWORD"]
                 .iter()
@@ -1002,7 +997,7 @@ async fn handle_inner(
                     wait_for_revision(&state, after)
                 };
                 if should_wait {
-                    let _ = tokio::time::timeout(Duration::from_secs(25), notified).await;
+                    let _ = crate::rt::timeout(Duration::from_secs(25), notified).await;
                 }
                 Ok(snapshot(&r, after))
             }
@@ -1122,7 +1117,7 @@ fn recover_turns(state: &AppState, turns: &mut Value) {
     }
 }
 fn skill_root(state: &AppState) -> std::path::PathBuf {
-    std::env::var("PULLS_REVIEW_SKILLS_DIR")
+    crate::rt::env::var("PULLS_REVIEW_SKILLS_DIR")
         .ok()
         .filter(|value| !value.is_empty())
         .map(std::path::PathBuf::from)
