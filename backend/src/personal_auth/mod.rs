@@ -21,8 +21,8 @@ pub(super) trait AuthClock: Send + Sync {
 pub(super) struct SystemClock;
 impl AuthClock for SystemClock {
     fn now(&self) -> u64 {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs()
     }

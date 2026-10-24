@@ -42,11 +42,11 @@ async fn streamed_text_many_deltas_share_one_publication_and_timer() {
     assert!(futures_util::poll!(notification.as_mut()).is_pending());
     assert_eq!(run.publication.lock().unwrap().pending.len(), 2);
     tokio::time::advance(Duration::from_millis(249)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert_eq!(snapshot(&run, -1.0), before);
     // The deadline starts at the first patch, even if the timer is polled later.
     tokio::time::advance(Duration::from_millis(1)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert!(futures_util::poll!(notification.as_mut()).is_ready());
     let published = snapshot(&run, 2.0);
     assert_eq!(published["rev"], 3);
@@ -60,7 +60,7 @@ async fn streamed_text_many_deltas_share_one_publication_and_timer() {
         record_patch(&run, json!({"id":"answer","text":"delta 100"}));
     }
     tokio::time::advance(Duration::from_secs(1)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert_eq!(snapshot(&run, 2.0), published);
     assert!(run.publication.lock().unwrap().pending.is_empty());
     assert!(run.publication.lock().unwrap().timer.is_none());
@@ -91,7 +91,7 @@ async fn streamed_text_structural_updates_publish_pending_text_immediately() {
     assert_eq!(updated["activities"][0]["tool"], "read_source");
     assert_eq!(updated["activities"][0]["startedAt"], started);
     assert!(run.publication.lock().unwrap().timer.is_none());
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert!(timer.is_finished());
     record_patch(&run, json!({"id":"tool","text":"final text"}));
     record_patch(&run, json!({"id":"tool","status":"done"}));
@@ -104,7 +104,7 @@ async fn streamed_text_structural_updates_publish_pending_text_immediately() {
         json!({"id":"tool","status":"done","text":"final text"}),
     );
     tokio::time::advance(Duration::from_secs(1)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert_eq!(snapshot(&run, 2.0), done);
 }
 
@@ -134,11 +134,11 @@ async fn streamed_text_terminal_settlement_flushes_and_stops_timer() {
         assert_eq!(terminal["activities"][0]["text"], "complete final text 🦀");
         assert!(run.publication.lock().unwrap().pending.is_empty());
         assert!(run.publication.lock().unwrap().timer.is_none());
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         assert!(timer.is_finished());
         record_patch(&run, json!({"id":"answer","text":"too late"}));
         tokio::time::advance(Duration::from_secs(1)).await;
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         assert_eq!(snapshot(&run, 1.0), terminal);
     }
 }
@@ -160,7 +160,7 @@ async fn streamed_text_reverting_to_published_value_does_not_publish() {
     assert!(run.publication.lock().unwrap().pending.is_empty());
     assert!(run.publication.lock().unwrap().timer.is_none());
     tokio::time::advance(Duration::from_secs(1)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert_eq!(snapshot(&run, 0.0), before);
 }
 
@@ -182,7 +182,7 @@ async fn streamed_text_aborted_timer_cannot_publish_a_later_window() {
         assert_eq!(snapshot["activities"][0]["text"], "first window");
     }
     tokio::time::advance(TEXT_FLUSH_DELAY).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert_eq!(snapshot(&run, 2.0)["rev"], 3);
     assert_eq!(
         snapshot(&run, 2.0)["activities"][0]["text"],

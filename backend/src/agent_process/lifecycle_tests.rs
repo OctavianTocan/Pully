@@ -61,14 +61,14 @@ if args[0]=='create': print(args[args.index('--name')+1])
             .unwrap();
         children.push(child);
     }
-    let deadline = std::time::Instant::now() + Duration::from_secs(25);
+    let deadline = web_time::Instant::now() + Duration::from_secs(25);
     for child in &mut children {
         loop {
             if let Some(status) = child.try_wait().unwrap() {
                 assert!(status.success());
                 break;
             }
-            if std::time::Instant::now() >= deadline {
+            if web_time::Instant::now() >= deadline {
                 for child in &mut children {
                     let _ = child.kill();
                     let _ = child.wait();
@@ -94,7 +94,7 @@ async fn fake_docker_child() {
         return;
     }
     let (cancel, receiver) = watch::channel(false);
-    let task = tokio::spawn(async move {
+    let task = crate::rt::spawn(async move {
         run_agent_prepared(
             json!({"engine":"codex","prompt":"offline fixture"}),
             &AgentLogin::Account("offline-account".into()),
@@ -104,9 +104,9 @@ async fn fake_docker_child() {
         )
         .await
     });
-    tokio::time::timeout(Duration::from_secs(5), async {
+    crate::rt::timeout(Duration::from_secs(5), async {
         while !dir.join("ready").exists() {
-            tokio::time::sleep(Duration::from_millis(5)).await;
+            crate::rt::sleep(Duration::from_millis(5)).await;
         }
     })
     .await
@@ -132,13 +132,13 @@ async fn fake_docker_child() {
     let job = dir.join(&name);
     assert!(job.join("work").is_dir());
     cancel.send(true).unwrap();
-    let error = tokio::time::timeout(Duration::from_secs(3), task)
+    let error = crate::rt::timeout(Duration::from_secs(3), task)
         .await
         .unwrap()
         .unwrap()
         .unwrap_err();
     assert!(error.to_string().contains("cancelled"));
-    tokio::time::timeout(Duration::from_secs(15), shutdown_cleanup())
+    crate::rt::timeout(Duration::from_secs(15), shutdown_cleanup())
         .await
         .unwrap();
     for name in [&name, &format!("{name}-login")] {
@@ -169,7 +169,7 @@ async fn final_login_helper_cleanup(dir: &Path) {
     .unwrap();
     // Exercise the exact Drop cleanup sequence with only the helper deadline
     // shortened. The child PATH contains a synthetic Docker executable only.
-    let cleanup = tokio::spawn(cleanup_job(
+    let cleanup = crate::rt::spawn(cleanup_job(
         root.clone(),
         name.clone(),
         Some((
@@ -180,7 +180,7 @@ async fn final_login_helper_cleanup(dir: &Path) {
         Duration::from_millis(250),
     ));
     CLEANUPS.lock().unwrap().push(cleanup);
-    tokio::time::timeout(Duration::from_secs(15), shutdown_cleanup())
+    crate::rt::timeout(Duration::from_secs(15), shutdown_cleanup())
         .await
         .unwrap();
     assert!(

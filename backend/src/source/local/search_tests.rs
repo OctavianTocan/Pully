@@ -109,7 +109,7 @@ async fn batch_reports_missing_objects_and_stops_before_oversize_body() {
             blob: Some("0".repeat(40)),
         },
     );
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    let deadline = crate::rt::Instant::now() + std::time::Duration::from_secs(5);
     let re = regex::Regex::new("needle").unwrap();
     let mut result = SearchResult::default();
     search_blobs(
@@ -145,7 +145,7 @@ async fn batch_reports_missing_objects_and_stops_before_oversize_body() {
 #[test]
 fn batch_matching_obeys_hit_byte_and_time_caps() {
     let re = regex::Regex::new("needle").unwrap();
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    let deadline = crate::rt::Instant::now() + std::time::Duration::from_secs(5);
     let mut result = SearchResult::default();
     result.content("a.rs", &"needle\n".repeat(201), &re, deadline);
     assert_eq!(result.hits.len(), 200);
@@ -158,7 +158,7 @@ fn batch_matching_obeys_hit_byte_and_time_caps() {
     assert!(result.hits.is_empty());
     assert!(result.stopped.unwrap().contains("32 MiB"));
     let mut result = SearchResult::default();
-    result.content("a.rs", "needle", &re, tokio::time::Instant::now());
+    result.content("a.rs", "needle", &re, crate::rt::Instant::now());
     assert!(result.hits.is_empty());
     assert_eq!(result.stopped, Some("time limit"));
 }

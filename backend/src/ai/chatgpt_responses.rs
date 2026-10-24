@@ -18,10 +18,8 @@ use std::{
     future::Future,
     time::Duration,
 };
-use tokio::{
-    sync::watch,
-    time::{timeout_at, Instant},
-};
+use crate::rt::{timeout_at, Instant};
+use tokio::sync::watch;
 
 const MAX_EVENT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_STREAM_BYTES: usize = 16 * 1024 * 1024;
@@ -90,9 +88,8 @@ impl ResponsesClient {
     }
 
     fn transport_client() -> Result<reqwest::Client> {
-        reqwest::Client::builder()
+        crate::net::client()
             .no_proxy()
-            .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(10))
             .read_timeout(Duration::from_secs(90))
             .timeout(TOTAL_LIMIT)
@@ -162,8 +159,7 @@ impl ResponsesClient {
                 .await?;
             let mut response = guard
                 .wait(async {
-                    authorized
-                        .send()
+                    crate::net::send(authorized)
                         .await
                         .map_err(|_| anyhow!("The ChatGPT connection failed"))
                 })

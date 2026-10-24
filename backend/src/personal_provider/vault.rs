@@ -453,7 +453,7 @@ impl PersonalProviders {
         expected: ExpectedConnection,
         refresh: bool,
     ) -> Result<PiCatalog> {
-        tokio::time::timeout(self.0.catalog_timeout, async {
+        crate::rt::timeout(self.0.catalog_timeout, async {
             self.pi_lease(identity, expected)
                 .await?
                 .models(refresh)
@@ -539,7 +539,7 @@ impl PiLease {
             biased;
             _ = connection.changed() => Err(unavailable()),
             _ = owner.changed() => Err(unavailable()),
-            result = tokio::time::timeout(self.inner.catalog_timeout, self.models_current(refresh)) => result.map_err(|_| unavailable())?,
+            result = crate::rt::timeout(self.inner.catalog_timeout, self.models_current(refresh)) => result.map_err(|_| unavailable())?,
         }
     }
 

@@ -11,7 +11,7 @@ struct SystemDns;
 impl Dns for SystemDns {
     fn resolve<'a>(&'a self, host: &'a str, port: u16) -> DnsFuture<'a> {
         Box::pin(async move {
-            let resolved = tokio::time::timeout(
+            let resolved = crate::rt::timeout(
                 Duration::from_secs(5),
                 tokio::net::lookup_host((host, port)),
             )

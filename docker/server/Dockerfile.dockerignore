@@ -1,5 +1,0 @@
-*
-!backend
-backend/target
-!docker/agents/skills
-!packages/core/src/types/merge-risk-rubric.json

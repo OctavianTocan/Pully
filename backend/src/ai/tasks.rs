@@ -935,7 +935,7 @@ async fn suggest(
 ) {
     let engine = text(job, "engine");
     let mut req = json!({"engine":engine,"effort":"low","system":"Write up to three short useful follow-up questions in the conversation language, each under 80 characters and ending with a question mark. Never repeat the current question. Return only JSON matching the schema.","prompt":format!("Question: {}\nAnswer: {}",run.request.get("question").or(run.request.get("text")).and_then(Value::as_str).unwrap_or("Explain this pull request"),answer.chars().take(6000).collect::<String>()),"schema":obj(json!({"questions":strings()}),&["questions"])});
-    if let Ok(model) = std::env::var("PULLS_REVIEW_SUGGEST_MODEL") {
+    if let Ok(model) = crate::rt::env::var("PULLS_REVIEW_SUGGEST_MODEL") {
         if !model.is_empty() {
             req["model"] = json!(model)
         }
@@ -943,7 +943,7 @@ async fn suggest(
         req["model"] = json!("haiku")
     } else if engine == "pi" {
         if let Ok(Ok(catalog)) =
-            tokio::time::timeout(Duration::from_secs(5), provider::catalog(state, "pi")).await
+            crate::rt::timeout(Duration::from_secs(5), provider::catalog(state, "pi")).await
         {
             if let Some(model) = array(&catalog["models"]).iter().find(|m| {
                 let id = text(m, "id").to_lowercase();
@@ -955,7 +955,7 @@ async fn suggest(
             }
         }
     }
-    let Ok(Ok((text, _))) = tokio::time::timeout(
+    let Ok(Ok((text, _))) = crate::rt::timeout(
         Duration::from_secs(20),
         invoke_provider(state, run, &req, StructuredAnswerPreparation::Strict),
     )

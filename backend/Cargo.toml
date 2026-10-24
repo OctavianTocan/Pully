@@ -14,33 +14,57 @@ two-face = { version = "=0.5.2", default-features = false, features = [ "syntect
 roxmltree = "0.20"
 mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
 anyhow = "1"
-axum = { version = "0.8", features = [ "ws" ] }
+axum = { version = "0.8", default-features = false, features = [ "json", "query" ] }
 base64 = "0.22"
-clap = { version = "4", features = [
-  "derive",
-  "env"
-] }
 futures-util = "0.3"
-fs2 = "0.4"
 hex = "0.4"
-libc = "0.2"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = [
   "json",
-  "rustls-tls",
   "stream"
 ] }
 ring = "0.17"
 serde = { version = "1", features = [ "derive" ] }
 serde_json = { version = "1", features = [ "preserve_order" ] }
 sha2 = "0.10"
+uuid = { version = "1", features = [ "v4" ] }
+url = "2"
+web-time = "1"
+
+# The native server: sockets, files, child processes and the CLI.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+axum = { version = "0.8", features = [ "ws" ] }
+clap = { version = "4", features = [
+  "derive",
+  "env"
+] }
+fs2 = "0.4"
+reqwest = { version = "0.12", default-features = false, features = [ "rustls-tls" ] }
 tokio = { version = "1", features = [ "full" ] }
 tower-http = { version = "0.6", features = [
   "fs",
   "limit"
 ] }
-uuid = { version = "1", features = [ "v4" ] }
-url = "2"
+
+# The Cloudflare Worker build (backend/worker): one thread, timers and fetch from the JS runtime.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bytes = "1"
+getrandom = { version = "0.2", features = [ "js" ] }
+js-sys = "0.3"
+send_wrapper = { version = "0.6", features = [ "futures" ] }
+tokio = { version = "1", default-features = false, features = [ "sync", "macros", "io-util" ] }
+uuid = { version = "1", features = [ "v4", "js" ] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+  "Headers",
+  "ReadableStream",
+  "ReadableStreamDefaultReader",
+  "Request",
+  "RequestInit",
+  "RequestRedirect",
+  "Response"
+] }
 
 [dev-dependencies]
 tokio = { version = "1", features = [ "test-util" ] }

@@ -28,7 +28,7 @@ impl Fixture {
         request["key"] = json!("test");
         request["model"] = json!({"engine":"fixture"});
         let run = Arc::new(super::tests::preparation_run(request));
-        tokio::time::timeout(
+        crate::rt::timeout(
             Duration::from_secs(3),
             perform_with_provider(&self.state, &run, fixture_provider),
         )
@@ -264,7 +264,7 @@ async fn failed_chat_queued_session_write_observes_cancellation() {
     assert!(futures_util::poll!(&mut write).is_pending());
     cancel(&run);
     drop(held);
-    let error = tokio::time::timeout(Duration::from_secs(3), &mut write)
+    let error = crate::rt::timeout(Duration::from_secs(3), &mut write)
         .await
         .unwrap()
         .unwrap_err();

@@ -59,14 +59,14 @@ where
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
     let before =
-        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
+        crate::rt::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
     let version = version(pull);
     if before.is_none() {
         let stored_state = state.clone();
         // Initial indexing can read existing snapshots once; keep that work off
         // Tokio workers. Later checks use only the mutation-tracked metadata.
         let capacity =
-            tokio::task::spawn_blocking(move || review::diff_capacity(&stored_state)).await??;
+            crate::rt::spawn_blocking(move || review::diff_capacity(&stored_state)).await??;
         if !capacity.available()
             || rejected.is_some_and(|r| r.version == version && r.capacity == capacity)
         {
@@ -76,7 +76,7 @@ where
     let mut updated = false;
     if let Some(diff) = fetch(before.clone()).await? {
         let stored_state = state.clone();
-        let (admission, wrote_diff) = tokio::task::spawn_blocking(move || {
+        let (admission, wrote_diff) = crate::rt::spawn_blocking(move || {
             let admission = review::put_warmed_diff_if_unchanged(&stored_state, &key, &diff, before.as_ref())?;
             let wrote_diff = matches!(&admission, review::WarmAdmission::Stored(stored) if stored["diff"] == diff);
             Ok::<_, anyhow::Error>((admission, wrote_diff))
@@ -111,7 +111,7 @@ where
     );
     let stored_state = state.clone();
     let overview =
-        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&overview_key)).await??;
+        crate::rt::spawn_blocking(move || stored_state.host.storage.get(&overview_key)).await??;
     let stale = overview.as_ref().is_none_or(|o| {
         o["updatedAt"] != pull["updatedAt"]
             || now_ms().saturating_sub(o["at"].as_u64().unwrap_or(0)) >= 30 * 60 * 1000
@@ -122,7 +122,7 @@ where
     let overview = fetch().await?["overview"].clone();
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
-    tokio::task::spawn_blocking(move || {
+    crate::rt::spawn_blocking(move || {
         stored_state.host.storage.update(&stored_key, |old| {
             let mut e = old.context("Cached diff was evicted")?;
             if e.is_object() && e["headSha"] == overview["head"]["oid"] {
@@ -173,7 +173,7 @@ async fn cache_pull(
     // needs another pass; unchanged warm pulls must not rescan retained snapshots.
     let rejected = if stale {
         let stored_state = state.clone();
-        tokio::task::spawn_blocking(move || review::finish_warming(&stored_state, &key))
+        crate::rt::spawn_blocking(move || review::finish_warming(&stored_state, &key))
             .await??
             .map(|capacity| RejectedSnapshot {
                 version: version(pull),
@@ -186,9 +186,9 @@ async fn cache_pull(
 }
 pub async fn warm(state: Arc<AppState>) {
     let mut rejected = HashMap::new();
-    tokio::time::sleep(Duration::from_secs(5)).await;
-    let mut interval = tokio::time::interval(Duration::from_secs(180));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    crate::rt::sleep(Duration::from_secs(5)).await;
+    let mut interval = crate::rt::interval(Duration::from_secs(180));
+    interval.set_missed_tick_behavior(crate::rt::MissedTickBehavior::Skip);
     loop {
         interval.tick().await;
         if !matches!(source::github_token(&state).await, Ok(Some(_))) {
@@ -272,7 +272,7 @@ async fn preanalyze_head(
     let stored_state = state.clone();
     let stored_key = format!("diff:{key}");
     let before =
-        tokio::task::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
+        crate::rt::spawn_blocking(move || stored_state.host.storage.get(&stored_key)).await??;
     let expected_head = &pull["headSha"];
     if before
         .as_ref()
@@ -282,7 +282,7 @@ async fn preanalyze_head(
         let stored_state = state.clone();
         let stored_key = key.clone();
         let captured_head = expected_head.clone();
-        tokio::task::spawn_blocking(move || {
+        crate::rt::spawn_blocking(move || {
             store_preanalysis_diff(
                 &stored_state,
                 &stored_key,
@@ -351,8 +351,8 @@ async fn preanalysis_round<F, Fut>(
 }
 pub async fn preanalyze(state: Arc<AppState>, engine: String, model: Option<String>) {
     let mut attempted = HashSet::new();
-    let mut interval = tokio::time::interval(Duration::from_secs(600));
-    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut interval = crate::rt::interval(Duration::from_secs(600));
+    interval.set_missed_tick_behavior(crate::rt::MissedTickBehavior::Skip);
     loop {
         interval.tick().await;
         let Ok(list) = pulls(&state).await else {
@@ -404,7 +404,7 @@ mod tests {
                     .unwrap();
                 on_time
             });
-            tokio::time::timeout(Duration::from_secs(1), started)
+            crate::rt::timeout(Duration::from_secs(1), started)
                 .await
                 .unwrap()
                 .unwrap();
@@ -424,11 +424,11 @@ mod tests {
         async fn assert_responsive<T>(mut self, work: impl Future<Output = T>) -> T {
             tokio::pin!(work);
             let waiting = futures_util::poll!(&mut work).is_pending();
-            assert_eq!(tokio::spawn(async { 42 }).await.unwrap(), 42);
+            assert_eq!(crate::rt::spawn(async { 42 }).await.unwrap(), 42);
             let on_time = self.release();
             assert!(waiting, "overview transaction must wait for the held lock");
             assert!(on_time, "overview storage blocked the async runtime");
-            tokio::time::timeout(Duration::from_secs(1), work)
+            crate::rt::timeout(Duration::from_secs(1), work)
                 .await
                 .expect("released overview transaction should finish")
         }
@@ -544,7 +544,7 @@ mod tests {
             // second check exercises the guarded write rather than another read.
             tokio::select! {
                 result = &mut work => panic!("overview must await its fetch: {result:?}"),
-                started = tokio::time::timeout(Duration::from_secs(1), fetch_started) => {
+                started = crate::rt::timeout(Duration::from_secs(1), fetch_started) => {
                     started.unwrap().unwrap();
                 }
             }

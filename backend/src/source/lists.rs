@@ -61,7 +61,7 @@ impl Drop for RepoRefreshGuard {
         let Some(identity) = self.0.take() else {
             return;
         };
-        tokio::task::spawn_blocking(move || {
+        crate::rt::spawn_blocking(move || {
             repo_refreshes()
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
@@ -135,7 +135,7 @@ where
     let flight = RepoRefreshGuard(Some(identity));
     let state = state.clone();
     let args = args.clone();
-    tokio::spawn(async move {
+    crate::rt::spawn(async move {
         let result = async {
             let mut result = fetch(state.clone(), args).await?;
             result["cachedAt"] = json!(now());
@@ -193,7 +193,7 @@ where
     let flight = RepoRefreshGuard(Some(identity));
     let state = state.clone();
     let args = args.clone();
-    tokio::spawn(async move {
+    crate::rt::spawn(async move {
         let result = fetch(state, args).await;
         flight.publish(sender, result).await;
     });
@@ -311,7 +311,7 @@ fn warm_repositories_sync(state: &Arc<AppState>, pulls: &[Value]) {
         return;
     }
     let state = state.clone();
-    tokio::spawn(async move {
+    crate::rt::spawn(async move {
         for args in due {
             let _ = refresh_repo(&state, &args, false).await;
         }
@@ -792,7 +792,7 @@ mod tests {
                     .unwrap(),
             );
         }
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
         fake.release.add_permits(1);
         for receiver in receivers {
@@ -820,7 +820,7 @@ mod tests {
                 .unwrap(),
             cached
         );
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
 
         // All stale reads return immediately while GitHub is blocked; none enqueue work.
@@ -874,7 +874,7 @@ mod tests {
             }
         }
         for _ in 0..16 {
-            tokio::task::yield_now().await;
+            crate::rt::yield_now().await;
         }
         assert_eq!(fake.calls.load(Ordering::SeqCst), 1);
         assert!(!repo_refreshes()
@@ -900,7 +900,7 @@ mod tests {
     }
     #[tokio::test]
     async fn repository_refresh_coalesces_slow_success_and_failure() {
-        tokio::time::timeout(Duration::from_secs(2), async {
+        crate::rt::timeout(Duration::from_secs(2), async {
             shared_repo_refresh(false).await;
             shared_repo_refresh(true).await;
         })
@@ -944,7 +944,7 @@ mod tests {
             .unwrap();
         assert_eq!(value["pulls"], cached["pulls"]);
         assert_eq!(value["refreshing"], false);
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         assert!(!repo_refreshes()
             .lock()
             .unwrap()

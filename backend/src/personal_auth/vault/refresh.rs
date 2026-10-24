@@ -21,7 +21,7 @@ impl PersonalVault {
         provider: Arc<dyn GitHubProvider>,
     ) -> Result<AuthenticatedSession> {
         let (this, session) = (self.clone(), session.to_owned());
-        tokio::spawn(async move { this.refresh_owned(session, provider).await })
+        crate::rt::spawn(async move { this.refresh_owned(session, provider).await })
             .await
             .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?
     }

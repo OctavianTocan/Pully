@@ -7,7 +7,6 @@ use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
-    io::Write,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock, Weak},
 };
@@ -19,9 +18,23 @@ use std::{
 pub(crate) async fn blocking<T: Send + 'static>(
     operation: impl FnOnce() -> Result<T> + Send + 'static,
 ) -> Result<T> {
-    tokio::task::spawn_blocking(operation)
+    crate::rt::spawn_blocking(operation)
         .await
         .context("Storage task failed")?
+}
+
+/// Where a [`Store`] keeps its records: files on the native server, Durable Object SQLite in
+/// the Worker (`packages/worker`). An id is a collection (`account`) or a collection and an
+/// encoded name (`diff/github%3Ao%2Fr%231`); the Store validates ids before they get here and
+/// holds its lock around every call.
+pub trait Records: Send + Sync {
+    fn get(&self, id: &str) -> Result<Option<Vec<u8>>>;
+    /// Replaces the record atomically: a reader sees the old bytes or the new, never a mix.
+    fn put(&self, id: &str, bytes: &[u8]) -> Result<()>;
+    /// Returns whether there was a record to remove.
+    fn delete(&self, id: &str) -> Result<bool>;
+    /// Every stored id, in any order.
+    fn ids(&self) -> Result<Vec<String>>;
 }
 
 #[derive(Clone)]
@@ -34,7 +47,107 @@ struct RootLock {
     diff_index: Mutex<DiffIndex>,
     #[cfg(test)]
     diff_body_reads: std::sync::atomic::AtomicUsize,
-    _file: fs::File,
+    records: Box<dyn Records>,
+}
+impl RootLock {
+    fn new(records: Box<dyn Records>) -> Arc<Self> {
+        Arc::new(Self {
+            mutex: Mutex::new(()),
+            diff_index: Mutex::new(DiffIndex::default()),
+            #[cfg(test)]
+            diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
+            records,
+        })
+    }
+}
+/// Records as files under one directory, each written aside and renamed into place. The
+/// directory is locked to one server process.
+#[cfg(not(target_arch = "wasm32"))]
+struct Files {
+    root: PathBuf,
+    _lock: fs::File,
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl Files {
+    fn path(&self, id: &str) -> Result<PathBuf> {
+        let path = self.root.join(id);
+        // Refuse preexisting symlinks at every level, including collection directories.
+        for p in [path.parent().unwrap_or(&self.root), path.as_path()] {
+            if let Ok(meta) = fs::symlink_metadata(p) {
+                if meta.file_type().is_symlink() {
+                    bail!("Storage symlinks are not allowed");
+                }
+            }
+        }
+        Ok(path)
+    }
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl Records for Files {
+    fn get(&self, id: &str) -> Result<Option<Vec<u8>>> {
+        match fs::read(self.path(id)?) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+    fn put(&self, id: &str, bytes: &[u8]) -> Result<()> {
+        use std::io::Write;
+        let path = self.path(id)?;
+        let parent = path.parent().unwrap();
+        fs::create_dir_all(parent)?;
+        let temporary = parent.join(format!(".tmp-{}", uuid::Uuid::new_v4()));
+        let result = (|| -> Result<()> {
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&temporary)?;
+            file.write_all(bytes)?;
+            file.sync_all()?;
+            fs::rename(&temporary, &path)?;
+            if let Ok(dir) = fs::File::open(parent) {
+                let _ = dir.sync_all();
+            }
+            Ok(())
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temporary);
+        }
+        result
+    }
+    fn delete(&self, id: &str) -> Result<bool> {
+        match fs::remove_file(self.path(id)?) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+    fn ids(&self) -> Result<Vec<String>> {
+        let mut ids = Vec::new();
+        for entry in fs::read_dir(&self.root)? {
+            let entry = entry?;
+            let kind = entry.file_type()?;
+            let head = entry.file_name().to_string_lossy().into_owned();
+            if head.starts_with('.') || kind.is_symlink() {
+                continue;
+            }
+            if kind.is_dir() {
+                for file in fs::read_dir(entry.path())? {
+                    let file = file?;
+                    if !file.file_type()?.is_file() {
+                        continue;
+                    }
+                    let name = file.file_name().to_string_lossy().into_owned();
+                    if !name.starts_with('.') {
+                        ids.push(format!("{head}/{name}"));
+                    }
+                }
+            } else if kind.is_file() {
+                ids.push(head);
+            }
+        }
+        Ok(ids)
+    }
 }
 #[derive(Clone)]
 pub(crate) struct DiffEntryMetadata {
@@ -75,6 +188,7 @@ pub(crate) struct DiffSnapshot {
     pub entries: BTreeMap<String, DiffEntryMetadata>,
     pub size_bytes: u64,
 }
+#[cfg(not(target_arch = "wasm32"))]
 static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RootLock>>>> = OnceLock::new();
 impl Store {
     pub(crate) async fn transaction<T: Send + 'static>(
@@ -95,6 +209,8 @@ impl Store {
     pub fn root(&self) -> &std::path::Path {
         &self.root
     }
+    /// Opens the file store at `root`, creating it, and locks it to this process.
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new(root: PathBuf) -> Result<Self> {
         fs::create_dir_all(&root).context("Cannot create server storage")?;
         let root = fs::canonicalize(root)?;
@@ -120,19 +236,24 @@ impl Store {
                 .open(path)?;
             fs2::FileExt::try_lock_exclusive(&file)
                 .context("Another Rust server is using this data directory")?;
-            let lock = Arc::new(RootLock {
-                mutex: Mutex::new(()),
-                diff_index: Mutex::new(DiffIndex::default()),
-                #[cfg(test)]
-                diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
-                _file: file,
-            });
+            let lock = RootLock::new(Box::new(Files {
+                root: root.clone(),
+                _lock: file,
+            }));
             locks.insert(root.clone(), Arc::downgrade(&lock));
             lock
         };
         Ok(Self { root, lock })
     }
-    fn path(&self, key: &str) -> Result<PathBuf> {
+    /// A store over `records`. `root` names it: caches keyed by store use it, and nothing
+    /// is read from or written to that path.
+    pub fn with_records(root: PathBuf, records: Box<dyn Records>) -> Self {
+        Self {
+            root,
+            lock: RootLock::new(records),
+        }
+    }
+    fn id(&self, key: &str) -> Result<String> {
         if key.is_empty() || key.len() > 16000 {
             bail!("Invalid storage key");
         }
@@ -148,42 +269,29 @@ impl Store {
         {
             bail!("Invalid storage collection");
         }
-        let path = if let Some(rest) = parts.next() {
+        if let Some(rest) = parts.next() {
             let name = encode(rest);
             if name.is_empty() || name == "." || name == ".." {
                 bail!("Invalid storage key");
             }
-            self.root.join(head).join(name)
+            Ok(format!("{head}/{name}"))
         } else {
-            self.root.join(head)
-        };
-        // Refuse preexisting symlinks at every level, including collection directories.
-        for p in [path.parent().unwrap_or(&self.root), path.as_path()] {
-            if let Ok(meta) = fs::symlink_metadata(p) {
-                if meta.file_type().is_symlink() {
-                    bail!("Storage symlinks are not allowed");
-                }
-            }
+            Ok(head.to_owned())
         }
-        Ok(path)
     }
     fn raw_get(&self, key: &str) -> Result<Option<Value>> {
-        let path = self.path(key)?;
-        match fs::read(path) {
-            Ok(bytes) => {
-                #[cfg(test)]
-                if key.starts_with("diff:") || key.starts_with("pr-body:") {
-                    self.lock
-                        .diff_body_reads
-                        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                }
-                Ok(Some(
-                    serde_json::from_slice(&bytes).context("Invalid stored JSON")?,
-                ))
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
+        let Some(bytes) = self.lock.records.get(&self.id(key)?)? else {
+            return Ok(None);
+        };
+        #[cfg(test)]
+        if key.starts_with("diff:") || key.starts_with("pr-body:") {
+            self.lock
+                .diff_body_reads
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         }
+        Ok(Some(
+            serde_json::from_slice(&bytes).context("Invalid stored JSON")?,
+        ))
     }
     fn read(&self, key: &str) -> Result<Option<Value>> {
         if let Some(scope) = key
@@ -232,28 +340,11 @@ impl Store {
         Ok(None)
     }
     fn write(&self, key: &str, value: &Value) -> Result<()> {
-        let path = self.path(key)?;
-        let parent = path.parent().unwrap();
-        fs::create_dir_all(parent)?;
-        let temporary = parent.join(format!(".tmp-{}", uuid::Uuid::new_v4()));
-        let result = (|| -> Result<()> {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&temporary)?;
-            file.write_all(&serde_json::to_vec(value)?)?;
-            file.sync_all()?;
-            fs::rename(&temporary, &path)?;
-            self.note_diff_mutation(key, Some(value));
-            if let Ok(dir) = fs::File::open(parent) {
-                let _ = dir.sync_all();
-            }
-            Ok(())
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temporary);
-        }
-        result
+        self.lock
+            .records
+            .put(&self.id(key)?, &serde_json::to_vec(value)?)?;
+        self.note_diff_mutation(key, Some(value));
+        Ok(())
     }
     // All callers hold the root lock, so mutation versions and their metadata are
     // published together. Alias changes can expose or modify a legacy split diff.
@@ -406,14 +497,10 @@ impl Store {
         self.erase(key)
     }
     fn erase(&self, key: &str) -> Result<()> {
-        match fs::remove_file(self.path(key)?) {
-            Ok(()) => {
-                self.note_diff_mutation(key, None);
-                Ok(())
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-            Err(e) => Err(e.into()),
+        if self.lock.records.delete(&self.id(key)?)? {
+            self.note_diff_mutation(key, None);
         }
+        Ok(())
     }
     /// @cc [owner:OctavianTocan,label:architecture] rust-store-atomic-mutations
     /// The complete read/modify/write MUST share a lock across Store instances for
@@ -439,7 +526,7 @@ impl Store {
             .map_err(|_| anyhow::anyhow!("Storage lock unavailable"))?;
         let mut seen = std::collections::HashSet::new();
         for (key, expected, _) in items {
-            let target = self.path(key)?;
+            let target = self.id(key)?;
             if !seen.insert(target) {
                 bail!("Duplicate storage mutation");
             }
@@ -467,46 +554,32 @@ impl Store {
     fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
         let prefix = prefix.replace(['/', '\\'], ":");
         let mut keys = Vec::new();
-        for entry in fs::read_dir(&self.root)? {
-            let entry = entry?;
-            let kind = entry.file_type()?;
-            let head = entry.file_name().to_string_lossy().into_owned();
-            if head.starts_with('.') || kind.is_symlink() {
+        for id in self.lock.records.ids()? {
+            let Some((head, name)) = id.split_once('/') else {
+                if id.starts_with(&prefix) {
+                    keys.push(id);
+                }
                 continue;
-            }
-            if kind.is_dir() {
-                for file in fs::read_dir(entry.path())? {
-                    let file = file?;
-                    if !file.file_type()?.is_file() {
-                        continue;
-                    }
-                    let name = file.file_name().to_string_lossy().into_owned();
-                    if name.starts_with('.') {
-                        continue;
-                    }
-                    if let Some(name) = decode(&name) {
-                        let key = format!("{head}:{name}");
-                        if key.starts_with(&prefix) {
-                            keys.push(key);
-                        }
-                        if head == "diff" {
-                            for p in ["pr-meta", "pr-body"] {
-                                let synthetic = format!("{p}:{name}");
-                                if synthetic.starts_with(&prefix) {
-                                    keys.push(synthetic);
-                                }
-                            }
-                        }
-                        if head == "pr-meta" {
-                            let migrated = format!("diff:{name}");
-                            if migrated.starts_with(&prefix) {
-                                keys.push(migrated);
-                            }
+            };
+            if let Some(name) = decode(name) {
+                let key = format!("{head}:{name}");
+                if key.starts_with(&prefix) {
+                    keys.push(key);
+                }
+                if head == "diff" {
+                    for p in ["pr-meta", "pr-body"] {
+                        let synthetic = format!("{p}:{name}");
+                        if synthetic.starts_with(&prefix) {
+                            keys.push(synthetic);
                         }
                     }
                 }
-            } else if kind.is_file() && head.starts_with(&prefix) {
-                keys.push(head);
+                if head == "pr-meta" {
+                    let migrated = format!("diff:{name}");
+                    if migrated.starts_with(&prefix) {
+                        keys.push(migrated);
+                    }
+                }
             }
         }
         keys.sort();

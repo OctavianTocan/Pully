@@ -4,8 +4,9 @@ use anyhow::{ensure, Context, Result};
 use serde_json::{json, Value};
 use std::{
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 use tokio::sync::{watch, Mutex};
 
 const TTL: Duration = Duration::from_secs(600);
@@ -82,7 +83,7 @@ where
     });
     let cache = cache.clone();
     let active = receiver.clone();
-    tokio::spawn(async move {
+    crate::rt::spawn(async move {
         let result = fetch().await.map_err(|error| RefreshError(Arc::new(error)));
         let mut current = cache.0.lock().await;
         if result.is_err()
@@ -182,7 +183,7 @@ mod tests {
     #[tokio::test]
     async fn profile_refresh_shares_delayed_success_and_failure() {
         use std::sync::atomic::{AtomicUsize, Ordering};
-        tokio::time::timeout(Duration::from_secs(2), async {
+        crate::rt::timeout(Duration::from_secs(2), async {
             for fail in [false, true] {
                 let cache = Cache::default();
                 let calls = Arc::new(AtomicUsize::new(0));
@@ -203,7 +204,7 @@ mod tests {
                         .await,
                     );
                 }
-                tokio::task::yield_now().await;
+                crate::rt::yield_now().await;
                 assert_eq!(calls.load(Ordering::SeqCst), 1);
                 // A dropped HTTP waiter must not cancel the shared refresh.
                 waiting.pop();
@@ -242,7 +243,7 @@ mod tests {
     }
     #[tokio::test]
     async fn profile_fresh_bypasses_cache_without_old_completion_replacing_it() {
-        tokio::time::timeout(Duration::from_secs(2), async {
+        crate::rt::timeout(Duration::from_secs(2), async {
             for fail in [false, true] {
                 let cache = Cache::default();
                 let (release, wait) = tokio::sync::oneshot::channel();

@@ -10,7 +10,7 @@ impl PostedStore {
         operation: impl FnOnce(Self) -> Result<T> + Send + 'static,
     ) -> Result<T> {
         let store = self.clone();
-        tokio::task::spawn_blocking(move || operation(store))
+        crate::rt::spawn_blocking(move || operation(store))
             .await
             .context("Posted storage task failed")?
     }
@@ -118,9 +118,9 @@ mod tests {
         let held = HeldWrites::new();
         let mut operation = Box::pin(future);
         assert!(futures_util::poll!(&mut operation).is_pending());
-        tokio::time::sleep(Duration::from_millis(1)).await;
+        crate::rt::sleep(Duration::from_millis(1)).await;
         assert_eq!(
-            tokio::spawn(async { "runtime available" }).await.unwrap(),
+            crate::rt::spawn(async { "runtime available" }).await.unwrap(),
             "runtime available"
         );
         held.release();

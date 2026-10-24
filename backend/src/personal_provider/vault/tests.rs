@@ -324,7 +324,7 @@ async fn remove_from_another_store_instance_retires_old_leases_and_reconfigure_k
     assert_eq!(state_name(&removed), "disconnected");
     assert!(removed.connection_id.is_none());
     assert!(
-        tokio::time::timeout(Duration::from_secs(1), lease.retired())
+        crate::rt::timeout(Duration::from_secs(1), lease.retired())
             .await
             .unwrap()
             .is_err()
@@ -364,7 +364,7 @@ async fn sign_out_retires_only_the_captured_principal_not_another_current_sessio
         .await
         .unwrap();
     revoke(&first);
-    assert!(tokio::time::timeout(Duration::from_secs(1), old.retired())
+    assert!(crate::rt::timeout(Duration::from_secs(1), old.retired())
         .await
         .unwrap()
         .is_err());
@@ -514,7 +514,7 @@ async fn revoked_source_waiting_for_actual_storage_cannot_commit_configuration()
     assert!(futures_util::poll!(&mut operation).is_pending());
     revoke(&owner);
     drop(held);
-    assert!(tokio::time::timeout(Duration::from_secs(1), operation)
+    assert!(crate::rt::timeout(Duration::from_secs(1), operation)
         .await
         .unwrap()
         .is_err());
@@ -564,7 +564,7 @@ async fn models(State(reply): State<Arc<Reply>>, headers: HeaderMap) -> Response
 struct Provider {
     base: String,
     reply: Arc<Reply>,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Provider {
     async fn new() -> Self {
@@ -581,7 +581,7 @@ impl Provider {
                 }),
             )
             .with_state(reply.clone());
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         Self { base, reply, task }
@@ -706,12 +706,12 @@ async fn source_retirement_cancels_a_held_real_request_and_denies_its_late_catal
         .pi_lease(&owner, expected(&status))
         .await
         .unwrap();
-    let work = tokio::spawn(async move { lease.models(true).await });
-    tokio::time::timeout(Duration::from_secs(1), server.reply.entered.notified())
+    let work = crate::rt::spawn(async move { lease.models(true).await });
+    crate::rt::timeout(Duration::from_secs(1), server.reply.entered.notified())
         .await
         .unwrap();
     revoke(&owner);
-    assert!(tokio::time::timeout(Duration::from_secs(1), work)
+    assert!(crate::rt::timeout(Duration::from_secs(1), work)
         .await
         .unwrap()
         .unwrap()
@@ -736,8 +736,8 @@ async fn replacing_a_held_connection_retires_old_work_without_damaging_the_fresh
         .pi_lease(&owner, expected(&status))
         .await
         .unwrap();
-    let work = tokio::spawn(async move { old.models(true).await });
-    tokio::time::timeout(Duration::from_secs(1), server.reply.entered.notified())
+    let work = crate::rt::spawn(async move { old.models(true).await });
+    crate::rt::timeout(Duration::from_secs(1), server.reply.entered.notified())
         .await
         .unwrap();
     let replacement = h
@@ -755,7 +755,7 @@ async fn replacing_a_held_connection_retires_old_work_without_damaging_the_fresh
         )
         .await
         .unwrap();
-    assert!(tokio::time::timeout(Duration::from_secs(1), work)
+    assert!(crate::rt::timeout(Duration::from_secs(1), work)
         .await
         .unwrap()
         .unwrap()
@@ -787,15 +787,15 @@ async fn a_never_finishing_chunked_body_has_a_bounded_catalog_deadline() {
     let providers = h.providers.clone();
     let captured_owner = owner.clone();
     let captured_expected = expected(&status);
-    let operation = tokio::spawn(async move {
+    let operation = crate::rt::spawn(async move {
         providers
             .pi_models(&captured_owner, captured_expected, true)
             .await
     });
-    tokio::time::timeout(Duration::from_secs(1), server.reply.entered.notified())
+    crate::rt::timeout(Duration::from_secs(1), server.reply.entered.notified())
         .await
         .unwrap();
-    let result = tokio::time::timeout(Duration::from_secs(2), operation)
+    let result = crate::rt::timeout(Duration::from_secs(2), operation)
         .await
         .unwrap()
         .unwrap();

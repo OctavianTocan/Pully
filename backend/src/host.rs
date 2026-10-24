@@ -13,7 +13,7 @@ pub struct ServerHost {
     pub android_dir: Option<PathBuf>,
 }
 pub struct HostFile {
-    pub file: tokio::fs::File,
+    pub file: crate::rt::fs::File,
     pub size: u64,
 }
 impl ServerHost {
@@ -33,12 +33,12 @@ impl ServerHost {
         self.android_dir
             .clone()
             .or_else(|| {
-                std::env::var_os("PULLS_REVIEW_ANDROID_DIR")
+                crate::rt::env::var_os("PULLS_REVIEW_ANDROID_DIR")
                     .filter(|s| !s.is_empty())
                     .map(PathBuf::from)
             })
             .unwrap_or_else(|| {
-                PathBuf::from(std::env::var_os("HOME").unwrap_or_else(|| ".".into()))
+                PathBuf::from(crate::rt::env::var_os("HOME").unwrap_or_else(|| ".".into()))
                     .join(".local/share/pulls-review/android")
             })
     }
@@ -47,12 +47,12 @@ impl ServerHost {
         if name.is_empty() || !path.components().all(|c| matches!(c, Component::Normal(_))) {
             bail!("Invalid Android file name");
         }
-        let root = match tokio::fs::canonicalize(self.android_dir()).await {
+        let root = match crate::rt::fs::canonicalize(self.android_dir()).await {
             Ok(root) => root,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e.into()),
         };
-        let path = match tokio::fs::canonicalize(root.join(path)).await {
+        let path = match crate::rt::fs::canonicalize(root.join(path)).await {
             Ok(path) => path,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e.into()),
@@ -60,7 +60,7 @@ impl ServerHost {
         if !path.starts_with(&root) {
             bail!("Android file is outside its directory");
         }
-        let file = tokio::fs::File::open(&path).await?;
+        let file = crate::rt::fs::File::open(&path).await?;
         let info = file.metadata().await?;
         if !info.is_file() {
             return Ok(None);
@@ -69,7 +69,7 @@ impl ServerHost {
         {
             use std::os::fd::AsRawFd;
             let opened =
-                tokio::fs::canonicalize(format!("/proc/self/fd/{}", file.as_raw_fd())).await?;
+                crate::rt::fs::canonicalize(format!("/proc/self/fd/{}", file.as_raw_fd())).await?;
             if !opened.starts_with(&root) {
                 bail!("Android file is outside its directory");
             }

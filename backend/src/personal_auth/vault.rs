@@ -169,7 +169,7 @@ struct Binding {
     revision: u64,
     deadline: u64,
     credential: GitHubCredential,
-    expiry: tokio::task::AbortHandle,
+    expiry: crate::rt::AbortHandle,
 }
 impl Drop for Binding {
     fn drop(&mut self) {
@@ -521,7 +521,7 @@ impl PersonalVault {
                 let delay = Duration::from_secs(deadline.saturating_sub(this.clock.now()));
                 let timer_credential = credential.clone();
                 let timer = handle.spawn(async move {
-                    tokio::time::sleep(delay).await;
+                    crate::rt::sleep(delay).await;
                     timer_credential.revoke();
                 });
                 runtime.bindings.insert(

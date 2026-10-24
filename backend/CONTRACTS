@@ -423,3 +423,11 @@ the providers' own sign-in hosts, and status MUST count only subscription sign-i
 and Anthropic's Claude Code legal and compliance page checked that day ("sign-in to a
 Claude account must complete through Anthropic's own flow"; hosting the unmodified
 binary for users who sign in with their own subscription is allowed).
+
+@cc [owner:OctavianTocan,label:architecture;security] server-builds-for-workers
+The library MUST build for `wasm32-unknown-unknown` as well as natively, so the hosted server is
+this code running in a Worker (`packages/worker`). Code outside the native-only modules MUST use
+`rt` for tasks, timers, environment, files and programs, `net` for outbound HTTP and
+`store::Records` for storage, never tokio's runtime, `std::env` or reqwest's `send` directly. In
+the Worker, files and programs MUST fail closed and outbound HTTP MUST NOT follow redirects (Tavi,
+24 Oct 2026, "Rewrite it as a Worker"; plan 12, Update 24 Oct).

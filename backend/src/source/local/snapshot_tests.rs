@@ -70,7 +70,7 @@ async fn file(
     json!({"path":path,"status":status,"sha":sha.trim(),"additions":additions,"deletions":deletions,"isBinary":false,"hunks":[hunk]})
 }
 async fn snapshot(f: &Fixture, target: &str) -> Value {
-    tokio::time::timeout(
+    crate::rt::timeout(
         std::time::Duration::from_secs(10),
         fetch_local(&f.state, target),
     )

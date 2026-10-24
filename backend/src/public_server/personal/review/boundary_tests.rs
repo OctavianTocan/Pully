@@ -46,7 +46,7 @@ impl Gate {
         self.release.acquire().await.unwrap().forget();
     }
     async fn arrived(&self) {
-        tokio::time::timeout(Duration::from_secs(2), self.entered.notified())
+        crate::rt::timeout(Duration::from_secs(2), self.entered.notified())
             .await
             .unwrap();
     }
@@ -182,13 +182,13 @@ async fn respond(State(state): State<Arc<Provider>>, request: Request) -> Respon
 struct Server {
     origin: String,
     client: reqwest::Client,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Server {
     async fn new(router: Router) -> Self {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         Self {
@@ -419,7 +419,7 @@ async fn queued(kind: &'static str) {
         let path = format!("/repos/reader-a/project/hold/{id}");
         let gate = fixture.provider.gate(&path);
         let c = context.clone();
-        holders.push(tokio::spawn(async move {
+        holders.push(crate::rt::spawn(async move {
             c.github
                 .get(
                     &c,
@@ -438,7 +438,7 @@ async fn queued(kind: &'static str) {
     };
     let denial = fixture.provider.gate(path);
     let c = context.clone();
-    let probe = tokio::spawn(async move {
+    let probe = crate::rt::spawn(async move {
         if kind == "repository" {
             c.github
                 .accessible_repository(&c, "reader-a", "project")
@@ -466,7 +466,7 @@ async fn queued(kind: &'static str) {
     denial.open();
     let result = probe.await.unwrap();
     assert_eq!(result.is_err(), kind == "repository");
-    let result = tokio::time::timeout(Duration::from_secs(2), future)
+    let result = crate::rt::timeout(Duration::from_secs(2), future)
         .await
         .unwrap();
     assert!(result.is_err());
@@ -501,7 +501,7 @@ async fn streaming(kind: &str) {
     let reference = reference();
     let read = crate::source::github_file_with(&reader, &reference, "stream.rs", HEAD_SHA);
     let control = async {
-        tokio::time::timeout(
+        crate::rt::timeout(
             Duration::from_secs(2),
             fixture.provider.first_chunk.notified(),
         )
@@ -510,7 +510,7 @@ async fn streaming(kind: &str) {
         retire(&fixture, &context, kind).await;
         fixture.provider.second_chunk.add_permits(1);
     };
-    let (result, ()) = tokio::join!(tokio::time::timeout(Duration::from_secs(2), read), control);
+    let (result, ()) = tokio::join!(crate::rt::timeout(Duration::from_secs(2), read), control);
     fixture.provider.last_chunk.add_permits(1);
     let result = result.expect("retired body stayed alive until the withheld final chunk");
     assert!(result.is_err());
@@ -570,7 +570,7 @@ async fn ce_review_graphql_permission_denial_retires_a_held_older_reader() {
             Fixture::path(&open["target"], "overview")
         ))
         .bearer_auth(&fixture.session);
-    let older = tokio::spawn(async move { request.send().await.unwrap() });
+    let older = crate::rt::spawn(async move { request.send().await.unwrap() });
     held.arrived().await;
     *fixture.provider.graphql_error.lock().unwrap() =
         Some(json!({"errors":[{"type":"FORBIDDEN","message":"not accessible"}]}));

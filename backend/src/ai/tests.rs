@@ -13,7 +13,7 @@ async fn idle_update_defers_running_and_reserved_work_without_cancelling() {
         active.snapshot.lock().unwrap()["status"] = json!(status);
         assert!(begin_idle_update_shutdown(&state));
     }
-    tokio::time::timeout(Duration::from_secs(1), wait_for_update_shutdown(&state)).await.unwrap();
+    crate::rt::timeout(Duration::from_secs(1), wait_for_update_shutdown(&state)).await.unwrap();
     let request = json!({"engine":"pi", "system":"test", "prompt":"test"});
     assert!(start_async(&state, request.clone(), false, &crate::agent_login::AgentLogin::Server).await.unwrap_err().to_string().contains("shutting down"));
     assert!(start(&state, request, false, None, crate::agent_login::AgentLogin::Server).unwrap_err().to_string().contains("shutting down"));
@@ -25,12 +25,12 @@ async fn idle_update_counts_admissions_before_the_run_registry_is_populated() {
     let root = std::env::temp_dir().join(format!("pulls-idle-admission-{}", uuid::Uuid::new_v4()));
     let state = AppState::new(root.clone(), root.join("data")).unwrap();
     let (finish, pending) = tokio::sync::oneshot::channel::<()>();
-    state.jobs.handles.lock().unwrap().push(tokio::spawn(async move { let _ = pending.await; }));
+    state.jobs.handles.lock().unwrap().push(crate::rt::spawn(async move { let _ = pending.await; }));
     assert!(!begin_idle_update_shutdown(&state));
     assert!(!state.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
     finish.send(()).unwrap();
-    tokio::time::timeout(Duration::from_secs(1), async {
-        while !state.jobs.handles.lock().unwrap()[0].is_finished() { tokio::task::yield_now().await; }
+    crate::rt::timeout(Duration::from_secs(1), async {
+        while !state.jobs.handles.lock().unwrap()[0].is_finished() { crate::rt::yield_now().await; }
     }).await.unwrap();
     assert!(begin_idle_update_shutdown(&state));
     std::fs::remove_dir_all(root).unwrap();
@@ -139,7 +139,7 @@ async fn admitted_task_titles_survive_wait_and_list_routes() {
         ("ai-task-list-all", json!({})),
     ] {
         let reply =
-            tokio::time::timeout(Duration::from_secs(2), crate::dispatch(&state, name, args))
+            crate::rt::timeout(Duration::from_secs(2), crate::dispatch(&state, name, args))
                 .await
                 .unwrap()
                 .unwrap();
@@ -154,7 +154,7 @@ async fn admitted_task_titles_survive_wait_and_list_routes() {
     }
     begin_shutdown(&state);
     drop(guard);
-    tokio::time::timeout(Duration::from_secs(2), shutdown(&state))
+    crate::rt::timeout(Duration::from_secs(2), shutdown(&state))
         .await
         .unwrap();
     std::fs::remove_dir_all(root).unwrap();
@@ -179,7 +179,7 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
             .unwrap();
     let (stop, stopped) = tokio::sync::oneshot::channel();
     let shutdown_state = state.clone();
-    let server = tokio::spawn(async move {
+    let server = crate::rt::spawn(async move {
         axum::serve(listener, crate::transport::router(http))
             .with_graceful_shutdown(async move {
                 stopped.await.unwrap();
@@ -188,18 +188,18 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
             .await
             .unwrap();
     });
-    let request = tokio::spawn(async move {
+    let request = crate::rt::spawn(async move {
         reqwest::Client::builder().no_proxy().timeout(Duration::from_secs(3)).build().unwrap()
             .post(format!("http://127.0.0.1:{port}/api/web-rpc"))
             .json(&json!({"name":"llm-run","args":{"engine":"pi","system":"Fixture","prompt":"Wait"}}))
             .send().await.unwrap()
     });
-    tokio::time::timeout(Duration::from_secs(2), async {
+    crate::rt::timeout(Duration::from_secs(2), async {
         loop {
             if !state.jobs.runs.lock().unwrap().is_empty() {
                 break;
             }
-            tokio::task::yield_now().await;
+            crate::rt::yield_now().await;
         }
     })
     .await
@@ -220,13 +220,13 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
         "running"
     );
     stop.send(()).unwrap();
-    let response = tokio::time::timeout(Duration::from_secs(2), request)
+    let response = crate::rt::timeout(Duration::from_secs(2), request)
         .await
         .unwrap()
         .unwrap();
     assert_eq!(response.status(), reqwest::StatusCode::BAD_REQUEST);
     assert!(response.json::<Value>().await.unwrap()["error"].is_string());
-    tokio::time::timeout(Duration::from_secs(2), server)
+    crate::rt::timeout(Duration::from_secs(2), server)
         .await
         .unwrap()
         .unwrap();
@@ -254,7 +254,7 @@ async fn shutdown_cancels_pending_http_llm_run_before_server_drain() {
     .unwrap_err()
     .to_string()
     .contains("shutting down"));
-    tokio::time::timeout(Duration::from_secs(2), shutdown(&state))
+    crate::rt::timeout(Duration::from_secs(2), shutdown(&state))
         .await
         .unwrap();
     assert!(state
@@ -363,7 +363,7 @@ async fn analysis_rechecks_reserved_head_after_waiting_for_session_lock() {
             )
             .unwrap();
         drop(guard);
-        let error = tokio::time::timeout(Duration::from_secs(1), work)
+        let error = crate::rt::timeout(Duration::from_secs(1), work)
             .await
             .unwrap()
             .unwrap_err();
@@ -441,14 +441,14 @@ async fn wait_keeps_revision_predicate_and_notification_order() {
     tokio::pin!(work);
     assert!(futures_util::poll!(work.as_mut()).is_pending());
     record(&r, "one", "text", "Progress", Some("α"), "done");
-    let result = tokio::time::timeout(Duration::from_secs(1), work)
+    let result = crate::rt::timeout(Duration::from_secs(1), work)
         .await
         .unwrap()
         .unwrap()
         .unwrap();
     assert_eq!(result["rev"], 1);
     assert_eq!(result["activities"].as_array().unwrap().len(), 1);
-    let immediate = tokio::time::timeout(
+    let immediate = crate::rt::timeout(
         Duration::from_secs(1),
         handle(&state, "ai-task-wait", json!({"id":"test","after":0})),
     )
@@ -458,7 +458,7 @@ async fn wait_keeps_revision_predicate_and_notification_order() {
     .unwrap();
     assert_eq!(immediate, result);
     settle(&r, "done", Some("answer".into()), None, None);
-    let terminal = tokio::time::timeout(
+    let terminal = crate::rt::timeout(
         Duration::from_secs(1),
         handle(
             &state,
@@ -519,7 +519,7 @@ async fn numeric_wait_cursors_return_or_wait_at_the_declared_number() {
         .lock()
         .unwrap()
         .insert("test".into(), r.clone());
-    let immediate = tokio::time::timeout(
+    let immediate = crate::rt::timeout(
         Duration::from_secs(1),
         handle(&state, "ai-task-wait", json!({"id":"test","after":-1})),
     )
@@ -530,7 +530,7 @@ async fn numeric_wait_cursors_return_or_wait_at_the_declared_number() {
     assert_eq!(immediate["rev"], 0);
     record(&r, "one", "text", "First", None, "done");
     record(&r, "two", "text", "Second", None, "done");
-    let immediate = tokio::time::timeout(
+    let immediate = crate::rt::timeout(
         Duration::from_secs(1),
         handle(&state, "ai-job-wait", json!({"id":"test","after":1.5})),
     )
@@ -544,7 +544,7 @@ async fn numeric_wait_cursors_return_or_wait_at_the_declared_number() {
     tokio::pin!(work);
     assert!(futures_util::poll!(work.as_mut()).is_pending());
     record(&r, "three", "text", "Third", None, "done");
-    let result = tokio::time::timeout(Duration::from_secs(1), work)
+    let result = crate::rt::timeout(Duration::from_secs(1), work)
         .await
         .unwrap()
         .unwrap()
@@ -679,7 +679,7 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
     let request = json!({"kind":"inbox","key":"inbox","question":"Why?","model":{"engine":"pi"}});
     let mut admission = Box::pin(start_async(&state, request.clone(), true, &crate::agent_login::AgentLogin::Server));
     assert!(futures_util::poll!(&mut admission).is_pending());
-    let id = tokio::time::timeout(Duration::from_secs(1), async {
+    let id = crate::rt::timeout(Duration::from_secs(1), async {
         loop {
             let id = state
                 .jobs
@@ -690,17 +690,17 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
             if let Some(id) = id {
                 break id;
             }
-            tokio::task::yield_now().await;
+            crate::rt::yield_now().await;
         }
     })
     .await
     .expect("admission did not reserve a run without its storage lock");
-    let joined = tokio::time::timeout(Duration::from_secs(1), start_async(&state, request, true, &crate::agent_login::AgentLogin::Server))
+    let joined = crate::rt::timeout(Duration::from_secs(1), start_async(&state, request, true, &crate::agent_login::AgentLogin::Server))
         .await
         .unwrap()
         .unwrap();
     assert_eq!(joined, id);
-    let pending = tokio::time::timeout(
+    let pending = crate::rt::timeout(
         Duration::from_secs(1),
         handle(&state, "ai-task-wait", json!({"id":id,"after":-1})),
     )
@@ -709,7 +709,7 @@ async fn ai_storage_admission_keeps_dedup_poll_cancel_and_shutdown_responsive() 
     .unwrap()
     .unwrap();
     assert_eq!(pending["status"], "running");
-    let stopped = tokio::time::timeout(
+    let stopped = crate::rt::timeout(
         Duration::from_secs(1),
         handle(&state, "ai-task-cancel", json!({"id":id})),
     )
@@ -775,7 +775,7 @@ async fn ai_storage_followup_reads_yield_before_completion() {
         json!({}),
     ));
     assert!(futures_util::poll!(&mut completion).is_pending());
-    tokio::time::sleep(Duration::from_millis(10)).await;
+    crate::rt::sleep(Duration::from_millis(10)).await;
     assert_eq!(snapshot(&analysis, -1.0)["status"], "running");
     held.assert_yields(completion).await;
     assert_eq!(snapshot(&analysis, -1.0)["status"], "done");

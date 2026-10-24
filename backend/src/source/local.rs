@@ -1,6 +1,6 @@
 use super::*;
 use std::path::{Component, Path};
-use tokio::process::Command;
+use crate::rt::process::Command;
 const SOURCE_BYTE_LIMIT: usize = 32 * 1024 * 1024;
 fn git_command(root: &Path) -> Command {
     let mut command = Command::new("git");
@@ -28,7 +28,7 @@ async fn git_bytes(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
         .context("Could not run git")?;
     let output = child.stdout.take().context("Git output unavailable")?;
     let mut bytes = vec![];
-    tokio::time::timeout(
+    crate::rt::timeout(
         std::time::Duration::from_secs(60),
         output.take(32 * 1024 * 1024 + 1).read_to_end(&mut bytes),
     )
@@ -38,7 +38,7 @@ async fn git_bytes(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
         let _ = child.kill().await;
         bail!("Git output exceeds 32 MiB limit")
     }
-    let status = tokio::time::timeout(std::time::Duration::from_secs(60), child.wait())
+    let status = crate::rt::timeout(std::time::Duration::from_secs(60), child.wait())
         .await
         .context("Git operation timed out")??;
     ensure!(status.success(), "Git operation failed");
@@ -593,19 +593,19 @@ mod tests {
     {
         let (entered, waiting) = tokio::sync::oneshot::channel();
         let (release, blocked) = std::sync::mpsc::channel();
-        let task = tokio::spawn(operation(BlockedIo {
+        let task = crate::rt::spawn(operation(BlockedIo {
             entered: Some(entered),
             release: blocked,
             runtime_thread: std::thread::current().id(),
         }));
-        tokio::time::timeout(std::time::Duration::from_secs(2), waiting)
+        crate::rt::timeout(std::time::Duration::from_secs(2), waiting)
             .await
             .expect("source I/O did not start")
             .expect("source I/O exited without reaching the blocking fixture");
-        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        crate::rt::sleep(std::time::Duration::from_millis(10)).await;
         assert!(!task.is_finished(), "source I/O did not remain blocked");
         release.send(()).unwrap();
-        tokio::time::timeout(std::time::Duration::from_secs(2), task)
+        crate::rt::timeout(std::time::Duration::from_secs(2), task)
             .await
             .expect("source I/O did not finish")
             .unwrap()
@@ -692,7 +692,7 @@ mod tests {
         .unwrap();
         assert_eq!(size, 7);
         let mut bytes = vec![];
-        tokio::fs::File::from_std(file)
+        crate::rt::fs::File::from_std(file)
             .take(SOURCE_BYTE_LIMIT as u64 + 1)
             .read_to_end(&mut bytes)
             .await
@@ -901,7 +901,7 @@ impl SearchResult {
         path: &str,
         content: &str,
         re: &regex::Regex,
-        deadline: tokio::time::Instant,
+        deadline: crate::rt::Instant,
     ) {
         if !self.fits(content.len()) {
             return;
@@ -911,7 +911,7 @@ impl SearchResult {
             return;
         }
         for (line, text) in content.lines().enumerate() {
-            if tokio::time::Instant::now() >= deadline {
+            if crate::rt::Instant::now() >= deadline {
                 self.stopped = Some("time limit");
                 break;
             }
@@ -1035,10 +1035,9 @@ pub async fn search(
     re: &regex::Regex,
     glob: Option<&regex::Regex>,
 ) -> Result<SearchResult> {
-    use tokio::{
-        io::AsyncReadExt,
-        time::{timeout_at, Duration, Instant},
-    };
+    use crate::rt::{timeout_at, Instant};
+    use std::time::Duration;
+    use tokio::io::AsyncReadExt;
     ensure!(!sha.is_empty(), "Missing captured revision");
     let deadline = Instant::now() + Duration::from_secs(60);
     let worktree = sha.starts_with("worktree:");
@@ -1065,7 +1064,7 @@ pub async fn search(
             return search_blobs(&root, &entries, snapshots, re, deadline, &mut result).await;
         }
         for entry in &entries {
-            tokio::task::yield_now().await;
+            crate::rt::yield_now().await;
             result.scanned += 1;
             if let Some(content) = snapshots[&entry.path].as_str() {
                 result.content(&entry.path, content, re, deadline);
@@ -1080,7 +1079,7 @@ pub async fn search(
                         }
                         let mut bytes = vec![];
                         let limit = SOURCE_BYTE_LIMIT - result.bytes;
-                        let read = tokio::fs::File::from_std(file)
+                        let read = crate::rt::fs::File::from_std(file)
                             .take(limit as u64 + 1)
                             .read_to_end(&mut bytes)
                             .await;
@@ -1133,7 +1132,7 @@ async fn search_blobs(
     entries: &[SearchEntry],
     snapshots: &Value,
     re: &regex::Regex,
-    deadline: tokio::time::Instant,
+    deadline: crate::rt::Instant,
     result: &mut SearchResult,
 ) -> Result<()> {
     use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
@@ -1148,7 +1147,7 @@ async fn search_blobs(
     let mut input = child.stdin.take().context("Git input unavailable")?;
     let mut output = BufReader::new(child.stdout.take().context("Git output unavailable")?);
     for entry in entries {
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         result.scanned += 1;
         if let Some(content) = snapshots[&entry.path].as_str() {
             result.content(&entry.path, content, re, deadline);

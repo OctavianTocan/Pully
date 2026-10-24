@@ -3,6 +3,7 @@
 use crate::{required, text, AppState};
 mod account;
 mod downloads;
+#[cfg(not(target_arch = "wasm32"))]
 #[path = "devframe.rs"]
 mod devframe;
 use anyhow::{bail, Context, Result};
@@ -21,8 +22,9 @@ use std::{
     collections::HashSet,
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 
 #[derive(Clone)]
 pub struct HttpState {
@@ -219,7 +221,7 @@ fn error(status: StatusCode, message: impl Into<String>) -> Response {
 /// Never expose credentials in errors returned by a provider, Git, or an adapter.
 pub fn safe_error(error: &anyhow::Error) -> String {
     let mut message = error.to_string();
-    for (name, value) in std::env::vars() {
+    for (name, value) in crate::rt::env::vars() {
         let name = name.to_ascii_uppercase();
         if value.len() >= 4
             && ["TOKEN", "KEY", "PASSWORD", "SECRET"]
@@ -532,12 +534,15 @@ pub fn router(state: HttpState) -> Router {
             "/api/web-rpc",
             post(web).layer(DefaultBodyLimit::max(MAX_CACHE_RPC_BYTES)),
         )
-        .route("/__connection.json", get(devframe::metadata))
-        .route("/__ws", get(devframe::connect))
         .route("/api/session", get(session_status).post(login))
         .route("/api/auth-code", post(auth_code))
         .route("/health", get(|| async { Json(json!({"ok":true})) }))
         .fallback(get(static_file));
+    // The Worker has no development tools to connect to.
+    #[cfg(not(target_arch = "wasm32"))]
+    let routes = routes
+        .route("/__connection.json", get(devframe::metadata))
+        .route("/__ws", get(devframe::connect));
     Router::new()
         .merge(routes.clone())
         .nest("/__pulls.review", routes)
@@ -546,18 +551,18 @@ pub fn router(state: HttpState) -> Router {
         .with_state(state)
 }
 async fn read_static(root: &Path, relative: &str) -> Result<Option<(Vec<u8>, String)>> {
-    let root = match tokio::fs::canonicalize(root).await {
+    let root = match crate::rt::fs::canonicalize(root).await {
         Ok(r) => r,
         Err(_) => return Ok(None),
     };
-    let target = match tokio::fs::canonicalize(root.join(relative)).await {
+    let target = match crate::rt::fs::canonicalize(root.join(relative)).await {
         Ok(p) => p,
         Err(_) => return Ok(None),
     };
     if !target.starts_with(&root) {
         bail!("Invalid asset path")
     }
-    if !tokio::fs::metadata(&target).await?.is_file() {
+    if !crate::rt::fs::metadata(&target).await?.is_file() {
         return Ok(None);
     }
     let mime = match target.extension().and_then(|e| e.to_str()).unwrap_or("") {
@@ -574,7 +579,7 @@ async fn read_static(root: &Path, relative: &str) -> Result<Option<(Vec<u8>, Str
         "apk" => "application/vnd.android.package-archive",
         _ => "application/octet-stream",
     };
-    Ok(Some((tokio::fs::read(target).await?, mime.into())))
+    Ok(Some((crate::rt::fs::read(target).await?, mime.into())))
 }
 async fn static_file(
     State(state): State<HttpState>,
@@ -824,8 +829,9 @@ async fn web_only_inner(state: &AppState, name: &str, args: &Value) -> Option<Re
     )
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Dedicated capability endpoint: no general RPC or storage methods are exposed to containers.
-pub async fn start_agent_bridge(app: Arc<AppState>) -> Result<tokio::task::JoinHandle<()>> {
+pub async fn start_agent_bridge(app: Arc<AppState>) -> Result<crate::rt::JoinHandle<()>> {
     async fn call(
         State(app): State<Arc<AppState>>,
         headers: HeaderMap,
@@ -855,7 +861,7 @@ pub async fn start_agent_bridge(app: Arc<AppState>) -> Result<tokio::task::JoinH
         .route("/mcp", post(call))
         .layer(DefaultBodyLimit::max(1024 * 1024))
         .with_state(app);
-    Ok(tokio::spawn(async move {
+    Ok(crate::rt::spawn(async move {
         let _ = axum::serve(listener, router).await;
     }))
 }
@@ -1053,13 +1059,13 @@ mod privacy_tests {
         assert!(!app.jobs.stopping.load(std::sync::atomic::Ordering::SeqCst));
         crate::dispatch(&app, "ai-task-cancel", json!({"id":id})).await.unwrap();
         drop(guard);
-        tokio::time::timeout(Duration::from_secs(1), async {
+        crate::rt::timeout(Duration::from_secs(1), async {
             while update_restart(State(state.clone()), headers.clone()).await.status() == StatusCode::CONFLICT {
-                tokio::task::yield_now().await;
+                crate::rt::yield_now().await;
             }
         }).await.unwrap();
         assert_eq!(update_restart(State(state), headers).await.status(), StatusCode::ACCEPTED);
-        tokio::time::timeout(Duration::from_secs(1), crate::ai::wait_for_update_shutdown(&app)).await.unwrap();
+        crate::rt::timeout(Duration::from_secs(1), crate::ai::wait_for_update_shutdown(&app)).await.unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
@@ -1400,7 +1406,7 @@ mod privacy_tests {
             }
             crate::ai::shutdown(&app).await;
         };
-        tokio::time::timeout(Duration::from_secs(10), Box::pin(verify_ownership))
+        crate::rt::timeout(Duration::from_secs(10), Box::pin(verify_ownership))
             .await
             .expect("bounded posted-task authorization fixture");
         std::fs::remove_dir_all(root).unwrap();
@@ -1533,7 +1539,7 @@ mod privacy_tests {
         let port = listener.local_addr().unwrap().port();
         let state = HttpState::new(app, "127.0.0.1", port, vec![], true, None).unwrap();
         let server =
-            tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
+            crate::rt::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
         for path in [
             "/api/v1",
             "/API/v1/nope",

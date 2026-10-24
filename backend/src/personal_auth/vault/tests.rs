@@ -237,7 +237,7 @@ async fn concurrent_refresh_consumes_one_pair_and_retires_old_captured_authority
     let a = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+        crate::rt::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
     };
     h.provider.refresh_entered.notified().await;
     assert!(old.ensure_current().is_err());
@@ -249,7 +249,7 @@ async fn concurrent_refresh_consumes_one_pair_and_retires_old_captured_authority
     let b = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+        crate::rt::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
     };
     h.provider.refresh_release.notify_one();
     assert_eq!(a.await.unwrap().unwrap().status.login, "after");
@@ -371,7 +371,7 @@ async fn unlink_during_refresh_denies_the_late_rotated_pair() {
     let refresh = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+        crate::rt::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
     };
     h.provider.refresh_entered.notified().await;
     h.vault.unlink(&issued.session).await.unwrap();
@@ -414,19 +414,19 @@ async fn accepted_refresh_survives_a_dropped_http_observer() {
     let refresh = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
+        crate::rt::spawn(async move { vault.resolve_or_refresh(&session, provider).await })
     };
     h.provider.refresh_entered.notified().await;
     refresh.abort();
     let _ = refresh.await;
     h.provider.refresh_release.notify_one();
-    tokio::time::timeout(Duration::from_secs(2), async {
+    crate::rt::timeout(Duration::from_secs(2), async {
         loop {
             let current = h.vault.snapshot(sha256(&issued.session), true).unwrap();
             if current.account.revision == 2 && current.credentials.verified {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(1)).await;
+            crate::rt::sleep(Duration::from_millis(1)).await;
         }
     })
     .await
@@ -444,7 +444,7 @@ async fn old_mismatched_user_verification_cannot_revoke_a_newer_sign_ins_capture
     h.provider.delayed.store(true, Ordering::SeqCst);
     let old_read = {
         let (vault, provider, session) = (h.vault.clone(), h.provider.clone(), old.session);
-        tokio::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
+        crate::rt::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
     };
     h.provider.started.notified().await;
     h.provider.delayed.store(false, Ordering::SeqCst);
@@ -529,7 +529,7 @@ async fn verification_finishing_after_the_provisional_deadline_cannot_confirm_de
     let resolve = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
+        crate::rt::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
     };
     h.provider.started.notified().await;
     h.clock.0.store(700, Ordering::SeqCst);
@@ -711,7 +711,7 @@ async fn sign_out_while_user_verification_is_in_flight_denies_the_late_result() 
     let task = {
         let (vault, provider, session) =
             (h.vault.clone(), h.provider.clone(), issued.session.clone());
-        tokio::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
+        crate::rt::spawn(async move { vault.resolve(&session, provider.as_ref()).await })
     };
     h.provider.started.notified().await;
     h.vault.sign_out(&issued.session).await.unwrap();
@@ -822,10 +822,10 @@ async fn expiration_revokes_already_captured_authority_and_still_allows_unlink()
         .await
         .unwrap();
     let identity = h.resolve(&issued.session).await.identity().unwrap();
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     h.clock.0.store(106, Ordering::SeqCst);
     tokio::time::advance(Duration::from_secs(6)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert!(identity.ensure_current().is_err());
     assert!(h
         .vault

@@ -7,7 +7,7 @@ use url::Url;
 struct Server {
     origin: String,
     client: reqwest::Client,
-    task: tokio::task::JoinHandle<()>,
+    task: crate::rt::JoinHandle<()>,
 }
 impl Drop for Server {
     fn drop(&mut self) {
@@ -20,7 +20,7 @@ impl Server {
             .await
             .expect("personal auth loopback fixture must bind");
         let origin = format!("http://{}", listener.local_addr().unwrap());
-        let task = tokio::spawn(async move {
+        let task = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         let client = reqwest::Client::builder()

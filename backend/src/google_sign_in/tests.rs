@@ -140,7 +140,7 @@ async fn google_key_refresh_coalesces_and_recovers_after_failed_fetch() {
     let calls = AtomicUsize::new(0);
     let fetch = || async {
         calls.fetch_add(1, Ordering::SeqCst);
-        tokio::task::yield_now().await;
+        crate::rt::yield_now().await;
         Some((
             parse_keys(include_bytes!("test_fixtures/public-jwks.json")).unwrap(),
             Duration::from_secs(300),

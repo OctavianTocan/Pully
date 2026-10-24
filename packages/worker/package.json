@@ -1,23 +1,16 @@
 {
   "name": "@pulls.review/worker",
   "type": "module",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "The Cloudflare front door for the hosted Pully server: a Worker and the Durable Object that runs the server's container.",
+  "description": "The hosted Pully server on Cloudflare: the Rust server built for Workers, with its data in a Durable Object's SQLite storage.",
   "license": "MIT",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "build": "worker-build --release",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy"
   },
-  "dependencies": {
-    "@cloudflare/containers": "catalog:cloudflare"
-  },
   "devDependencies": {
-    "@cloudflare/workers-types": "catalog:cloudflare",
-    "typescript": "catalog:dev",
-    "vitest": "catalog:testing",
     "wrangler": "catalog:cloudflare"
   }
 }

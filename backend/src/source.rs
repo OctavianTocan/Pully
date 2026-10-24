@@ -193,7 +193,7 @@ async fn open(state: &Arc<AppState>, r: &Value, args: &Value) -> Result<Value> {
                 let expected = Some(viewed);
                 let owned_key = key.clone();
                 let cached_diff = diff.clone();
-                tokio::spawn(async move {
+                crate::rt::spawn(async move {
                     let diff = cached_diff;
                     if let Ok(Some(fresh)) = github::refresh_cached(&owned_state, &diff).await {
                         let _ = crate::store::blocking(move || {

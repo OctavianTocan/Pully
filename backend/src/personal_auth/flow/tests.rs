@@ -202,7 +202,7 @@ fn request(start: &StartReply, proof: &str) -> AttemptRequest {
     }
 }
 async fn wait_phase(service: &PersonalAuth, id: &str, predicate: impl Fn(&Phase) -> bool) {
-    tokio::time::timeout(Duration::from_secs(2), async {
+    crate::rt::timeout(Duration::from_secs(2), async {
         loop {
             if service
                 .0
@@ -215,7 +215,7 @@ async fn wait_phase(service: &PersonalAuth, id: &str, predicate: impl Fn(&Phase)
             {
                 break;
             }
-            tokio::time::sleep(Duration::from_millis(1)).await;
+            crate::rt::sleep(Duration::from_millis(1)).await;
         }
     })
     .await
@@ -299,12 +299,12 @@ async fn sign_out_during_repository_consent_exchange_denies_late_upgrade_install
     h.provider.block.store(true, Ordering::SeqCst);
     let service = h.service.clone();
     let callback_state = state(&consent);
-    let callback = tokio::spawn(async move {
+    let callback = crate::rt::spawn(async move {
         service
             .callback(callback_state, Some("fixture-code".into()), false)
             .await
     });
-    tokio::time::timeout(Duration::from_secs(2), h.provider.entered.notified())
+    crate::rt::timeout(Duration::from_secs(2), h.provider.entered.notified())
         .await
         .unwrap();
     h.service.sign_out(&issued.session).await.unwrap();
@@ -410,7 +410,7 @@ async fn cancellation_during_accepted_exchange_denies_its_late_tokens() {
     let callback = {
         let service = h.service.clone();
         let state = state(&start);
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             service
                 .callback(state, Some("fixture-code".into()), false)
                 .await
@@ -435,7 +435,7 @@ async fn dropping_callback_http_observer_does_not_cancel_the_accepted_exchange()
     let callback = {
         let service = h.service.clone();
         let state = state(&start);
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             service
                 .callback(state, Some("fixture-code".into()), false)
                 .await
@@ -461,7 +461,7 @@ async fn cancellation_during_claim_commit_retires_the_created_session_before_pub
     let claim = {
         let service = h.service.clone();
         let request = request(&start, &proof);
-        tokio::spawn(async move { service.claim(request).await })
+        crate::rt::spawn(async move { service.claim(request).await })
     };
     wait_phase(&h.service, &start.attempt_id, |phase| {
         matches!(phase, Phase::Claiming)
@@ -509,7 +509,7 @@ async fn lost_claim_observers_past_the_attempt_deadline_cannot_exhaust_the_accou
         let claim = {
             let service = h.service.clone();
             let request = request(&start, &proof);
-            tokio::spawn(async move { service.claim(request).await })
+            crate::rt::spawn(async move { service.claim(request).await })
         };
         wait_phase(&h.service, &start.attempt_id, |phase| {
             matches!(phase, Phase::Claiming)
@@ -626,9 +626,9 @@ async fn deadline_and_monotonic_cleanup_drop_ready_private_tokens_without_claimi
 async fn unattended_ready_attempt_is_removed_by_its_lifetime_timer() {
     let h = Harness::new();
     let (start, _) = h.ready().await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     tokio::time::advance(Duration::from_secs(601)).await;
-    tokio::task::yield_now().await;
+    crate::rt::yield_now().await;
     assert!(!h
         .service
         .0
@@ -767,7 +767,7 @@ fn steps(h: &Harness, steps: &[&'static str]) {
 /// Device attempts finish on the server's own timer; paused test time lets it run instantly.
 async fn settle(h: &Harness, id: &str) -> &'static str {
     for _ in 0..600 {
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        crate::rt::sleep(Duration::from_millis(100)).await;
         let attempts = h.service.0.attempts.lock().unwrap();
         match attempts.attempts.get(id).map(|attempt| &attempt.phase) {
             Some(Phase::Ready(_)) => return "ready",
@@ -824,10 +824,10 @@ async fn device_sign_in_honours_slow_down_and_ends_on_denial_or_expiry() {
     let h = Harness::device();
     steps(&h, &["slow", "denied"]);
     let (denied, proof) = h.start().await;
-    tokio::time::sleep(Duration::from_millis(1500)).await;
+    crate::rt::sleep(Duration::from_millis(1500)).await;
     assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
     // The next poll waits the ten seconds GitHub asked for, not the original one.
-    tokio::time::sleep(Duration::from_secs(8)).await;
+    crate::rt::sleep(Duration::from_secs(8)).await;
     assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
     assert_eq!(settle(&h, &denied.attempt_id).await, "failed");
     assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 2);
@@ -848,7 +848,7 @@ async fn device_sign_in_honours_slow_down_and_ends_on_denial_or_expiry() {
 async fn cancelling_a_device_sign_in_stops_polling_github() {
     let h = Harness::device();
     let (start, proof) = h.start().await;
-    tokio::time::sleep(Duration::from_millis(1500)).await;
+    crate::rt::sleep(Duration::from_millis(1500)).await;
     assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
     assert!(
         h.service
@@ -858,7 +858,7 @@ async fn cancelling_a_device_sign_in_stops_polling_github() {
             .cancelled
     );
     steps(&h, &["approve"]);
-    tokio::time::sleep(Duration::from_secs(5)).await;
+    crate::rt::sleep(Duration::from_secs(5)).await;
     assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
     assert!(h.service.claim(request(&start, &proof)).await.is_err());
     assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());

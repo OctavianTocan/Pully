@@ -22,9 +22,8 @@ pub(crate) struct OpenAiSiwc {
 impl OpenAiSiwc {
     pub(crate) fn new() -> Result<Self> {
         Ok(Self {
-            client: reqwest::Client::builder()
+            client: crate::net::client()
                 .no_proxy()
-                .redirect(reqwest::redirect::Policy::none())
                 .connect_timeout(Duration::from_secs(5))
                 .timeout(Duration::from_secs(15))
                 .build()
@@ -201,17 +200,17 @@ impl OpenAiSiwc {
             .as_str()
             .ok_or_else(failure)?;
         let target = fixed_auth_url(endpoint)?;
-        let response = self
-            .client
+        let response = crate::net::send(
+            self.client
             .post(self.endpoint(target.path()))
             .header("accept", "application/json")
             .form(&[
                 ("token", token),
                 ("token_type_hint", "refresh_token"),
                 ("client_id", &identity.client_id),
-            ])
-            .send()
-            .await
+            ]),
+        )
+        .await
             .map_err(|_| failure())?;
         ensure!(
             response.status() == reqwest::StatusCode::OK,
@@ -250,7 +249,7 @@ impl OpenAiSiwc {
         .await
     }
     async fn value(&self, request: reqwest::RequestBuilder) -> Result<serde_json::Value> {
-        let response = request.send().await.map_err(|_| failure())?;
+        let response = crate::net::send(request).await.map_err(|_| failure())?;
         let status = response.status();
         ensure!(
             response

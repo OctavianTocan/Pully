@@ -1,1 +1,4 @@
 .wrangler
+/build
+/target
+.dev.vars

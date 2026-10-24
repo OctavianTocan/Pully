@@ -671,7 +671,7 @@ assert.equal(reply.e.message, 'Open the diff first.');"#,
             (opcode, payload)
         }
         async fn closed_before_final_frame(stream: &mut TcpStream) {
-            let outcome = tokio::time::timeout(Duration::from_secs(2), stream.read_u8())
+            let outcome = crate::rt::timeout(Duration::from_secs(2), stream.read_u8())
                 .await
                 .expect("oversized unfinished input must be rejected without a final fragment");
             match outcome {
@@ -691,8 +691,8 @@ assert.equal(reply.e.message, 'Open the diff first.');"#,
         let state = HttpState::new(app, "127.0.0.1", port, vec![], false, None).unwrap();
         state.auth.lock().unwrap().code = "123456".into();
         let server =
-            tokio::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
-        let result = tokio::time::timeout(Duration::from_secs(10), async {
+            crate::rt::spawn(async move { axum::serve(listener, router(state)).await.unwrap() });
+        let result = crate::rt::timeout(Duration::from_secs(10), async {
             let mut unauthenticated = connect(port, "").await;
             let chunk = vec![b'x'; MAX_AUTH_BYTES / 4];
             for index in 0..4 {

@@ -33,6 +33,10 @@ jobs:
           cargo --version
       - name: Compile the complete native backend
         run: cargo build --manifest-path backend/Cargo.toml --locked --jobs 2
+      - name: Compile the hosted server for Workers
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check --manifest-path packages/worker/Cargo.toml --target wasm32-unknown-unknown --locked --jobs 2
       - name: Check native presentation fixtures
         run: |
           cargo test --manifest-path backend/Cargo.toml --locked --lib presentation:: --jobs 2 -- --test-threads=2

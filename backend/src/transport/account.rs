@@ -278,7 +278,7 @@ pub(super) async fn filter_owned(
     let accounts = app.accounts.clone();
     let posted = app.posted.clone();
     let token = session(headers).map(str::to_owned);
-    tokio::task::spawn_blocking(move || {
+    crate::rt::spawn_blocking(move || {
         let account = accounts.by_session(token.as_deref())?;
         let mut visible = Vec::with_capacity(items.len());
         for item in items {

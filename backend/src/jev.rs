@@ -11,8 +11,9 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex, OnceLock,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 use tokio::sync::Semaphore;
 
 const ENDPOINT: &str = "https://api.typesafe.ai/v1/systemone";
@@ -65,7 +66,7 @@ impl Client {
             p.next = start + Duration::from_secs_f64(cost);
             start
         };
-        tokio::time::sleep_until(start.into()).await;
+        crate::rt::sleep_until(start.into()).await;
     }
     fn slow_down(&self, wait: Duration) {
         let mut p = self.pace.lock().unwrap_or_else(|e| e.into_inner());
@@ -126,14 +127,14 @@ impl Client {
                 *status = json!("off");
                 return Ok(None);
             }
-            let response = app
-                .http
+            let response = crate::net::send(
+                app.http
                 .post(ENDPOINT)
                 .bearer_auth(self.key.as_ref().unwrap())
                 .header("Content-Type", "application/json")
                 .body(body.clone())
-                .timeout(Duration::from_secs(30))
-                .send()
+                .timeout(Duration::from_secs(30)),
+            )
                 .await
                 .map_err(|_| anyhow::anyhow!("Jev request failed or timed out"))?;
             let code = response.status().as_u16();
@@ -158,7 +159,7 @@ impl Client {
                 drop(response);
                 drop(permit);
                 if attempt < 2 {
-                    tokio::time::sleep(wait).await;
+                    crate::rt::sleep(wait).await;
                     continue;
                 }
                 bail!("Jev request refused (HTTP {code})");
@@ -335,7 +336,7 @@ fn client() -> Arc<Client> {
                 ["PULLS_REVIEW_TYPESAFE_API_KEY", "TYPESAFE_API_KEY"]
                     .iter()
                     .find_map(|key| {
-                        std::env::var(key)
+                        crate::rt::env::var(key)
                             .ok()
                             .map(|v| v.trim().to_owned())
                             .filter(|v| !v.is_empty())
@@ -511,7 +512,7 @@ fn start_files(app: &Arc<AppState>, diff: &Value, keys: &[(String, String)]) {
         let svc = svc.clone();
         let input = file_state(file);
         let key = key.clone();
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             let result = svc.client.ask(&app, input, file_questions()).await;
             complete_file(app, svc, key, result).await;
         });
@@ -528,7 +529,7 @@ async fn complete_file(
     result: Result<Option<Value>>,
 ) {
     // Dropping the waiting task does not cancel this transaction or its cleanup.
-    let _ = tokio::task::spawn_blocking(move || {
+    let _ = crate::rt::spawn_blocking(move || {
         let mut ratings = svc.ratings.lock().unwrap_or_else(|e| e.into_inner());
         match result {
             Ok(Some(answer)) => {
@@ -598,7 +599,7 @@ fn lookup_pull(app: &AppState, pull: &Value) -> Option<Value> {
 }
 pub async fn apply_pulls(app: &AppState, mut snapshot: Value) -> Result<Value> {
     let app = app.clone();
-    tokio::task::spawn_blocking(move || {
+    crate::rt::spawn_blocking(move || {
         apply_pulls_stored(&app, &mut snapshot);
         snapshot
     })
@@ -650,7 +651,7 @@ fn pull_state(app: &AppState, pull: &Value) -> Value {
 pub async fn classify_pulls(app: &Arc<AppState>, pulls: &[Value]) -> Result<()> {
     let app = app.clone();
     let pulls = pulls.to_vec();
-    tokio::task::spawn_blocking(move || start_pulls(&app, &pulls))
+    crate::rt::spawn_blocking(move || start_pulls(&app, &pulls))
         .await
         .context("Jev classification preparation unavailable")
 }
@@ -679,7 +680,7 @@ fn start_pulls(app: &Arc<AppState>, pulls: &[Value]) {
         let app = app.clone();
         let svc = svc.clone();
         let pull = pull.clone();
-        tokio::spawn(async move {
+        crate::rt::spawn(async move {
             let result = svc.client.ask(&app, input, pull_questions()).await;
             complete_pull(app, svc, pull, key, version, result).await;
         });
@@ -693,7 +694,7 @@ async fn complete_pull(
     version: String,
     result: Result<Option<Value>>,
 ) {
-    let _ = tokio::task::spawn_blocking(move || {
+    let _ = crate::rt::spawn_blocking(move || {
             let mut ratings = svc.ratings.lock().unwrap_or_else(|e| e.into_inner());
             if ratings.latest_pulls.get(&key) == Some(&version) {
                 match result {
@@ -741,7 +742,7 @@ pub async fn prepare_review(app: &Arc<AppState>, diff: &Value, wait_ms: u64) {
     let prep_app = app.clone();
     let prep_diff = diff.clone();
     let prep_svc = svc.clone();
-    let Ok((keys, pull_version, id)) = tokio::task::spawn_blocking(move || {
+    let Ok((keys, pull_version, id)) = crate::rt::spawn_blocking(move || {
         let keys = prep_svc.file_keys(&prep_diff);
         prep_svc.hydrate_files(&keys, |key| {
             prep_app
@@ -784,7 +785,7 @@ async fn wait_for_preparation(
         let pending_svc = svc.clone();
         let pending_keys = keys.clone();
         let pending_pull = pull_version.clone();
-        let pending = tokio::task::spawn_blocking(move || {
+        let pending = crate::rt::spawn_blocking(move || {
             let ratings = pending_svc
                 .ratings
                 .lock()
@@ -799,20 +800,20 @@ async fn wait_for_preparation(
         if !svc.client.enabled() || !pending || Instant::now() >= until {
             break;
         }
-        tokio::time::sleep(
+        crate::rt::sleep(
             Duration::from_millis(25).min(until.saturating_duration_since(Instant::now())),
         )
         .await;
     }
     let svc = svc.clone();
-    tokio::task::spawn_blocking(move || file_snapshot(&svc, &keys, id))
+    crate::rt::spawn_blocking(move || file_snapshot(&svc, &keys, id))
         .await
         .unwrap_or_else(|_| off())
 }
 pub async fn triage_for(app: &AppState, context: &Value) -> Result<Option<Value>> {
     let app = app.clone();
     let context = context.clone();
-    tokio::task::spawn_blocking(move || triage_stored(&app, &context))
+    crate::rt::spawn_blocking(move || triage_stored(&app, &context))
         .await
         .context("Jev triage snapshot unavailable")
 }

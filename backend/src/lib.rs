@@ -1,3 +1,9 @@
+// Code that only the native-only modules use is dead in the Worker build, and the Worker's
+// `rt::process` makes a spawned child impossible, so these lints only mean something natively.
+#![cfg_attr(
+    target_arch = "wasm32",
+    allow(dead_code, unused_imports, irrefutable_let_patterns, unreachable_code)
+)]
 pub mod account;
 pub mod agent_login;
 pub mod agent_api;
@@ -5,7 +11,6 @@ pub mod agent_process;
 pub mod ai;
 pub mod analytics;
 pub mod brief;
-pub mod data_mirror;
 pub mod feedback;
 pub mod github_stats;
 pub mod google_sign_in;
@@ -14,15 +19,22 @@ pub(crate) mod identity;
 pub mod jev;
 mod lz;
 mod merge_risk;
+pub mod net;
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod personal_auth;
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod personal_provider;
 pub mod posted;
 pub mod presentation;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod public_api;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod public_server;
 pub mod review;
+pub mod rt;
 mod review_experiments;
 mod rpc_validation;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod scheduler;
 pub mod source;
 pub mod store;
@@ -57,6 +69,7 @@ impl AppState {
             .await
             .copied()
     }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new(cwd: PathBuf, data: PathBuf) -> Result<Arc<Self>> {
         let store = store::Store::new(data)?;
         Self::from_host(host::ServerHost::new(store, Some(cwd), None))
@@ -83,8 +96,7 @@ impl AppState {
             feedback: feedback::FeedbackStore::new(store.clone()),
             github_stats: github_stats::Cache::default(),
             account_seed: Arc::new(tokio::sync::OnceCell::new()),
-            http: reqwest::Client::builder()
-                .redirect(reqwest::redirect::Policy::none())
+            http: crate::net::client()
                 .timeout(std::time::Duration::from_secs(60))
                 .build()?,
             jobs: ai::Jobs::default(),
@@ -189,8 +201,8 @@ pub(crate) fn iso_ms(ms: u64) -> String {
     )
 }
 pub fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
+    web_time::SystemTime::now()
+        .duration_since(web_time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
 }
@@ -204,7 +216,7 @@ pub async fn dispatch_as(
     args: Value,
     login: &agent_login::AgentLogin,
 ) -> Result<Value> {
-    let start = std::time::Instant::now();
+    let start = web_time::Instant::now();
     let result = match rpc_validation::arguments(name, args) {
         Ok(args) => dispatch_inner(state, name, args, login)
             .await

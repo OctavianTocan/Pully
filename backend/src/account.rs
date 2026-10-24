@@ -184,8 +184,8 @@ impl Accounts {
         self.env_seed
             .get_or_try_init(|| {
                 self.seed(
-                    std::env::var("PULLY_ACCOUNT_EMAIL").ok(),
-                    std::env::var("PULLY_ACCOUNT_PASSWORD").ok(),
+                    crate::rt::env::var("PULLY_ACCOUNT_EMAIL").ok(),
+                    crate::rt::env::var("PULLY_ACCOUNT_PASSWORD").ok(),
                 )
             })
             .await
@@ -199,7 +199,7 @@ impl Accounts {
         password: Option<String>,
     ) -> Result<Option<Account>> {
         let this = self.clone();
-        tokio::task::spawn_blocking(move || {
+        crate::rt::spawn_blocking(move || {
             let (email, password) = match (email, password) {
                 (Some(e), Some(p)) if !e.trim().is_empty() && !p.is_empty() => {
                     (e.trim().to_owned(), p)
@@ -254,7 +254,7 @@ impl Accounts {
         let this = self.clone();
         let who = email.trim().to_lowercase();
         let password = password.to_owned();
-        tokio::task::spawn_blocking(move || {
+        crate::rt::spawn_blocking(move || {
             // Serialize the check and insertion so concurrent attempts cannot bypass the limit.
             let mut failures = this
                 .failures
@@ -545,7 +545,7 @@ mod tests {
             } else {
                 other.clone()
             };
-            jobs.push(tokio::spawn(async move {
+            jobs.push(crate::rt::spawn(async move {
                 handle
                     .sign_in_with_google(" Person@OctavianTocan.com ")
                     .await

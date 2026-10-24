@@ -106,7 +106,7 @@ struct ProviderState {
 struct Provider {
     endpoint: String,
     state: Arc<ProviderState>,
-    server: tokio::task::JoinHandle<()>,
+    server: crate::rt::JoinHandle<()>,
 }
 
 impl Provider {
@@ -123,7 +123,7 @@ impl Provider {
         let router = Router::new()
             .route("/responses", post(provider))
             .with_state(state.clone());
-        let server = tokio::spawn(async move {
+        let server = crate::rt::spawn(async move {
             axum::serve(listener, router).await.unwrap();
         });
         Self {
@@ -141,7 +141,7 @@ impl Provider {
         }
     }
     async fn entered(&self) {
-        tokio::time::timeout(Duration::from_secs(2), self.state.entered.notified())
+        crate::rt::timeout(Duration::from_secs(2), self.state.entered.notified())
             .await
             .unwrap();
     }
@@ -487,7 +487,7 @@ async fn stop_and_lease_retirement_drop_a_held_stream_without_late_progress_or_r
         let worker_lease = lease.clone();
         let worker_tools = tools.clone();
         let seen = progress.clone();
-        let job = tokio::spawn(async move {
+        let job = crate::rt::spawn(async move {
             client
                 .run(
                     &worker_lease.captured,
@@ -509,7 +509,7 @@ async fn stop_and_lease_retirement_drop_a_held_stream_without_late_progress_or_r
             "source" => lease.source.retire(),
             _ => lease.revoke(),
         }
-        let result = tokio::time::timeout(Duration::from_secs(2), job)
+        let result = crate::rt::timeout(Duration::from_secs(2), job)
             .await
             .unwrap()
             .unwrap();
@@ -566,7 +566,7 @@ async fn retirement_cancels_a_held_tool_instead_of_waiting_for_it_to_reply() {
     let worker_lease = lease.clone();
     let worker_tools = tools.clone();
     let (_stop, cancellation) = watch::channel(false);
-    let job = tokio::spawn(async move {
+    let job = crate::rt::spawn(async move {
         client
             .run(
                 &worker_lease.captured,
@@ -577,11 +577,11 @@ async fn retirement_cancels_a_held_tool_instead_of_waiting_for_it_to_reply() {
             )
             .await
     });
-    tokio::time::timeout(Duration::from_secs(2), tools.entered.notified())
+    crate::rt::timeout(Duration::from_secs(2), tools.entered.notified())
         .await
         .unwrap();
     lease.revoke();
-    assert!(tokio::time::timeout(Duration::from_secs(2), job)
+    assert!(crate::rt::timeout(Duration::from_secs(2), job)
         .await
         .unwrap()
         .unwrap()

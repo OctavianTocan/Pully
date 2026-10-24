@@ -20,13 +20,13 @@ pub async fn token(state: &AppState) -> Result<Option<String>> {
 async fn blocking_token(
     lookup: impl FnOnce() -> Option<String> + Send + 'static,
 ) -> Option<String> {
-    tokio::task::spawn_blocking(lookup).await.ok().flatten()
+    crate::rt::spawn_blocking(lookup).await.ok().flatten()
 }
 fn token_sync() -> Option<String> {
     if let Some(token) = ["PULLS_REVIEW_GITHUB_TOKEN", "GITHUB_TOKEN", "GH_TOKEN"]
         .iter()
         .find_map(|k| {
-            std::env::var(k)
+            crate::rt::env::var(k)
                 .ok()
                 .map(|v| v.trim().to_owned())
                 .filter(|v| !v.is_empty())
@@ -35,7 +35,8 @@ fn token_sync() -> Option<String> {
         return Some(token);
     }
     use std::sync::{Mutex, OnceLock};
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
+    use web_time::Instant;
     static LOGIN: OnceLock<Mutex<Option<(Instant, Option<String>)>>> = OnceLock::new();
     let mut cached = LOGIN
         .get_or_init(Default::default)
@@ -57,8 +58,9 @@ fn cli_token() -> Option<String> {
         io::Read,
         process::{Command, Stdio},
         sync::mpsc,
-        time::{Duration, Instant},
+        time::Duration,
     };
+    use web_time::Instant;
     const LIMIT: u64 = 16 * 1024;
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut child = Command::new("gh")
@@ -118,7 +120,7 @@ pub async fn raw(
     body: Option<Value>,
     accept: &str,
 ) -> Result<(u16, Value, String)> {
-    let started = std::time::Instant::now();
+    let started = web_time::Instant::now();
     let result = raw_inner(state, method, path, body, accept).await;
     let _=state.analytics.record("github.calls",json!({"route":if path=="/graphql"{"graphql"}else{"rest"},"calls":1,"failures":if result.as_ref().is_ok_and(|(code,_,_)| (200..300).contains(code)){0}else{1},"ms":started.elapsed().as_millis() as u64})).await;
     result
@@ -176,8 +178,7 @@ async fn raw_inner(
     if let Some(b) = body {
         req = req.json(&b)
     }
-    let response = req
-        .send()
+    let response = crate::net::send(req)
         .await
         .map_err(|_| anyhow::anyhow!("GitHub request could not be completed"))?;
     let code = response.status().as_u16();
@@ -765,7 +766,7 @@ mod warmer_tests {
         let current = json!({"head":{"sha":"b"},"base":{"sha":"base"},"state":"open"});
         let fresh = json!({"ref":reference,"title":"Reopened PR","files":[],"head":{"sha":"b"},"pullRequest":{"baseSha":"base","state":"open"}});
         let attempted = std::cell::Cell::new(false);
-        let updated = tokio::time::timeout(
+        let updated = crate::rt::timeout(
             std::time::Duration::from_secs(1),
             refreshed_snapshot(&before["diff"], &current, async {
                 attempted.set(true);
@@ -858,37 +859,37 @@ mod credential_tests {
         let first_cache = cache.clone();
         let (started, lookup_started) = tokio::sync::oneshot::channel();
         let (release, blocked_lookup) = std::sync::mpsc::sync_channel(1);
-        let first = tokio::spawn(blocking_token(move || {
+        let first = crate::rt::spawn(blocking_token(move || {
             let _cache = first_cache.lock().unwrap();
             let _ = started.send(());
             // Bound even a broken implementation so the regression cannot hang.
             blocked_lookup.recv_timeout(Duration::from_secs(1)).ok()?;
             Some("credential-fixture".to_owned())
         }));
-        tokio::time::timeout(Duration::from_secs(1), lookup_started)
+        crate::rt::timeout(Duration::from_secs(1), lookup_started)
             .await
             .unwrap()
             .unwrap();
         let (waiting, cache_wait_started) = tokio::sync::oneshot::channel();
-        let second = tokio::spawn(blocking_token(move || {
+        let second = crate::rt::spawn(blocking_token(move || {
             let _ = waiting.send(());
             let _cache = cache.lock().unwrap();
             Some("credential-fixture".to_owned())
         }));
-        tokio::time::timeout(Duration::from_secs(1), cache_wait_started)
+        crate::rt::timeout(Duration::from_secs(1), cache_wait_started)
             .await
             .unwrap()
             .unwrap();
 
         // Simulate unrelated RPC work on the only Tokio worker while one lookup
         // holds the cache and another lookup waits for that same mutex.
-        let rpc = tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(10)).await;
+        let rpc = crate::rt::spawn(async move {
+            crate::rt::sleep(Duration::from_millis(10)).await;
             release.send(()).unwrap();
             42
         });
         assert_eq!(
-            tokio::time::timeout(Duration::from_millis(500), rpc)
+            crate::rt::timeout(Duration::from_millis(500), rpc)
                 .await
                 .unwrap()
                 .unwrap(),

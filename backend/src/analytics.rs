@@ -8,10 +8,11 @@ use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
+use web_time::{SystemTime, UNIX_EPOCH};
+use crate::rt::fs::{self, OpenOptions};
 use tokio::{
-    fs::{self, OpenOptions},
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     sync::Mutex,
 };
@@ -51,21 +52,27 @@ impl Analytics {
 
     /// Reads configuration without creating a directory or touching credentials.
     /// On by default, matching the web and Android clients' Usage stats switch.
+    /// The Worker has no disk: it records nothing until analytics move to R2 (plan 12).
+    #[cfg(target_arch = "wasm32")]
+    pub fn new() -> Self {
+        Self::configured(PathBuf::from("/analytics"), false)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> Self {
         let enabled = !matches!(
-            std::env::var("PULLS_REVIEW_ANALYTICS")
+            crate::rt::env::var("PULLS_REVIEW_ANALYTICS")
                 .unwrap_or_default()
                 .to_ascii_lowercase()
                 .as_str(),
             "off" | "0" | "false" | "no"
         );
-        let dir = std::env::var_os("PULLS_REVIEW_ANALYTICS_DIR")
+        let dir = crate::rt::env::var_os("PULLS_REVIEW_ANALYTICS_DIR")
             .filter(|v| !v.is_empty())
             .map(PathBuf::from)
             .unwrap_or_else(|| {
-                let home = std::env::var_os("HOME")
+                let home = crate::rt::env::var_os("HOME")
                     .filter(|v| !v.is_empty())
-                    .or_else(|| std::env::var_os("USERPROFILE").filter(|v| !v.is_empty()))
+                    .or_else(|| crate::rt::env::var_os("USERPROFILE").filter(|v| !v.is_empty()))
                     .map(PathBuf::from)
                     .unwrap_or_else(std::env::temp_dir);
                 home.join(".local/share/pulls-review/analytics")
@@ -75,7 +82,7 @@ impl Analytics {
 
     pub(crate) fn for_tenant(dir: PathBuf) -> Self {
         let enabled = !matches!(
-            std::env::var("PULLS_REVIEW_ANALYTICS")
+            crate::rt::env::var("PULLS_REVIEW_ANALYTICS")
                 .unwrap_or_default()
                 .to_ascii_lowercase()
                 .as_str(),
@@ -94,12 +101,14 @@ impl Analytics {
                 last_pruned: Mutex::new(None),
             }),
         };
-        {
-            if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+        // A Durable Object stays awake while a timer is pending, so the Worker skips a loop
+        // with nothing to write.
+        if !cfg!(target_arch = "wasm32") || enabled {
+            if let Ok(runtime) = crate::rt::Handle::try_current() {
                 let weak = Arc::downgrade(&result.inner);
                 runtime.spawn(async move {
-                    let mut interval = tokio::time::interval(Duration::from_secs(2));
-                    interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                    let mut interval = crate::rt::interval(Duration::from_secs(2));
+                    interval.set_missed_tick_behavior(crate::rt::MissedTickBehavior::Skip);
                     loop {
                         interval.tick().await;
                         let Some(inner) = weak.upgrade() else { break };
@@ -156,7 +165,7 @@ impl Analytics {
         // schedule an earlier flush; summary explicitly flushes before reading.
         if should_flush {
             let analytics = self.clone();
-            tokio::spawn(async move {
+            crate::rt::spawn(async move {
                 analytics.flush().await;
             });
         }

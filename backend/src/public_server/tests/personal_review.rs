@@ -626,8 +626,8 @@ async fn held_read_then_change(operation: &str, change: &str) {
             Harness::path(&open["target"], operation)
         ))
         .bearer_auth(&session);
-    let older = tokio::spawn(async move { request.send().await.unwrap() });
-    tokio::time::timeout(Duration::from_secs(2), h.upstream.entered.notified())
+    let older = crate::rt::spawn(async move { request.send().await.unwrap() });
+    crate::rt::timeout(Duration::from_secs(2), h.upstream.entered.notified())
         .await
         .unwrap();
     match change {
@@ -652,7 +652,7 @@ async fn held_read_then_change(operation: &str, change: &str) {
         }
     );
     h.upstream.release.notify_one();
-    let response = tokio::time::timeout(Duration::from_secs(2), older)
+    let response = crate::rt::timeout(Duration::from_secs(2), older)
         .await
         .unwrap()
         .unwrap();
@@ -707,8 +707,8 @@ async fn personal_review_credential_replacement_and_signout_stop_nested_reads_wi
                 Harness::path(&open["target"], "diff")
             ))
             .bearer_auth(&session);
-        let held = tokio::spawn(async move { request.send().await.unwrap() });
-        tokio::time::timeout(Duration::from_secs(2), h.upstream.entered.notified())
+        let held = crate::rt::spawn(async move { request.send().await.unwrap() });
+        crate::rt::timeout(Duration::from_secs(2), h.upstream.entered.notified())
             .await
             .unwrap();
         if replacement {
@@ -731,7 +731,7 @@ async fn personal_review_credential_replacement_and_signout_stop_nested_reads_wi
             .filter(|(path, _)| path.starts_with("review:"))
             .count();
         h.upstream.release.notify_one();
-        let response = tokio::time::timeout(Duration::from_secs(2), held)
+        let response = crate::rt::timeout(Duration::from_secs(2), held)
             .await
             .unwrap()
             .unwrap();
