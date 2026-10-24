@@ -729,8 +729,10 @@ final class PullyLaunchTests: XCTestCase {
     private func visibleElement(_ label: String, contains: Bool = false, in app: XCUIApplication) -> XCUIElement? {
         let predicate = NSPredicate(format: contains ? "label CONTAINS %@" : "label == %@", label)
         return app.descendants(matching: .any).matching(predicate).allElementsBoundByIndex.first { element in
-            let frame = element.frame
-            return element.exists && !frame.isEmpty && !frame.isNull && app.frame.intersects(frame)
+            // A toast can leave between this query and reading its frame. Reading `frame` then fails the
+            // test ("Failed to get matching snapshot"); a snapshot that throws just means it has gone.
+            guard let frame = try? element.snapshot().frame else { return false }
+            return !frame.isEmpty && !frame.isNull && app.frame.intersects(frame)
         }
     }
 
