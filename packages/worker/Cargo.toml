@@ -19,3 +19,9 @@ worker = { version = "0.8", features = [ "http" ] }
 anyhow = "1"
 wasm-bindgen = "0.2"
 console_error_panic_hook = "0.1"
+
+# mermaid-rs-renderer 0.3.1 times its layout with std::time::Instant, which panics on
+# wasm32-unknown-unknown. The copy in vendor/ is the published crate with those three imports
+# switched to web-time; the native server keeps the crate as published.
+[patch.crates-io]
+mermaid-rs-renderer = { path = "vendor/mermaid-rs-renderer" }
