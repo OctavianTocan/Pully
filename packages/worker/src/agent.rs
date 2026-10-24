@@ -1,9 +1,9 @@
 //! AI work in containers. Each Pully login gets one `AgentHome` Durable Object, named after the
 //! login's volume, that owns that login's agent container (`agent/Dockerfile`, which runs the
 //! server's `agent_runner`). `AgentRemote` is how the server reaches it. The container's disk goes
-//! when it sleeps, so the object keeps the login's CLI home as one archive in R2 that it never
-//! opens: put back when the container starts, saved after each run, sign-in, status check and
-//! sign-out.
+//! when it sleeps, so the object keeps the login's sign-in files as text in its own storage: written
+//! back into the container when it starts, and saved after each run, sign-in, status check and
+//! sign-out. The runner sends only the sign-in part of each file (`agent_runner`).
 use futures_util::{future::BoxFuture, lock::Mutex, StreamExt};
 use pulls_review_server::{
     agent_login::AgentLogin,
@@ -13,8 +13,8 @@ use send_wrapper::SendWrapper;
 use std::{rc::Rc, time::Duration};
 use wasm_bindgen::{JsCast, JsValue};
 use worker::{
-    durable_object, Bucket, Env, Headers, Method, ObjectNamespace, Request, RequestInit, Response,
-    Result, State,
+    durable_object, Env, Headers, Method, ObjectNamespace, Request, RequestInit, Response, Result,
+    State, Storage,
 };
 
 /// The port `agent_runner` listens on in the container.
@@ -24,6 +24,8 @@ const START_TIMEOUT_MS: f64 = 60_000.0;
 /// How long a container with nothing to do stays up. A sign-in in progress keeps it up through
 /// the phone's calls to finish it.
 const IDLE_MS: f64 = 5.0 * 60_000.0;
+/// The storage key of the login's sign-in files, the JSON text `agent_runner` gives.
+const LOGIN_FILES: &str = "login-files";
 /// Names the login a call is for; only `PullyServer` sets it, as nothing else reaches the object.
 const LOGIN_HEADER: &str = "x-pully-agent-login";
 
@@ -79,17 +81,15 @@ impl AgentRemote for ObjectRemote {
 #[durable_object]
 pub struct AgentHome {
     state: State,
-    homes: Bucket,
-    /// Held while the container starts and while the home is saved, so a second start never
-    /// puts an older home over a newer one, and saves land in order.
+    /// Held while the container starts and while the login is saved, so a second start never
+    /// puts an older login over a newer one, and saves land in order.
     lock: Rc<Mutex<bool>>,
 }
 
 impl worker::DurableObject for AgentHome {
-    fn new(state: State, env: Env) -> Self {
+    fn new(state: State, _env: Env) -> Self {
         Self {
             state,
-            homes: env.bucket("PULLY_AGENT_HOMES").expect("Agent homes bucket"),
             lock: Rc::new(Mutex::new(false)),
         }
     }
@@ -119,15 +119,14 @@ impl worker::DurableObject for AgentHome {
         ) {
             return Ok(response);
         }
-        // Save the home once the answer has been read to its end, so a rotated login is kept.
+        // Save the login once the answer has been read to its end, so a rotated one is kept.
         let (status, headers) = (response.status_code(), response.headers().clone());
         let mut response = response;
         let body = response.stream()?;
         let save = Saver {
             container,
-            homes: self.homes.clone(),
+            storage: self.state.storage(),
             lock: self.lock.clone(),
-            volume,
         };
         let finished = futures_util::stream::once(async move {
             save.save().await;
@@ -162,15 +161,13 @@ impl AgentHome {
         }
         if !*started {
             wait_until_answering(&raw).await?;
-            if let Some(object) = self.homes.get(key(volume)).execute().await? {
-                if let Some(body) = object.body() {
-                    let archive = body.bytes().await?;
-                    let restored = send(&raw, "PUT", "/home", Some(archive)).await?;
-                    if restored.status_code() != 200 {
-                        return Err(worker::Error::RustError(
-                            "The AI login could not be restored".into(),
-                        ));
-                    }
+            if let Some(files) = self.state.storage().get::<String>(LOGIN_FILES).await? {
+                let mut restored =
+                    send(&raw, "PUT", "/login-files", Some(files.into_bytes())).await?;
+                if restored.status_code() != 200 || restored.text().await? != r#"{"ok":true}"# {
+                    return Err(worker::Error::RustError(
+                        "The AI login could not be restored".into(),
+                    ));
                 }
             }
             let _ = call(&raw, "setInactivityTimeout", &[IDLE_MS.into()]);
@@ -180,24 +177,27 @@ impl AgentHome {
     }
 }
 
-/// Saves a login's home from its container to R2.
+/// Saves a login's sign-in files from its container into the object's storage.
 struct Saver {
     container: JsValue,
-    homes: Bucket,
+    storage: Storage,
     lock: Rc<Mutex<bool>>,
-    volume: String,
 }
 
 impl Saver {
     async fn save(&self) {
         let _held = self.lock.lock().await;
         let result = async {
-            let mut archive = send(&self.container, "GET", "/home", None).await?;
-            if archive.status_code() != 200 {
+            let mut files = send(&self.container, "GET", "/login-files", None).await?;
+            if files.status_code() != 200 {
                 return Ok(());
             }
-            let bytes = archive.bytes().await?;
-            self.homes.put(key(&self.volume), bytes).execute().await?;
+            let files = files.text().await?;
+            if files == "{}" {
+                self.storage.delete(LOGIN_FILES).await?;
+            } else {
+                self.storage.put(LOGIN_FILES, files).await?;
+            }
             Ok::<_, worker::Error>(())
         }
         .await;
@@ -205,10 +205,6 @@ impl Saver {
             worker::console_error!("Saving an AI login failed: {error}");
         }
     }
-}
-
-fn key(volume: &str) -> String {
-    format!("homes/{volume}.tar")
 }
 
 /// Polls the runner's `/health` until it answers or the start timeout passes.

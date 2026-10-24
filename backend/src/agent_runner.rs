@@ -23,8 +23,8 @@ use tokio::sync::{mpsc, watch};
 
 /// Baked into the agent image only, so the runner refuses to start anywhere else.
 pub const CONTAINER_MARKER: &str = "/.pully-agent-container";
-/// The largest CLI home kept between container starts.
-const HOME_LIMIT: usize = 32 * 1024 * 1024;
+/// The largest login file kept between container starts, as the login copy scripts allow.
+const LOGIN_FILE_LIMIT: usize = 512 * 1024;
 
 struct Runner {
     /// The one login this container serves, by its volume name.
@@ -78,8 +78,11 @@ pub fn router(volume: String) -> Router {
         .route("/login/start", post(login_start))
         .route("/login/finish", post(login_finish))
         .route("/login/cancel", post(login_cancel))
-        .route("/home", get(home_save).put(home_restore))
-        .layer(axum::extract::DefaultBodyLimit::max(HOME_LIMIT))
+        .route(
+            "/login-files",
+            get(login_files_save).put(login_files_restore),
+        )
+        .layer(axum::extract::DefaultBodyLimit::max(4 * LOGIN_FILE_LIMIT))
         .with_state(runner)
 }
 
@@ -257,27 +260,54 @@ impl Runner {
     }
 }
 
-/// The login's CLI home as a tar archive, for its Durable Object to keep while the container
-/// sleeps. The runner never opens the files; it only archives the folder.
-async fn home_save(State(runner): State<Arc<Runner>>) -> axum::response::Response {
-    use axum::response::IntoResponse;
-    let archive = async {
-        let home = runner.home()?;
-        if !home.is_dir() {
-            return Ok(None);
+/// The login files kept while the container sleeps, by their path in the CLI home: the field
+/// that makes each a subscription sign-in, then the others kept with it. Nothing else of the
+/// home is kept, so an API key or a setting a CLI wrote never leaves the container.
+const LOGIN_FILES: [(&str, &str, &[&str]); 3] = [
+    (".codex/auth.json", "tokens", &["auth_mode", "last_refresh"]),
+    (".claude/.credentials.json", "claudeAiOauth", &[]),
+    (".claude.json", "oauthAccount", &[]),
+];
+
+/// The kept part of the login file at `path`, or `None` when it holds no sign-in.
+fn kept(path: &str, file: &Value) -> Option<Value> {
+    let (_, main, others) = LOGIN_FILES.iter().find(|(name, ..)| *name == path)?;
+    let mut kept = serde_json::Map::new();
+    kept.insert(main.to_string(), file.get(*main)?.clone());
+    for field in *others {
+        if let Some(value) = file.get(*field) {
+            kept.insert(field.to_string(), value.clone());
         }
-        let mut tar = agent_process::local_command("tar", &home);
-        tar.arg("-C").arg(&home).args(["-cf", "-", "."]);
-        let output = tar.kill_on_drop(true).output().await?;
-        if !output.status.success() || output.stdout.len() > HOME_LIMIT {
-            bail!("The CLI home could not be archived");
-        }
-        Ok::<_, anyhow::Error>(Some(output.stdout))
     }
-    .await;
-    match archive {
-        Ok(Some(bytes)) => bytes.into_response(),
-        Ok(None) => axum::http::StatusCode::NO_CONTENT.into_response(),
+    Some(Value::Object(kept))
+}
+
+/// The login's sign-in files as one JSON object of path to kept content, for its Durable
+/// Object to keep as text while the container sleeps; `{}` when it has none.
+async fn login_files_save(State(runner): State<Arc<Runner>>) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    let files = (|| {
+        let home = runner.home()?;
+        let mut files = serde_json::Map::new();
+        for (path, ..) in LOGIN_FILES {
+            let file = home.join(path);
+            let Ok(meta) = std::fs::symlink_metadata(&file) else {
+                continue;
+            };
+            if !meta.is_file() || meta.len() > LOGIN_FILE_LIMIT as u64 {
+                continue;
+            }
+            let Ok(content) = serde_json::from_slice::<Value>(&std::fs::read(&file)?) else {
+                continue;
+            };
+            if let Some(content) = kept(path, &content) {
+                files.insert(path.to_owned(), content);
+            }
+        }
+        Ok::<_, anyhow::Error>(Value::Object(files))
+    })();
+    match files {
+        Ok(files) => Json(files).into_response(),
         Err(error) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
             crate::transport::safe_error(&error),
@@ -286,35 +316,36 @@ async fn home_save(State(runner): State<Arc<Runner>>) -> axum::response::Respons
     }
 }
 
-/// Puts back an archive from `home_save` into the login's empty CLI home after a start.
-async fn home_restore(State(runner): State<Arc<Runner>>, body: axum::body::Bytes) -> Json<Value> {
-    answer(
-        async {
-            let home = runner.home()?;
-            crate::rt::fs::create_dir_all(&home).await?;
+/// Writes back the files from `login_files_save` into the login's CLI home after a start.
+async fn login_files_restore(
+    State(runner): State<Arc<Runner>>,
+    body: axum::body::Bytes,
+) -> Json<Value> {
+    answer((|| {
+        // Read as bytes: the object sends the saved text without a content type.
+        let files: serde_json::Map<String, Value> =
+            serde_json::from_slice(&body).context("Invalid login files")?;
+        let home = runner.home()?;
+        for (path, content) in &files {
+            let content = kept(path, content).context("Invalid login file")?;
+            let file = home.join(path);
+            let folder = file.parent().context("Invalid login file")?;
+            std::fs::create_dir_all(folder)?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                crate::rt::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))
-                    .await?;
+                for dir in [home.as_path(), folder] {
+                    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
+                }
             }
-            let mut tar = agent_process::local_command("tar", &home);
-            tar.arg("-C")
-                .arg(&home)
-                .args(["-xf", "-", "--no-same-owner", "--no-overwrite-dir"])
-                .stdin(std::process::Stdio::piped())
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .kill_on_drop(true);
-            let mut child = tar.spawn()?;
-            let mut stdin = child.stdin.take().context("tar stdin unavailable")?;
-            tokio::io::AsyncWriteExt::write_all(&mut stdin, &body).await?;
-            drop(stdin);
-            if !child.wait().await?.success() {
-                bail!("The CLI home could not be restored");
-            }
-            Ok(json!(true))
+            let temp = file.with_extension(format!("pully-{}", uuid::Uuid::new_v4()));
+            let mut options = std::fs::OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+            std::io::Write::write_all(&mut options.open(&temp)?, content.to_string().as_bytes())?;
+            std::fs::rename(&temp, &file)?;
         }
-        .await,
-    )
+        Ok(json!(true))
+    })())
 }

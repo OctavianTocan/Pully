@@ -42,17 +42,17 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
   `agent_remote`, which streams each run's activity back as lines of JSON. The runner is root
   and keeps the login home where only root can read it; each job runs as `pully-cli` in its
   own job folder with the same selected credential files the Docker jobs get. The container's
-  disk goes when it sleeps (five minutes idle), so the object puts the login's CLI home back
-  from R2 (`pully-agent-homes`, one archive per login) when the container starts, and saves it
-  after each run, sign-in, status check and sign-out without opening it. No container holds
-  an R2 key or a server secret. This replaces mounting R2 in the container, which would give
-  every container a key to every login.
+  disk goes when it sleeps (five minutes idle), so the object keeps the login's sign-in files
+  as text in its own storage (Tavi, 24 Oct 19:27): only the sign-in part of Codex's
+  `auth.json` and Claude's credentials and account, written back when the container starts and
+  saved after each run, sign-in, status check and sign-out. No container holds a storage key
+  or a server secret. This replaces mounting R2 in the container, which would give every
+  container a key to every login, and a D1 database, which every login would share.
 - **Cost:** Workers Paid ($5 a month, already on the account for mymind). The Worker is
   about 3.9 MB compressed, under the paid plan's 10 MB.
 
 Deploying needs Tavi: the go-ahead, a hostname with an Access policy, Worker secrets
-(`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), the
-`pully-agent-homes` bucket, and an import of today's data so nothing starts empty. Each
+(`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), and an import of today's data so nothing starts empty. Each
 person signs Claude Code and Codex in again from Settings, AI, because today's logins live
 in Docker volumes on the old machine.
 

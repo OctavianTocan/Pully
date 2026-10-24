@@ -261,26 +261,39 @@ async fn remote_child() {
     logins.cancel(&login, "codex").await;
     let base = format!("http://127.0.0.1:{port}");
     let client = reqwest::Client::new();
-    let archive = client.get(format!("{base}/home")).send().await.unwrap();
-    assert!(archive.status().is_success());
-    let archive = archive.bytes().await.unwrap();
-    assert!(!archive.is_empty());
-    let home = dir.join("homes").join(login.volume());
-    std::fs::remove_dir_all(&home).unwrap();
-    let restored: Value = client
-        .put(format!("{base}/home"))
-        .body(archive)
+    let files: Value = client
+        .get(format!("{base}/login-files"))
         .send()
         .await
         .unwrap()
         .json()
         .await
         .unwrap();
-    assert_eq!(restored, json!({"ok": true}));
+    let codex = &files[".codex/auth.json"];
+    assert_eq!(codex["tokens"]["refresh_token"], "rotated");
+    assert_eq!(
+        files.as_object().unwrap().len(),
+        1,
+        "only sign-in files are kept: {files}"
+    );
+    let home = dir.join("homes").join(login.volume());
+    std::fs::remove_dir_all(&home).unwrap();
+    let put = |body: Value| {
+        let request = client.put(format!("{base}/login-files")).json(&body);
+        async move { request.send().await.unwrap().json::<Value>().await.unwrap() }
+    };
+    let mut extra = codex.clone();
+    extra["OPENAI_API_KEY"] = json!("never-kept");
+    assert_eq!(
+        put(json!({".codex/auth.json": extra})).await,
+        json!({"ok": true})
+    );
     let saved: Value =
         serde_json::from_str(&std::fs::read_to_string(home.join(".codex/auth.json")).unwrap())
             .unwrap();
-    assert_eq!(saved["tokens"]["refresh_token"], "rotated");
+    assert_eq!(saved, *codex);
+    assert!(put(json!({"../escape.json": codex})).await["error"].is_string());
+    assert!(!dir.join("homes/escape.json").exists());
     let other = AgentLogin::Account("someone-else".into());
     let refused = crate::agent_login::status(&other).await.unwrap_err();
     assert!(refused.to_string().contains("another login"), "{refused}");

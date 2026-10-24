@@ -423,9 +423,10 @@ A sign-in MUST run the unmodified CLI's own login (`claude auth login --claudeai
 `codex login --device-auth`) in a container holding only that login's volume (hosted:
 that login's own agent container), with no job inputs, PR tools or prompt. The server MUST
 NOT read the resulting tokens; it passes the person's pasted code only to that CLI's stdin.
-It MUST NOT store them either, except that the hosted server keeps each login's CLI home as
-one unopened archive in that login's own R2 object while its container sleeps (Tavi's
-answer to the 24 Oct login-storage question). Only a signed-in Pully
+It MUST NOT store them either, except that the hosted server keeps each login's sign-in
+files as text in that login's own `AgentHome` Durable Object while its container sleeps
+(Tavi, 24 Oct 2026 19:27, "store them as text in there or something and convert back to
+whatever file or token the CLIs need"). Only a signed-in Pully
 account MAY start, finish or sign out a sign-in. The phone MUST be given only links on
 the providers' own sign-in hosts, and status MUST count only subscription sign-ins
 (claude.ai, ChatGPT), never a Console or API key login. Source: Tavi, 23 Oct 2026 13:39,

@@ -16,9 +16,9 @@ FROM ${NODE_IMAGE}
 ARG CLAUDE_CODE_VERSION=latest
 ARG CODEX_VERSION=latest
 
-# git and ripgrep support the CLIs; flock (util-linux) guards login updates; tar keeps the home.
+# git and ripgrep support the CLIs; flock (util-linux) guards login updates.
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git ripgrep util-linux tar \
+  && apt-get install -y --no-install-recommends ca-certificates git ripgrep util-linux \
   && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}" \

@@ -43,9 +43,13 @@ Claude Code and Codex work for a login MUST run only in the container of that lo
 Durable Object, named after the login's volume, through the server's own `agent_process` code run
 by `agent_runner` (`hosted-server-is-the-rust-server-in-a-worker`). The object MUST refuse every
 login but the first it served, and the runner MUST refuse every login but its container's. A
-container MUST NOT be given an R2 key, a server secret or another login's home: the object puts
-that login's home back when the container starts and saves it after each run, sign-in, status
-check and sign-out, without opening it. Inside the container, CLI jobs MUST run as a user that cannot read
+container MUST NOT be given a storage key, a server secret or another login's files. The object
+keeps only that login's sign-in files, as text in its own storage: the runner gives the
+sign-in part of each (Codex's tokens, Claude's OAuth login) and nothing else of the CLI home,
+and the object writes them back when the container starts and saves them after each run,
+sign-in, status check and sign-out. Inside the container, CLI jobs MUST run as a user that cannot read
 the login homes (backend `rust-container-tools-use-scoped-capabilities`). Source: Tavi, 24 Oct
 2026, "Move the server, AI last" and "Rewrite it as a Worker"; the login-storage question asked
-the same day.
+the same day, answered by Tavi at 19:27 ("Can we not keep the logins in a D1 database? We
+could just store them as text in there"), kept in each login's own object rather than one D1
+database so no query can reach another login.

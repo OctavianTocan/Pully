@@ -18,8 +18,8 @@ What runs here today:
 
 - AI work: every Claude Code and Codex run, model list and sign-in goes to the login's own
   `AgentHome` Durable Object and its container (`agent/Dockerfile`), where the server's
-  `agent_runner` runs the CLIs. The object keeps the login's CLI home as one unopened
-  archive in the `pully-agent-homes` bucket while the container sleeps.
+  `agent_runner` runs the CLIs. The object keeps the login's sign-in files as text in its own
+  storage while the container sleeps.
 
 The Worker itself still runs no programs and reads no files: the server's `rt::fs` and
 `rt::process` refuse every call there.
@@ -48,9 +48,8 @@ running; without it, AI calls answer that the container is unavailable.
 
 ## Deploy (after Tavi's go-ahead)
 
-1. Copy today's server data in (a one-off import, still to write), and create the buckets with
-   `wrangler r2 bucket create pully-android` and `wrangler r2 bucket create pully-agent-homes`,
-   then run `scripts/upload-android.sh <android-dir>`.
+1. Copy today's server data in (a one-off import, still to write), and create the bucket with
+   `wrangler r2 bucket create pully-android`, then run `scripts/upload-android.sh <android-dir>`.
    Each Android publish then needs the same upload until `android/scripts/publish-apk.sh` does it.
 2. Secrets: `wrangler secret put PULLS_REVIEW_GITHUB_TOKEN`, and the others in
    `SERVER_ENVIRONMENT` (`src/lib.rs`) that today's server has.
