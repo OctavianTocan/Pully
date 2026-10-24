@@ -52,8 +52,10 @@ A Docker job MAY call the native server through a random, per-run tool capabilit
 That capability MUST be valid only while its job is running, MUST be bound to the
 selected immutable review context, and MUST NOT grant general RPC, storage or GitHub
 credentials. Shared CLI login state MUST be copied as selected credential files into
-an isolated job home; unrelated shared settings and skills MUST NOT reach the job
-(Tavi's 16 Oct parity request; agents-act-through-pr-tools).
+an isolated job home; unrelated shared settings and skills MUST NOT reach the job. In the
+hosted agent container, where jobs are plain processes, a job MUST run as a user that cannot
+read the login homes (Tavi's 16 Oct parity request; agents-act-through-pr-tools; Tavi's 24 Oct
+"Rewrite it as a Worker").
 
 @cc [owner:OctavianTocan,label:architecture;security] rust-openui-inert-wire-parity
 Brief parsing MUST preserve the locked OpenUI plain-tree behavior, including reactive
@@ -90,7 +92,11 @@ read-write; its selected PR inputs and native helper are read-only, and reposito
 reads go through the PR tools. Stopping a run MUST kill its container. The native
 runtime is Docker-only and MUST fail closed rather than run on the host (architecture,
 Where the CLIs run; recording 14 Oct 19:19, 01:31; Tavi's 15 Oct 2026 Rust rewrite and
-16 Oct 2026 parity requests, replacing the former host-or-Docker runtime).
+16 Oct 2026 parity requests, replacing the former host-or-Docker runtime). The one
+exception is the hosted agent container, which is itself the sandbox: there `agent_runner`,
+which refuses to start outside that image, runs the same jobs as plain processes with the
+same job folder, inputs and PR tools, and stopping a run MUST kill its process (Tavi, 24 Oct
+2026, "Rewrite it as a Worker"; packages/worker `hosted-ai-in-the-logins-own-container`).
 
 @cc [owner:OctavianTocan,label:security] server-curated-skills-only
 Review lenses come only from the curated skills. The server MUST NOT offer the skills of
@@ -414,9 +420,13 @@ people's subscription usage."
 
 @cc [owner:OctavianTocan,label:security] ai-sign-in-is-the-clis-own
 A sign-in MUST run the unmodified CLI's own login (`claude auth login --claudeai`,
-`codex login --device-auth`) in a container holding only that login's volume, with no
-job inputs, PR tools or prompt. The server MUST NOT read or store the resulting tokens;
-it passes the person's pasted code only to that CLI's stdin. Only a signed-in Pully
+`codex login --device-auth`) in a container holding only that login's volume (hosted:
+that login's own agent container), with no job inputs, PR tools or prompt. The server MUST
+NOT read the resulting tokens; it passes the person's pasted code only to that CLI's stdin.
+It MUST NOT store them either, except that the hosted server keeps each login's sign-in
+files as text in that login's own `AgentHome` Durable Object while its container sleeps
+(Tavi, 24 Oct 2026 19:27, "store them as text in there or something and convert back to
+whatever file or token the CLIs need"). Only a signed-in Pully
 account MAY start, finish or sign out a sign-in. The phone MUST be given only links on
 the providers' own sign-in hosts, and status MUST count only subscription sign-ins
 (claude.ai, ChatGPT), never a Console or API key login. Source: Tavi, 23 Oct 2026 13:39,

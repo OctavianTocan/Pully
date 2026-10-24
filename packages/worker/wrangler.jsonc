@@ -1,8 +1,9 @@
 // The hosted Pully server (plans/12-hosted-server.md): the Rust server built for Workers. Every
 // request goes to one PullyServer Durable Object, which keeps the server's data and analytics in
-// its SQLite storage; published Android builds are in the pully-android R2 bucket. There is no route and no workers.dev or preview URL: the hostname and the Cloudflare
-// Access policy in front of it come with Tavi's go-ahead to deploy (CONTRACTS,
-// hosted-server-only-behind-access).
+// its SQLite storage; published Android builds are in the pully-android R2 bucket. Claude Code and
+// Codex run in one AgentHome container per Pully login, whose sign-in files that object keeps.
+// There is no route and no workers.dev or preview URL: the hostname and the Cloudflare Access policy
+// in front of it come with Tavi's go-ahead to deploy (CONTRACTS, hosted-server-only-behind-access).
 {
   "name": "pully-server",
   "main": "build/worker/shim.mjs",
@@ -11,9 +12,27 @@
   "preview_urls": false,
   "build": { "command": "worker-build --release" },
   "durable_objects": {
-    "bindings": [{ "name": "PULLY_SERVER", "class_name": "PullyServer" }]
+    "bindings": [
+      { "name": "PULLY_SERVER", "class_name": "PullyServer" },
+      { "name": "AGENT_HOME", "class_name": "AgentHome" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PullyServer"] }],
-  "r2_buckets": [{ "binding": "PULLY_ANDROID", "bucket_name": "pully-android" }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["PullyServer"] },
+    { "tag": "v2", "new_sqlite_classes": ["AgentHome"] }
+  ],
+  // One container per Pully login, started by its AgentHome object (src/agent.rs).
+  "containers": [
+    {
+      "class_name": "AgentHome",
+      "image": "./agent/Dockerfile",
+      "image_build_context": "../..",
+      "instance_type": "standard-1",
+      "max_instances": 20
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "PULLY_ANDROID", "bucket_name": "pully-android" }
+  ],
   "observability": { "enabled": true }
 }

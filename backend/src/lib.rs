@@ -8,6 +8,9 @@ pub mod account;
 pub mod agent_login;
 pub mod agent_api;
 pub mod agent_process;
+pub mod agent_remote;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod agent_runner;
 pub mod ai;
 pub mod analytics;
 pub mod brief;

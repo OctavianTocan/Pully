@@ -90,18 +90,37 @@ impl Logins {
 
     /// Starts the CLI's own sign-in and answers with the link to open (and Codex's code).
     pub async fn start(&self, login: &AgentLogin, binary: &str) -> Result<Value> {
+        if crate::agent_remote::get().is_some() {
+            let body = json!({"binary": binary});
+            return crate::agent_remote::call(login, "/login/start", body).await;
+        }
         if let Some(old) = self.take(login, binary) {
             crate::agent_process::remove_container(&old.container).await;
         }
-        let image = crate::agent_process::runtime_image()?;
+        let runtime = crate::agent_process::runtime()?;
         let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
-        let mut command = login_container(&container, &login.volume(), true);
-        command.arg(&image);
-        if binary == "claude" {
-            command.args(["claude", "auth", "login", "--claudeai"]);
+        let cli: &[&str] = if binary == "claude" {
+            &["claude", "auth", "login", "--claudeai"]
         } else {
-            command.args(["codex", "login", "--device-auth"]);
-        }
+            &["codex", "login", "--device-auth"]
+        };
+        let mut stop = None;
+        let mut command = match &runtime {
+            crate::agent_process::Runtime::Docker(image) => {
+                let mut command = login_container(&container, &login.volume(), true);
+                command.arg(image).args(cli);
+                command
+            }
+            crate::agent_process::Runtime::Local(_) => {
+                let home = local_home(&runtime, login, true).await?;
+                // The image's entrypoint puts the curated skills into the home, as in Docker.
+                let mut command =
+                    crate::agent_process::local_command("pulls-review-agent-entrypoint", &home);
+                command.env("BROWSER", "true").args(cli);
+                stop = Some(crate::agent_process::local_stop(&container));
+                command
+            }
+        };
         let mut child = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -121,7 +140,7 @@ impl Logins {
             output,
             done,
         });
-        crate::rt::spawn(supervise(child, container, sender));
+        crate::rt::spawn(supervise(child, container, stop, sender));
         // The link comes first; a CLI that ends before printing one has failed to start.
         let link = crate::rt::timeout(Duration::from_secs(45), async {
             loop {
@@ -161,6 +180,10 @@ impl Logins {
         binary: &str,
         code: Option<&str>,
     ) -> Result<Value> {
+        if crate::agent_remote::get().is_some() {
+            let body = json!({"binary": binary, "code": code});
+            return crate::agent_remote::call(login, "/login/finish", body).await;
+        }
         let pending = self
             .get(login, binary)
             .with_context(|| format!("That {} sign-in ended. Start again.", display(binary)))?;
@@ -219,6 +242,11 @@ impl Logins {
     }
 
     pub async fn cancel(&self, login: &AgentLogin, binary: &str) {
+        if crate::agent_remote::get().is_some() {
+            let body = json!({"binary": binary});
+            let _ = crate::agent_remote::call(login, "/login/cancel", body).await;
+            return;
+        }
         if let Some(pending) = self.take(login, binary) {
             crate::agent_process::remove_container(&pending.container).await;
         }
@@ -227,20 +255,30 @@ impl Logins {
 
 /// Both CLIs' sign-in state for a login, read without a network and without creating a volume.
 pub async fn status(login: &AgentLogin) -> Result<Value> {
+    if crate::agent_remote::get().is_some() {
+        return crate::agent_remote::call(login, "/status", json!({})).await;
+    }
     let signed_out = json!({"signedIn":false});
-    if !volume_exists(&login.volume()).await {
+    let runtime = crate::agent_process::runtime()?;
+    if !login_exists(&runtime, login).await {
         return Ok(json!({"claude":signed_out,"codex":signed_out}));
     }
-    let image = crate::agent_process::runtime_image()?;
+    const SCRIPT: &str =
+        "claude auth status --json 2>/dev/null; echo; echo @@codex@@; codex login status 2>&1";
     let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
-    let mut command = login_container(&container, &login.volume(), false);
-    command.args([
-        "--entrypoint",
-        "sh",
-        &image,
-        "-c",
-        "claude auth status --json 2>/dev/null; echo; echo @@codex@@; codex login status 2>&1",
-    ]);
+    let mut command = match &runtime {
+        crate::agent_process::Runtime::Docker(image) => {
+            let mut command = login_container(&container, &login.volume(), false);
+            command.args(["--entrypoint", "sh", image, "-c", SCRIPT]);
+            command
+        }
+        crate::agent_process::Runtime::Local(_) => {
+            let home = local_home(&runtime, login, false).await?;
+            let mut command = crate::agent_process::local_command("sh", &home);
+            command.args(["-c", SCRIPT]);
+            command
+        }
+    };
     let output = crate::rt::timeout(
         Duration::from_secs(30),
         command.stdin(Stdio::null()).kill_on_drop(true).output(),
@@ -255,13 +293,26 @@ pub async fn status(login: &AgentLogin) -> Result<Value> {
 
 /// Signs one CLI out with its own command, which also revokes the login where the CLI can.
 pub async fn sign_out(login: &AgentLogin, binary: &str) -> Result<()> {
-    if !volume_exists(&login.volume()).await {
+    if crate::agent_remote::get().is_some() {
+        let body = json!({"binary": binary});
+        return crate::agent_remote::call(login, "/sign-out", body).await.map(|_| ());
+    }
+    let runtime = crate::agent_process::runtime()?;
+    if !login_exists(&runtime, login).await {
         return Ok(());
     }
-    let image = crate::agent_process::runtime_image()?;
     let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
-    let mut command = login_container(&container, &login.volume(), true);
-    command.args(["--entrypoint", binary, &image]);
+    let mut command = match &runtime {
+        crate::agent_process::Runtime::Docker(image) => {
+            let mut command = login_container(&container, &login.volume(), true);
+            command.args(["--entrypoint", binary, image]);
+            command
+        }
+        crate::agent_process::Runtime::Local(_) => crate::agent_process::local_command(
+            binary,
+            &local_home(&runtime, login, false).await?,
+        ),
+    };
     if binary == "claude" {
         command.args(["auth", "logout"]);
     } else {
@@ -394,6 +445,34 @@ fn login_container(name: &str, volume: &str, network: bool) -> Command {
     command
 }
 
+/// Whether `login` has a CLI home yet: a Docker volume, or a folder in the agent container.
+async fn login_exists(runtime: &crate::agent_process::Runtime, login: &AgentLogin) -> bool {
+    match runtime.home(&login.volume()) {
+        Some(home) => crate::rt::fs::metadata(home)
+            .await
+            .is_ok_and(|info| info.is_dir()),
+        None => volume_exists(&login.volume()).await,
+    }
+}
+
+/// The CLI home of `login` in the agent container, made private when `create` is set.
+async fn local_home(
+    runtime: &crate::agent_process::Runtime,
+    login: &AgentLogin,
+    create: bool,
+) -> Result<std::path::PathBuf> {
+    let home = runtime.home(&login.volume()).context("Not a local runtime")?;
+    if create {
+        crate::rt::fs::create_dir_all(&home).await?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            crate::rt::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700)).await?;
+        }
+    }
+    Ok(home)
+}
+
 async fn volume_exists(volume: &str) -> bool {
     let mut inspect = Command::new("docker");
     inspect
@@ -420,10 +499,27 @@ async fn collect<R: AsyncRead + Unpin>(mut input: R, output: Arc<Mutex<String>>)
     }
 }
 
-async fn supervise(mut child: Child, container: String, done: watch::Sender<Option<bool>>) {
-    let status = crate::rt::timeout(LOGIN_LIFETIME, child.wait()).await;
-    let success = matches!(&status, Ok(Ok(status)) if status.success());
-    if status.is_err() {
+async fn supervise(
+    mut child: Child,
+    container: String,
+    stop: Option<tokio::sync::oneshot::Receiver<()>>,
+    done: watch::Sender<Option<bool>>,
+) {
+    // A local sign-in has no container to remove, so it is stopped through `stop`.
+    let stopped = async {
+        match stop {
+            Some(stop) => {
+                let _ = stop.await;
+            }
+            None => std::future::pending().await,
+        }
+    };
+    let status = tokio::select! {
+        status = crate::rt::timeout(LOGIN_LIFETIME, child.wait()) => Some(status),
+        _ = stopped => None,
+    };
+    let success = matches!(&status, Some(Ok(Ok(status))) if status.success());
+    if !matches!(status, Some(Ok(_))) {
         let _ = child.kill().await;
     }
     crate::agent_process::remove_container(&container).await;

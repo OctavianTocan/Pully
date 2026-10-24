@@ -26,8 +26,20 @@ use uuid::Uuid;
 const INPUT_LIMIT: usize = 8 * 1024 * 1024;
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
 const MCP_BIN: &str = "/opt/pulls-review-server";
-const PAYLOAD: &str = "/inputs/payload.json";
 pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
+/// A fixed PATH for programs run in the hosted agent container, which clears the environment.
+const LOCAL_PATH: &str = "/usr/local/bin:/usr/bin:/bin";
+#[cfg(test)]
+mod local_tests;
+/// Set only by the hosted agent container's runner (`agent_runner`): the folder holding each
+/// login's CLI home. While unset, every CLI runs in Docker.
+static LOCAL_HOMES: OnceLock<PathBuf> = OnceLock::new();
+/// The user and group the hosted agent container runs CLI jobs as, so a job cannot read the
+/// login homes, which stay with the runner's own user.
+static LOCAL_CLI_USER: OnceLock<Option<(u32, u32)>> = OnceLock::new();
+/// Stops for the sign-in processes run in the hosted agent container, by their name.
+static LOCAL_STOPS: std::sync::Mutex<Vec<(String, tokio::sync::oneshot::Sender<()>)>> =
+    std::sync::Mutex::new(Vec::new());
 static CLEANUPS: std::sync::Mutex<Vec<crate::rt::JoinHandle<()>>> =
     std::sync::Mutex::new(Vec::new());
 
@@ -42,21 +54,62 @@ pub async fn shutdown_cleanup() {
         }
     }
 }
+/// Where the CLIs run.
+#[derive(Clone, Debug)]
+pub(crate) enum Runtime {
+    /// The native server: each job, sign-in and login copy in a fresh container of this image.
+    Docker(String),
+    /// Inside the hosted agent container, which is itself the sandbox and holds one Pully
+    /// account's logins (`agent_runner`): plain processes, with each login's CLI home in a
+    /// folder under this one.
+    Local(PathBuf),
+}
+impl Runtime {
+    /// The CLI home of `volume`, for `Local`.
+    pub(crate) fn home(&self, volume: &str) -> Option<PathBuf> {
+        match self {
+            Self::Docker(_) => None,
+            Self::Local(homes) => Some(homes.join(volume)),
+        }
+    }
+}
+/// Paths a CLI sees: the job folder, its read-only inputs and the MCP helper.
+struct JobPaths {
+    job: String,
+    inputs: String,
+    mcp: String,
+}
 struct Job {
     root: PathBuf,
     name: String,
     volume: String,
+    runtime: Runtime,
     login: std::sync::Mutex<Option<(String, String)>>,
 }
 impl Job {
-    fn new(login: &AgentLogin) -> Self {
+    fn new(login: &AgentLogin, runtime: Runtime) -> Self {
         let name = format!("pulls-agent-{}", Uuid::new_v4());
         Self {
             root: std::env::temp_dir().join(&name),
             name,
             volume: login.volume(),
+            runtime,
             login: std::sync::Mutex::new(None),
         }
+    }
+    fn paths(&self) -> Result<JobPaths> {
+        Ok(match &self.runtime {
+            Runtime::Docker(_) => JobPaths {
+                job: "/job".into(),
+                inputs: "/inputs".into(),
+                mcp: MCP_BIN.into(),
+            },
+            Runtime::Local(_) => JobPaths {
+                job: utf8(self.root.join("work"))?,
+                inputs: utf8(self.root.join("inputs"))?,
+                mcp: utf8(std::env::current_exe()?)?,
+            },
+        })
     }
     async fn prepare(&self) -> Result<()> {
         crate::rt::fs::create_dir(&self.root)
@@ -91,8 +144,15 @@ impl Drop for Job {
             .unwrap()
             .clone()
             .map(|(binary, image)| (binary, image, self.volume.clone()));
+        let sandbox = self.runtime.clone();
         if let Ok(runtime) = crate::rt::Handle::try_current() {
-            let handle = runtime.spawn(cleanup_job(root, name, login, Duration::from_secs(30)));
+            let handle = runtime.spawn(cleanup_job(
+                root,
+                name,
+                login,
+                sandbox,
+                Duration::from_secs(30),
+            ));
             let mut handles = CLEANUPS.lock().unwrap();
             handles.retain(|h| !h.is_finished());
             handles.push(handle);
@@ -103,8 +163,21 @@ async fn cleanup_job(
     root: PathBuf,
     name: String,
     login: Option<(String, String, String)>,
+    runtime: Runtime,
     login_timeout: Duration,
 ) {
+    if let Runtime::Local(_) = &runtime {
+        // A local job's processes end with it; only its rotated login is left to keep.
+        if let Some((binary, _, volume)) = login {
+            let _ = crate::rt::timeout(
+                login_timeout,
+                persist_login_local(&root, &binary, &runtime, &volume),
+            )
+            .await;
+        }
+        let _ = crate::rt::fs::remove_dir_all(root).await;
+        return;
+    }
     // Stop model/bootstrap work before copying credentials. The final persistence
     // helper can itself finish creating after a killed client, so no helper may
     // be started after the delayed removal retries.
@@ -122,6 +195,15 @@ async fn cleanup_job(
     let _ = crate::rt::fs::remove_dir_all(root).await;
 }
 pub(crate) async fn remove_container(name: &str) {
+    if LOCAL_HOMES.get().is_some() {
+        // Jobs' processes are killed when dropped; a sign-in is stopped by its name.
+        let mut stops = LOCAL_STOPS.lock().unwrap();
+        stops.retain(|(_, stop)| !stop.is_closed());
+        if let Some(at) = stops.iter().position(|(stop, _)| stop == name) {
+            let _ = stops.remove(at).1.send(());
+        }
+        return;
+    }
     let mut command = Command::new("docker");
     command
         .args(["rm", "--force", name])
@@ -199,7 +281,9 @@ async fn process_stream(
     let stdout = child.stdout.take().context("Sandbox stdout unavailable")?;
     let stderr = child.stderr.take().context("Sandbox stderr unavailable")?;
     let control = async {
-        let writer = async {
+        // The block owns stdin, so the pipe closes once the input is sent: shutting a child's
+        // stdin down does not close it, and a CLI that reads to the end would wait forever.
+        let writer = async move {
             stdin
                 .write_all(&input)
                 .await
@@ -253,6 +337,69 @@ fn setting(request: &Value, key: &str, max: usize) -> Result<Option<String>> {
         Some(Value::String(v)) if v.len() <= max && !v.contains('\0') => Ok(Some(v.clone())),
         _ => bail!("Invalid AI job {key}"),
     }
+}
+/// Makes every CLI in this process run as a plain process with its logins under `homes`. Only
+/// the hosted agent container's runner calls it (`agent_runner`, which checks it is in that
+/// container); the native server never does, so it keeps refusing host execution.
+/// Jobs run as `cli` (user, group) when given; sign-ins, login copies and home archives stay
+/// with this process's user.
+pub(crate) fn use_local_runtime(homes: PathBuf, cli: Option<(u32, u32)>) -> Result<()> {
+    LOCAL_CLI_USER
+        .set(cli)
+        .map_err(|_| anyhow::anyhow!("The agent runtime is already set"))?;
+    LOCAL_HOMES
+        .set(homes)
+        .map_err(|_| anyhow::anyhow!("The agent runtime is already set"))
+}
+/// Where this process runs CLIs.
+pub(crate) fn runtime() -> Result<Runtime> {
+    match LOCAL_HOMES.get() {
+        Some(homes) => Ok(Runtime::Local(homes.clone())),
+        None => runtime_image().map(Runtime::Docker),
+    }
+}
+/// Registers a sign-in process run in the hosted agent container, so `remove_container(name)`
+/// stops it.
+pub(crate) fn local_stop(name: &str) -> tokio::sync::oneshot::Receiver<()> {
+    let (stop, stopped) = tokio::sync::oneshot::channel();
+    LOCAL_STOPS.lock().unwrap().push((name.to_owned(), stop));
+    stopped
+}
+/// A plain process for the hosted agent container: an empty environment but `PATH`, `HOME`
+/// and the CLIs' quiet settings, so no server variable reaches a CLI.
+pub(crate) fn local_command(program: &str, home: &Path) -> Command {
+    let mut command = Command::new(program);
+    command
+        .env_clear()
+        .env("PATH", local_path())
+        .env("HOME", home)
+        .env("NO_COLOR", "1")
+        .env("DISABLE_AUTOUPDATER", "1");
+    command
+}
+fn local_path() -> String {
+    // Tests put their fake CLIs first; the container always uses the fixed PATH.
+    #[cfg(test)]
+    if let Ok(path) = std::env::var("PULLS_TEST_LOCAL_PATH") {
+        return path;
+    }
+    LOCAL_PATH.into()
+}
+/// Makes `path` and everything under it, symlinks themselves included, owned by `uid`:`gid`.
+#[cfg(unix)]
+fn give_to(path: &Path, uid: u32, gid: u32) -> std::io::Result<()> {
+    std::os::unix::fs::lchown(path, Some(uid), Some(gid))?;
+    if std::fs::symlink_metadata(path)?.is_dir() {
+        for entry in std::fs::read_dir(path)? {
+            give_to(&entry?.path(), uid, gid)?;
+        }
+    }
+    Ok(())
+}
+fn utf8(path: PathBuf) -> Result<String> {
+    path.into_os_string()
+        .into_string()
+        .map_err(|_| anyhow::anyhow!("Sandbox paths must be UTF-8"))
 }
 pub(crate) fn runtime_image() -> Result<String> {
     let runtime = crate::rt::env::var("PULLS_REVIEW_AGENT_RUNTIME").unwrap_or_else(|_| "docker".into());
@@ -336,24 +483,24 @@ async fn create_start(
     process_stream(&mut start, input, on_line).await
 }
 // Saved login files carry the CLIs' own subscription sign-in only; no API key is ever read.
-const LOGIN_BOOTSTRAP_SCRIPT: &str = r#"const fs=require('fs'),crypto=require('crypto'); const kind=process.argv[1];
+const LOGIN_BOOTSTRAP_SCRIPT: &str = r#"const fs=require('fs'),crypto=require('crypto'); const kind=process.argv[1],L=process.argv[2]||'/login',J=process.argv[3]||'/job';
 function raw(p){const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.size>524288||fs.realpathSync(p)!==p)throw Error('Invalid login');return fs.readFileSync(p,'utf8');}
 function save(p,v){fs.writeFileSync(p,JSON.stringify(v),{mode:0o600});}
-const source=kind==='claude'?'/login/.claude/.credentials.json':'/login/.codex/auth.json';const original=raw(source),a=JSON.parse(original);
-fs.writeFileSync('/job/state/auth-original',crypto.createHash('sha256').update(original).digest('hex'),{mode:0o600});
-if(kind==='claude'){if(!a.claudeAiOauth)throw Error('Missing login');save('/job/home/.claude/.credentials.json',{claudeAiOauth:a.claudeAiOauth});
-let cfg={hasCompletedOnboarding:true};try{const c=JSON.parse(raw('/login/.claude.json'));if(c.oauthAccount)cfg.oauthAccount=c.oauthAccount;}catch{}save('/job/home/.claude.json',cfg);
-}else{const out={};for(const k of ['auth_mode','tokens','last_refresh'])if(a[k]!==undefined)out[k]=a[k];if(!out.tokens)throw Error('Missing login');save('/job/home/.codex/auth.json',out);}"#;
-const LOGIN_PERSIST_SCRIPT: &str = r#"const fs=require('fs'),crypto=require('crypto');const kind=process.argv[1];
-const relative=kind==='claude'?'.claude/.credentials.json':'.codex/auth.json',target='/login/'+relative;
+const source=kind==='claude'?L+'/.claude/.credentials.json':L+'/.codex/auth.json';const original=raw(source),a=JSON.parse(original);
+fs.writeFileSync(J+'/state/auth-original',crypto.createHash('sha256').update(original).digest('hex'),{mode:0o600});
+if(kind==='claude'){if(!a.claudeAiOauth)throw Error('Missing login');save(J+'/home/.claude/.credentials.json',{claudeAiOauth:a.claudeAiOauth});
+let cfg={hasCompletedOnboarding:true};try{const c=JSON.parse(raw(L+'/.claude.json'));if(c.oauthAccount)cfg.oauthAccount=c.oauthAccount;}catch{}save(J+'/home/.claude.json',cfg);
+}else{const out={};for(const k of ['auth_mode','tokens','last_refresh'])if(a[k]!==undefined)out[k]=a[k];if(!out.tokens)throw Error('Missing login');save(J+'/home/.codex/auth.json',out);}"#;
+const LOGIN_PERSIST_SCRIPT: &str = r#"const fs=require('fs'),crypto=require('crypto');const kind=process.argv[1],L=process.argv[2]||'/login',J=process.argv[3]||'/job';
+const relative=kind==='claude'?'.claude/.credentials.json':'.codex/auth.json',target=L+'/'+relative;
 function raw(p){const s=fs.lstatSync(p);if(!s.isFile()||s.isSymbolicLink()||s.size>524288||fs.realpathSync(p)!==p)throw Error('Invalid login');return fs.readFileSync(p,'utf8');}
-const hash=s=>crypto.createHash('sha256').update(s).digest('hex'),original=raw('/job/state/auth-original');
+const hash=s=>crypto.createHash('sha256').update(s).digest('hex'),original=raw(J+'/state/auth-original');
 if(hash(raw(target))!==original)process.exit(0);
-const updated=JSON.parse(raw('/job/home/'+relative)),out={};
+const updated=JSON.parse(raw(J+'/home/'+relative)),out={};
 if(kind==='claude'){if(!updated.claudeAiOauth)throw Error('Invalid login');out.claudeAiOauth=updated.claudeAiOauth;}
 else{for(const k of ['auth_mode','tokens','last_refresh'])if(updated[k]!==undefined)out[k]=updated[k];if(!out.tokens)throw Error('Invalid login');}
 const content=JSON.stringify(out),temp=target+'.pulls-'+crypto.randomUUID();
-try{fs.writeFileSync(temp,content,{mode:0o600,flag:'wx'});fs.renameSync(temp,target);fs.writeFileSync('/job/state/auth-original',hash(content),{mode:0o600});}finally{try{fs.unlinkSync(temp);}catch{}}"#;
+try{fs.writeFileSync(temp,content,{mode:0o600,flag:'wx'});fs.renameSync(temp,target);const f=J+'/state/auth-original';try{fs.unlinkSync(f);}catch{}fs.writeFileSync(f,hash(content),{mode:0o600,flag:'wx'});}finally{try{fs.unlinkSync(temp);}catch{}}"#;
 /// Only credential files are copied. The agent never mounts the login volume, settings, skills,
 /// GitHub login, host home or checkout. A bootstrap never has a network or a model process.
 async fn prepare_login(job: &Job, binary: &str, image: &str, login: &AgentLogin) -> Result<()> {
@@ -460,7 +607,10 @@ async fn launch(
     helper: bool,
     on_line: &mut (dyn FnMut(&str) -> bool + Send),
 ) -> Result<Vec<u8>> {
-    let image = runtime_image()?;
+    let image = match &job.runtime {
+        Runtime::Docker(image) => image.clone(),
+        Runtime::Local(_) => return launch_local(job, login, binary, args, input, on_line).await,
+    };
     prepare_login(job, binary, &image, login).await?;
     let mut create = sandbox_command(&job.root, &job.name, binary, true)?;
     create.args([
@@ -482,6 +632,74 @@ async fn launch(
         on_line(r#"{"type":"pulls_auth_warning"}"#);
     }
     result
+}
+
+/// `launch` in the hosted agent container: the same credential-only copy in and out of the
+/// login's home, with the CLI as a plain process whose home is the job's own.
+async fn launch_local(
+    job: &Job,
+    login: &AgentLogin,
+    binary: &str,
+    args: Vec<String>,
+    input: Vec<u8>,
+    on_line: &mut (dyn FnMut(&str) -> bool + Send),
+) -> Result<Vec<u8>> {
+    let home = job.runtime.home(&job.volume).context("Not a local runtime")?;
+    let work = job.root.join("work");
+    let mut bootstrap = local_command("node", &work.join("home"));
+    bootstrap.args(["-e", LOGIN_BOOTSTRAP_SCRIPT, binary]).arg(&home).arg(&work);
+    crate::rt::timeout(Duration::from_secs(30), process(&mut bootstrap, vec![]))
+        .await
+        .context("Sandbox authentication copy timed out")?
+        .map_err(|_| anyhow::anyhow!(login.missing(binary)))?;
+    *job.login.lock().unwrap() = Some((binary.to_owned(), String::new()));
+    let mut command = local_command(binary, &work.join("home"));
+    #[cfg(unix)]
+    if let Some(&Some((uid, gid))) = LOCAL_CLI_USER.get() {
+        // The job folder is the CLI's; its root, the inputs and the login homes are not.
+        use std::os::unix::fs::PermissionsExt;
+        crate::rt::fs::set_permissions(&job.root, std::fs::Permissions::from_mode(0o711)).await?;
+        give_to(&work, uid, gid).context("Could not prepare the sandbox job folder")?;
+        command.uid(uid).gid(gid);
+    }
+    command
+        .current_dir(&work)
+        .env("TMPDIR", work.join("tmp"))
+        .env("CODEX_HOME", work.join("home/.codex"))
+        .env("CLAUDE_CONFIG_DIR", work.join("home/.claude"));
+    command.args(args);
+    let result = process_stream(&mut command, input, on_line).await;
+    if persist_login_local(&job.root, binary, &job.runtime, &job.volume)
+        .await
+        .is_err()
+    {
+        on_line(r#"{"type":"pulls_auth_warning"}"#);
+    }
+    result
+}
+/// `persist_login` in the hosted agent container, under the same lock file in the login's home.
+async fn persist_login_local(
+    root: &Path,
+    binary: &str,
+    runtime: &Runtime,
+    volume: &str,
+) -> Result<()> {
+    if !root.join("work/state/auth-original").is_file() {
+        return Ok(());
+    }
+    let home = runtime.home(volume).context("Not a local runtime")?;
+    let work = root.join("work");
+    let mut persist = local_command("flock", &work.join("home"));
+    persist
+        .args(["--wait", "10"])
+        .arg(home.join(".pulls-review-auth.lock"))
+        .args(["node", "-e", LOGIN_PERSIST_SCRIPT, binary])
+        .arg(&home)
+        .arg(&work);
+    crate::rt::timeout(Duration::from_secs(30), process(&mut persist, vec![]))
+        .await
+        .context("Sandbox login refresh timed out")??;
+    Ok(())
 }
 
 /// A job emits bounded activity patches as stdout arrives; final answers stay untruncated.
@@ -514,8 +732,10 @@ pub(crate) async fn run_agent_prepared(
     if serde_json::to_vec(&request)?.len() > INPUT_LIMIT {
         bail!("AI job exceeds the 8 MiB input limit");
     }
-    runtime_image()?;
-    let job = Job::new(login);
+    if crate::agent_remote::get().is_some() {
+        return crate::agent_remote::run(request, login, cancel, sink, preparation).await;
+    }
+    let job = Job::new(login, runtime()?);
     let result = tokio::select! {
         result = crate::rt::timeout(Duration::from_secs(30 * 60), run_inner(&request, &job, login, sink, preparation)) => result.map_err(|_| anyhow::anyhow!("AI job exceeded the 30 minute timeout"))?,
         _ = async { loop { if *cancel.borrow_and_update() || cancel.changed().await.is_err() { break; } } } => Err(anyhow::anyhow!("AI task cancelled")),
@@ -550,6 +770,7 @@ async fn run_inner(
     }
     let structured = request.get("schema").is_some_and(|v| !v.is_null());
     let context = request.get("context").filter(|v| v.is_object());
+    let paths = job.paths()?;
     job.prepare().await?;
     if let Some(context) = context {
         crate::rt::fs::write(
@@ -565,7 +786,7 @@ async fn run_inner(
         )
         .await?;
     }
-    let mcp_args = json!(["--mcp-context", PAYLOAD]);
+    let mcp_args = json!(["--mcp-context", format!("{}/payload.json", paths.inputs)]);
     let mut args: Vec<String>;
     let input: Vec<u8>;
     if binary == "claude" {
@@ -609,7 +830,7 @@ async fn run_inner(
                 .join(",");
             args.extend([
                 "--mcp-config".into(),
-                json!({"mcpServers":{"pr":{"command":MCP_BIN,"args":mcp_args}}}).to_string(),
+                json!({"mcpServers":{"pr":{"command":paths.mcp,"args":mcp_args}}}).to_string(),
                 "--allowedTools".into(),
                 tools,
             ]);
@@ -627,22 +848,27 @@ async fn run_inner(
             "read-only",
             "--color",
             "never",
-            "--output-last-message",
-            "/job/answer.txt",
         ]
         .iter()
         .map(|s| s.to_string())
         .collect();
+        args.extend([
+            "--output-last-message".into(),
+            format!("{}/answer.txt", paths.job),
+        ]);
         for config in [
             "features.shell_tool=false",
             "features.unified_exec=false",
             "features.view_image=false",
             "web_search=\"disabled\"",
             "model_reasoning_summary=\"auto\"",
-            "sqlite_home=\"/job/state\"",
         ] {
             args.extend(["-c".into(), config.into()]);
         }
+        args.extend([
+            "-c".into(),
+            format!("sqlite_home={}", json!(format!("{}/state", paths.job))),
+        ]);
         if let Some(model) = &model {
             args.extend(["--model".into(), model.clone()]);
         }
@@ -653,11 +879,14 @@ async fn run_inner(
             ]);
         }
         if structured {
-            args.extend(["--output-schema".into(), "/inputs/schema.json".into()]);
+            args.extend([
+                "--output-schema".into(),
+                format!("{}/schema.json", paths.inputs),
+            ]);
         }
         if context.is_some() {
             for config in [
-                format!("mcp_servers.pr.command={}", json!(MCP_BIN)),
+                format!("mcp_servers.pr.command={}", json!(paths.mcp)),
                 format!("mcp_servers.pr.args={mcp_args}"),
                 "mcp_servers.pr.default_tools_approval_mode=\"approve\"".into(),
             ] {
@@ -687,8 +916,10 @@ async fn run_inner(
 pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
     static VERSION: OnceLock<regex::Regex> = OnceLock::new();
     let binary = binary(engine)?;
-    runtime_image()?;
-    let job = Job::new(login);
+    if crate::agent_remote::get().is_some() {
+        return crate::agent_remote::call(login, "/catalog", json!({"engine": engine})).await;
+    }
+    let job = Job::new(login, runtime()?);
     let result = crate::rt::timeout(Duration::from_secs(45), async {
         job.prepare().await?;
         let args = if binary == "claude" {

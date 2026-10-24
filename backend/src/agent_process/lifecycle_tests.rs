@@ -177,6 +177,7 @@ async fn final_login_helper_cleanup(dir: &Path) {
             "offline-fixture".into(),
             AgentLogin::Account("offline-account".into()).volume(),
         )),
+        Runtime::Docker("offline-fixture".into()),
         Duration::from_millis(250),
     ));
     CLEANUPS.lock().unwrap().push(cleanup);

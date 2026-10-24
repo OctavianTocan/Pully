@@ -16,9 +16,13 @@ What runs here today:
 - the download page, the update manifest and the APKs, read from the `pully-android` R2
   bucket under the same names as the native server's Android directory.
 
-What does not yet: AI work, which needs Claude Code and Codex in a container of their own.
-Those calls fail closed: the server's `rt::fs` and `rt::process` refuse every call in the
-Worker.
+- AI work: every Claude Code and Codex run, model list and sign-in goes to the login's own
+  `AgentHome` Durable Object and its container (`agent/Dockerfile`), where the server's
+  `agent_runner` runs the CLIs. The object keeps the login's sign-in files as text in its own
+  storage while the container sleeps.
+
+The Worker itself still runs no programs and reads no files: the server's `rt::fs` and
+`rt::process` refuse every call there.
 
 Nothing is deployed. The config has no route on purpose: the hostname goes in together with
 its Cloudflare Access policy.
@@ -38,6 +42,9 @@ editing the server. Local data stays in `.wrangler/state`.
 
 To try downloads, fill the local bucket from an Android directory:
 `scripts/upload-android.sh ~/.local/share/pulls-review/android --local`.
+
+`wrangler dev` builds the agent container with the local Docker, so AI work needs Docker
+running; without it, AI calls answer that the container is unavailable.
 
 ## Deploy (after Tavi's go-ahead)
 

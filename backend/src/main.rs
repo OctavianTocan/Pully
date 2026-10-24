@@ -71,6 +71,18 @@ struct Args {
     /// Internal: stdio MCP adapter restricted to this preselected PR payload.
     #[arg(long, hide = true)]
     mcp_context: Option<PathBuf>,
+    /// Internal: serve one login's AI work inside the hosted agent container.
+    #[arg(long, hide = true, env = "PULLY_AGENT_RUNNER")]
+    agent_runner: Option<std::net::SocketAddr>,
+    /// Internal: the folder of CLI homes in the hosted agent container.
+    #[arg(long, hide = true, env = "PULLY_AGENT_HOMES", default_value = "/homes")]
+    agent_homes: PathBuf,
+    /// Internal: the volume name of the one login the agent container serves.
+    #[arg(long, hide = true, env = "PULLY_AGENT_LOGIN")]
+    agent_login: Option<String>,
+    /// Internal: the `uid:gid` the hosted agent container runs CLI jobs as.
+    #[arg(long, hide = true, env = "PULLY_AGENT_CLI_USER")]
+    agent_cli_user: Option<String>,
 }
 #[tokio::main]
 async fn main() {
@@ -121,6 +133,19 @@ async fn run() -> Result<()> {
     }
     if let Some(path) = args.mcp_context {
         return mcp_stdio(path).await;
+    }
+    if let Some(address) = args.agent_runner {
+        let login = args
+            .agent_login
+            .context("The agent runner needs PULLY_AGENT_LOGIN")?;
+        let cli = args
+            .agent_cli_user
+            .as_deref()
+            .and_then(|user| user.split_once(':'))
+            .and_then(|(uid, gid)| Some((uid.parse().ok()?, gid.parse().ok()?)))
+            .context("The agent runner needs PULLY_AGENT_CLI_USER as uid:gid")?;
+        return pulls_review_server::agent_runner::serve(address, args.agent_homes, login, cli)
+            .await;
     }
     if args.server && (args.target.is_some() || args.worktree) {
         bail!(pulls_review_server::host::NO_CHECKOUT);
