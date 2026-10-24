@@ -12,6 +12,8 @@ export default antfu(
       // `worker-build` and cargo output for the Worker (packages/worker).
       'packages/worker/build/**',
       'packages/worker/target/**',
+      // A published crate with a three-line patch (packages/worker/Cargo.toml, [patch.crates-io]).
+      'packages/worker/vendor/**',
       'packages/app/src/components/diff/pierre-diffs-core.css',
       'packages/app/test/fixtures/real/**',
       // Written from android/DESIGN.md and the Android kit by `pnpm run android:design:update`.

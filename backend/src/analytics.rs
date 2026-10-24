@@ -1,5 +1,6 @@
 //! First-party usage analytics. Only sanitized events are persisted, in global UTC-day files.
 //! No repository content or credentials are collected, and no telemetry is sent elsewhere.
+use crate::rt::fs::{self, OpenOptions};
 use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -10,12 +11,11 @@ use std::{
     sync::{Arc, OnceLock},
     time::Duration,
 };
-use web_time::{SystemTime, UNIX_EPOCH};
-use crate::rt::fs::{self, OpenOptions};
 use tokio::{
     io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     sync::Mutex,
 };
+use web_time::{SystemTime, UNIX_EPOCH};
 
 pub const ANALYTICS_KEEP_DAYS: i64 = 365;
 const DAY_MS: i64 = 86_400_000;
@@ -31,8 +31,23 @@ pub struct Analytics {
 struct Inner {
     dir: PathBuf,
     enabled: bool,
+    days: Option<Arc<dyn DayFiles>>,
     pending: Mutex<VecDeque<Event>>,
     last_pruned: Mutex<Option<i64>>,
+}
+
+/// Day files kept outside the analytics directory: the Worker (`packages/worker`) keeps them
+/// in its Durable Object's SQLite. Each call finishes before it returns, and a failed
+/// `append` writes none of its lines.
+pub trait DayFiles: Send + Sync {
+    /// Adds `lines`, each one JSON event without its newline, to the end of `day`.
+    fn append(&self, day: &str, lines: &[String]) -> Result<()>;
+    /// The lines of `day` in the order they were added; empty when it has none.
+    fn read(&self, day: &str) -> Result<Vec<String>>;
+    /// Every day that has lines, as `YYYY-MM-DD`.
+    fn days(&self) -> Result<Vec<String>>;
+    /// Removes every line of `day`.
+    fn remove(&self, day: &str) -> Result<()>;
 }
 
 // The lock also covers separate Analytics instances sharing the global directory.
@@ -52,20 +67,14 @@ impl Analytics {
 
     /// Reads configuration without creating a directory or touching credentials.
     /// On by default, matching the web and Android clients' Usage stats switch.
-    /// The Worker has no disk: it records nothing until analytics move to R2 (plan 12).
+    /// The Worker has no disk, so it records nothing here; it uses [`Analytics::in_day_files`].
     #[cfg(target_arch = "wasm32")]
     pub fn new() -> Self {
-        Self::configured(PathBuf::from("/analytics"), false)
+        Self::configured(PathBuf::from("/analytics"), false, None)
     }
     #[cfg(not(target_arch = "wasm32"))]
     pub fn new() -> Self {
-        let enabled = !matches!(
-            crate::rt::env::var("PULLS_REVIEW_ANALYTICS")
-                .unwrap_or_default()
-                .to_ascii_lowercase()
-                .as_str(),
-            "off" | "0" | "false" | "no"
-        );
+        let enabled = enabled_by_environment();
         let dir = crate::rt::env::var_os("PULLS_REVIEW_ANALYTICS_DIR")
             .filter(|v| !v.is_empty())
             .map(PathBuf::from)
@@ -77,33 +86,41 @@ impl Analytics {
                     .unwrap_or_else(std::env::temp_dir);
                 home.join(".local/share/pulls-review/analytics")
             });
-        Self::configured(dir, enabled)
+        Self::configured(dir, enabled, None)
     }
 
     pub(crate) fn for_tenant(dir: PathBuf) -> Self {
-        let enabled = !matches!(
-            crate::rt::env::var("PULLS_REVIEW_ANALYTICS")
-                .unwrap_or_default()
-                .to_ascii_lowercase()
-                .as_str(),
-            "off" | "0" | "false" | "no"
-        );
-        Self::configured(dir, enabled)
+        Self::configured(dir, enabled_by_environment(), None)
     }
 
-    fn configured(dir: PathBuf, enabled: bool) -> Self {
-        let dir = normalized_directory(dir);
+    /// Keeps events in `days` instead of a directory, on unless `PULLS_REVIEW_ANALYTICS` turns
+    /// it off. Each event is written as it arrives, so no timer keeps the host awake.
+    pub fn in_day_files(days: Arc<dyn DayFiles>) -> Self {
+        Self::configured(
+            PathBuf::from("/analytics"),
+            enabled_by_environment(),
+            Some(days),
+        )
+    }
+
+    fn configured(dir: PathBuf, enabled: bool, days: Option<Arc<dyn DayFiles>>) -> Self {
+        let dir = if days.is_some() {
+            dir
+        } else {
+            normalized_directory(dir)
+        };
+        let timer = days.is_none() && (!cfg!(target_arch = "wasm32") || enabled);
         let result = Self {
             inner: Arc::new(Inner {
                 dir,
                 enabled,
+                days,
                 pending: Mutex::new(VecDeque::new()),
                 last_pruned: Mutex::new(None),
             }),
         };
-        // A Durable Object stays awake while a timer is pending, so the Worker skips a loop
-        // with nothing to write.
-        if !cfg!(target_arch = "wasm32") || enabled {
+        // A Durable Object stays awake while a timer is pending, so the Worker has none.
+        if timer {
             if let Ok(runtime) = crate::rt::Handle::try_current() {
                 let weak = Arc::downgrade(&result.inner);
                 runtime.spawn(async move {
@@ -160,6 +177,12 @@ impl Analytics {
             }
             pending.len() / MAX_BATCH > batches_before
         };
+        // Day files return at once, so they are written now and retried on the next event.
+        if self.inner.days.is_some() {
+            self.flush().await;
+            self.prune().await;
+            return;
+        }
         // The measured operation waits only for the short memory-queue lock, not
         // for disk I/O. The two-second worker retries failed writes. Large batches
         // schedule an earlier flush; summary explicitly flushes before reading.
@@ -181,6 +204,23 @@ impl Analytics {
             std::mem::take(&mut *pending)
         };
         if batch.is_empty() {
+            return;
+        }
+        if let Some(days) = &self.inner.days {
+            while let Some(first) = batch.front() {
+                let day = first.rx[..10].to_owned();
+                let count = batch.iter().take_while(|e| e.rx[..10] == day).count();
+                let lines: Option<Vec<String>> = batch
+                    .iter()
+                    .take(count)
+                    .map(|event| serde_json::to_string(event).ok())
+                    .collect();
+                if lines.is_none_or(|lines| days.append(&day, &lines).is_err()) {
+                    self.restore_pending(batch).await;
+                    return;
+                }
+                batch.drain(..count);
+            }
             return;
         }
         if fs::create_dir_all(&self.inner.dir).await.is_err() {
@@ -243,6 +283,16 @@ impl Analytics {
             return;
         }
         let _files = FILE_LOCK.lock().await;
+        if let Some(days) = &self.inner.days {
+            let Ok(names) = days.days() else { return };
+            for name in names {
+                if parse_day(&name).is_some_and(|day| day < today - ANALYTICS_KEEP_DAYS) {
+                    let _ = days.remove(&name);
+                }
+            }
+            *last = Some(today);
+            return;
+        }
         let Ok(mut entries) = fs::read_dir(&self.inner.dir).await else {
             return;
         };
@@ -270,34 +320,56 @@ impl Analytics {
         let mut tally = Tally::new(&days);
         let _files = FILE_LOCK.lock().await;
         for day in &days {
+            if let Some(stored) = &self.inner.days {
+                for line in stored.read(day).unwrap_or_default() {
+                    tally_line(&mut tally, &line);
+                }
+                continue;
+            }
             let Ok(file) = fs::File::open(self.inner.dir.join(format!("{day}.ndjson"))).await
             else {
                 continue;
             };
             let mut lines = BufReader::new(file).lines();
             while let Ok(Some(line)) = lines.next_line().await {
-                if line.len() > MAX_EVENT_BYTES {
-                    continue;
-                }
-                let Ok(raw) = serde_json::from_str::<Value>(&line) else {
-                    continue;
-                };
-                let Some(rx) = raw
-                    .get("rx")
-                    .and_then(Value::as_str)
-                    .and_then(parse_timestamp)
-                    .map(iso_time)
-                else {
-                    continue;
-                };
-                // Reapply sanitization to existing files as well, so reading older
-                // data cannot expose strings disallowed by the current boundary.
-                if let Some(event) = clean_event(&raw, &rx) {
-                    tally.add(&event);
-                }
+                tally_line(&mut tally, &line);
             }
         }
         Ok(tally.summary(first, last))
+    }
+}
+
+/// Whether `PULLS_REVIEW_ANALYTICS` leaves analytics on, as it does when unset.
+fn enabled_by_environment() -> bool {
+    !matches!(
+        crate::rt::env::var("PULLS_REVIEW_ANALYTICS")
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .as_str(),
+        "off" | "0" | "false" | "no"
+    )
+}
+
+/// Adds one stored line to `tally`, skipping lines that are too long or not an event.
+fn tally_line(tally: &mut Tally, line: &str) {
+    if line.len() > MAX_EVENT_BYTES {
+        return;
+    }
+    let Ok(raw) = serde_json::from_str::<Value>(line) else {
+        return;
+    };
+    let Some(rx) = raw
+        .get("rx")
+        .and_then(Value::as_str)
+        .and_then(parse_timestamp)
+        .map(iso_time)
+    else {
+        return;
+    };
+    // Reapply sanitization to existing files as well, so reading older
+    // data cannot expose strings disallowed by the current boundary.
+    if let Some(event) = clean_event(&raw, &rx) {
+        tally.add(&event);
     }
 }
 
@@ -1129,7 +1201,13 @@ mod tests {
             "repo": "acme/app", "number": 7, "prompt": "private input", "path": "private/file.kt"
         }}), RX).unwrap();
         assert_eq!(ios.app, "ios");
-        assert_eq!(ios.props, json!({ "repo": "acme/app", "number": 7 }).as_object().unwrap().clone());
+        assert_eq!(
+            ios.props,
+            json!({ "repo": "acme/app", "number": 7 })
+                .as_object()
+                .unwrap()
+                .clone()
+        );
         assert!(clean_event(&json!({ "name": "crash", "app": "android" }), RX).is_some());
         let events = vec![json!({ "name": "ui.tap", "app": "web" }); 250];
         assert_eq!(clean_batch(&json!({ "events": events }), RX).len(), 200);
@@ -1248,5 +1326,62 @@ mod tests {
         two.add(100.0);
         two.add(120.0);
         assert_eq!(two.quantile(0.5), 120.0);
+    }
+
+    #[derive(Default)]
+    struct MemoryDays {
+        days: std::sync::Mutex<BTreeMap<String, Vec<String>>>,
+        failing: std::sync::atomic::AtomicBool,
+    }
+    impl DayFiles for MemoryDays {
+        fn append(&self, day: &str, lines: &[String]) -> Result<()> {
+            if self.failing.load(std::sync::atomic::Ordering::SeqCst) {
+                anyhow::bail!("storage is down");
+            }
+            let mut days = self.days.lock().unwrap();
+            days.entry(day.into()).or_default().extend_from_slice(lines);
+            Ok(())
+        }
+        fn read(&self, day: &str) -> Result<Vec<String>> {
+            Ok(self
+                .days
+                .lock()
+                .unwrap()
+                .get(day)
+                .cloned()
+                .unwrap_or_default())
+        }
+        fn days(&self) -> Result<Vec<String>> {
+            Ok(self.days.lock().unwrap().keys().cloned().collect())
+        }
+        fn remove(&self, day: &str) -> Result<()> {
+            self.days.lock().unwrap().remove(day);
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn day_files_keep_events_retry_failures_and_drop_old_days() {
+        let days = Arc::new(MemoryDays::default());
+        days.days
+            .lock()
+            .unwrap()
+            .insert("2020-01-01".into(), vec!["{}".into()]);
+        let analytics =
+            Analytics::configured(PathBuf::from("/analytics"), true, Some(days.clone()));
+        let event = json!({ "events": [{ "name": "pr.open", "app": "android", "session": "s1", "device": "d1", "props": { "number": 1 } }] });
+        days.failing
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        assert_eq!(analytics.ingest(event.clone()).await.unwrap(), 1);
+        assert_eq!(analytics.inner.pending.lock().await.len(), 1);
+        days.failing
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        analytics.ingest(event).await.unwrap();
+        assert!(analytics.inner.pending.lock().await.is_empty());
+        let today = format_day(now_ms().div_euclid(DAY_MS));
+        assert_eq!(days.read(&today).unwrap().len(), 2);
+        assert!(!days.days().unwrap().contains(&"2020-01-01".to_owned()));
+        let summary = analytics.summary(json!({})).await.unwrap();
+        assert_eq!(summary["totals"]["prsOpened"], 2);
     }
 }

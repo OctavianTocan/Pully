@@ -20,3 +20,20 @@ Only the variables named in `SERVER_ENVIRONMENT` (`src/lib.rs`) reach the server
 as Worker variables or secrets. Model provider API keys for Claude Code and Codex MUST NOT be
 added to it (root CONTRACTS, `secrets-come-from-the-environment`; backend CONTRACTS,
 `ai-runs-on-the-callers-own-sign-in`).
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-analytics-in-durable-object-sqlite
+Usage analytics MUST be kept in the `PullyServer` Durable Object's SQLite through `SqlDays`, one
+row per event under its UTC day, as the Worker's form of the day files in root CONTRACTS
+`analytics-stays-on-our-server`; the server's own `clean_event`, `PULLS_REVIEW_ANALYTICS=off` and
+the 365-day limit apply unchanged (`analytics-what-not-how-much`, `analytics-can-be-turned-off`).
+Events MUST be written as they arrive, with no timer, because a pending timer keeps the object
+awake and billed (plans/12-hosted-server.md, M5).
+
+@cc [owner:OctavianTocan,label:architecture] hosted-android-builds-in-r2
+Published Android files MUST come from the `PULLY_ANDROID` R2 bucket under the same names as the
+native server's Android directory, read through the server's own download routes, so the
+download page, `latest.json` and its checks are the server's and not this crate's
+(`hosted-server-is-the-rust-server-in-a-worker`). A response that states its length MUST keep
+`Content-Length`, because the phone's update download shows its progress from it
+(`android/core/.../DownloadUpdate.kt`). `scripts/upload-android.sh` MUST upload `latest.json`
+last, so the manifest never names an APK the bucket lacks.

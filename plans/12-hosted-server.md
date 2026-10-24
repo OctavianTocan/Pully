@@ -30,9 +30,11 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
   reach the server only when named in `SERVER_ENVIRONMENT`.
 - **Milestones.** M1 the server builds for Workers; M2 sign-in, agent keys, settings and
   posted diffs from Durable Object SQLite (both done, checked with `wrangler dev`); M3
-  GitHub pull requests, the Inbox and reviews; M4 background refresh on the Durable
-  Object's alarm; M5 analytics and APK downloads from R2; M6 AI per Pully account in its
-  own container (`/mnt/project-files/plans/ai-on-cloudflare.md`).
+  GitHub pull requests, the Inbox and reviews (every phone method answers; the GitHub
+  calls wait for a real token); M4 background refresh on the Durable Object's alarm
+  (done); M5 APK downloads from R2 and analytics as one Durable Object SQLite row per event
+  rather than R2, because R2 objects cannot be appended to (done); M6 AI per Pully account
+  in its own container (`/mnt/project-files/plans/ai-on-cloudflare.md`).
 - **Cost:** Workers Paid ($5 a month, already on the account for mymind). The Worker is
   about 3.9 MB compressed, under the paid plan's 10 MB.
 

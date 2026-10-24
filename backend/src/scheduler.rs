@@ -31,8 +31,9 @@ async fn pulls(state: &Arc<AppState>) -> Result<Vec<Value>> {
         .cloned()
         .unwrap_or_default())
 }
+/// What a round remembers about a diff it could not keep.
 #[derive(Clone)]
-struct RejectedSnapshot {
+pub struct RejectedSnapshot {
     version: Value,
     capacity: review::DiffCapacity,
 }
@@ -185,49 +186,65 @@ async fn cache_pull(
     Ok((updated, stale, rejected))
 }
 pub async fn warm(state: Arc<AppState>) {
-    let mut rejected = HashMap::new();
+    let mut rejected = Rejections::new();
     crate::rt::sleep(Duration::from_secs(5)).await;
-    let mut interval = crate::rt::interval(Duration::from_secs(180));
+    let mut interval = crate::rt::interval(WARM_EVERY);
     interval.set_missed_tick_behavior(crate::rt::MissedTickBehavior::Skip);
     loop {
         interval.tick().await;
-        if !matches!(source::github_token(&state).await, Ok(Some(_))) {
-            continue;
-        }
-        let started = now_ms();
-        let Ok(mut list) = pulls(&state).await else {
-            continue;
-        };
-        list.retain(|p| p["state"] == "open" && !text(p, "headSha").is_empty());
-        list.sort_by(|a, b| text(b, "updatedAt").cmp(text(a, "updatedAt")));
-        list.truncate(150);
-        let keys: HashSet<_> = list
-            .iter()
-            .filter_map(|p| source::serialize_ref(&reference(p)).ok())
-            .collect();
-        rejected.retain(|key, _| keys.contains(key));
-        let (mut diffs, mut overviews) = (0, 0);
-        for batch in list.chunks(2) {
-            let results = futures_util::future::join_all(batch.iter().map(|p| {
-                let key = source::serialize_ref(&reference(p)).unwrap_or_default();
-                cache_pull(&state, p, rejected.get(&key))
-            }))
-            .await;
-            for (pull, result) in batch.iter().zip(results) {
-                if let Ok((d, o, rejection)) = result {
-                    diffs += usize::from(d);
-                    overviews += usize::from(o);
-                    let key = source::serialize_ref(&reference(pull)).unwrap_or_default();
-                    if let Some(rejection) = rejection {
-                        rejected.insert(key, rejection);
-                    } else {
-                        rejected.remove(&key);
-                    }
+        warm_round(&state, &mut rejected).await;
+    }
+}
+/// How often the open pull requests are refreshed.
+pub const WARM_EVERY: Duration = Duration::from_secs(180);
+/// Pull requests whose diff was too large to keep, so a round skips them until they change.
+pub type Rejections = HashMap<String, RejectedSnapshot>;
+/// Refreshes the cached diffs and overviews of up to 150 open pull requests, two at a time,
+/// without marking anything viewed. Does nothing without a GitHub token. The native server
+/// runs it every [`WARM_EVERY`]; the Worker runs it on its Durable Object's alarm.
+pub async fn warm_round(state: &Arc<AppState>, rejected: &mut Rejections) {
+    if !matches!(source::github_token(state).await, Ok(Some(_))) {
+        return;
+    }
+    let started = now_ms();
+    let Ok(mut list) = pulls(state).await else {
+        return;
+    };
+    list.retain(|p| p["state"] == "open" && !text(p, "headSha").is_empty());
+    list.sort_by(|a, b| text(b, "updatedAt").cmp(text(a, "updatedAt")));
+    list.truncate(150);
+    let keys: HashSet<_> = list
+        .iter()
+        .filter_map(|p| source::serialize_ref(&reference(p)).ok())
+        .collect();
+    rejected.retain(|key, _| keys.contains(key));
+    let (mut diffs, mut overviews) = (0, 0);
+    for batch in list.chunks(2) {
+        let results = futures_util::future::join_all(batch.iter().map(|p| {
+            let key = source::serialize_ref(&reference(p)).unwrap_or_default();
+            cache_pull(state, p, rejected.get(&key))
+        }))
+        .await;
+        for (pull, result) in batch.iter().zip(results) {
+            if let Ok((d, o, rejection)) = result {
+                diffs += usize::from(d);
+                overviews += usize::from(o);
+                let key = source::serialize_ref(&reference(pull)).unwrap_or_default();
+                if let Some(rejection) = rejection {
+                    rejected.insert(key, rejection);
+                } else {
+                    rejected.remove(&key);
                 }
             }
         }
-        let _=state.analytics.record("store.refresh",json!({"pulls":list.len(),"diffs":diffs,"overviews":overviews,"ms":now_ms()-started})).await;
     }
+    let _ = state
+        .analytics
+        .record(
+            "store.refresh",
+            json!({"pulls":list.len(),"diffs":diffs,"overviews":overviews,"ms":now_ms()-started}),
+        )
+        .await;
 }
 fn store_preanalysis_diff(
     state: &Arc<AppState>,

@@ -5,9 +5,9 @@ use axum::{
     response::{Html, IntoResponse, Response},
     Json,
 };
+use futures_util::StreamExt;
 use serde_json::Value;
 use std::sync::OnceLock;
-use tokio::io::AsyncReadExt;
 
 pub(super) async fn response(host: &ServerHost, path: &str) -> Response {
     match path {
@@ -51,13 +51,12 @@ async fn metadata(host: &ServerHost, name: &str) -> Option<Value> {
         return None;
     }
     let mut bytes = Vec::new();
-    file.file
-        .take(LIMIT + 1)
-        .read_to_end(&mut bytes)
-        .await
-        .ok()?;
-    if bytes.len() as u64 > LIMIT {
-        return None;
+    let mut body = file.body;
+    while let Some(chunk) = body.next().await {
+        bytes.extend_from_slice(&chunk.ok()?);
+        if bytes.len() as u64 > LIMIT {
+            return None;
+        }
     }
     serde_json::from_slice(&bytes).ok()
 }
