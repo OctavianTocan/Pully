@@ -27,18 +27,24 @@ commit="$(git rev-parse HEAD)"
 build="$(git rev-list --count HEAD)"
 [ "$(git rev-parse --is-shallow-repository)" = false ] || { echo 'Needs the full history for the version code.' >&2; exit 1; }
 
+# Match the version installed by staging.yml; a wildcard passes other installed tools as arguments.
+build_tools="${ANDROID_HOME:?Set ANDROID_HOME}/build-tools/37.0.0"
+for tool in aapt2 apksigner; do
+  [ -x "$build_tools/$tool" ] || { echo "Missing Android build tool: $build_tools/$tool" >&2; exit 1; }
+done
+
 (cd android && ./gradlew -q :app:assembleDebug --no-daemon \
   -Ppully.channel=staging -Ppully.stagingBuild="$build" -Ppully.defaultServer="$origin")
 apk=android/app/build/outputs/apk/debug/app-debug.apk
 
 # The APK must be the staging package at this build, signed with the pinned key, so it can never
 # replace Pully and always installs over the last staging build.
-badging="$("$ANDROID_HOME"/build-tools/*/aapt2 dump badging "$apk" | sed -n 1p)"
+badging="$("$build_tools/aapt2" dump badging "$apk" | sed -n 1p)"
 [[ "$badging" == "package: name='com.octaviantocan.pulls.staging' versionCode='$build' "* ]] \
   || { echo "Built APK is not Pully Staging $build: $badging" >&2; exit 1; }
 name="$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$badging")"
 expected="$(keytool -exportcert -keystore android/app/debug.keystore -alias androiddebugkey -storepass android | sha256sum | cut -d' ' -f1)"
-signer="$("$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs "$apk" | sed -n 's/^.*certificate SHA-256 digest: //p' | sort -u)"
+signer="$("$build_tools/apksigner" verify --print-certs "$apk" | sed -n 's/^.*certificate SHA-256 digest: //p' | sort -u)"
 [ "$signer" = "$expected" ] || { echo 'Built APK is not signed with the pinned key.' >&2; exit 1; }
 
 out="$(mktemp -d)"
