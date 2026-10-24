@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import com.octaviantocan.pulls.BuildConfig
 import com.octaviantocan.pulls.core.UpdateManifest
 import com.octaviantocan.pulls.core.UpdateTimeouts
 import com.octaviantocan.pulls.core.downloadUpdate
@@ -14,12 +15,12 @@ import com.octaviantocan.pulls.core.parseUpdateManifest
 import java.io.File
 
 /**
- * Checks `{server}/download/latest.json`, downloads the APK, checks the SHA-256, and
+ * Checks `{server}/download/latest.json` (the staging app: `download/staging/latest.json`), downloads the APK, checks the SHA-256, and
  * hands the bytes to the platform installer. There is no updater library in this path.
  */
 class AppUpdater(private val context: Context) {
     fun check(server: String, headers: Map<String, String>, installedVersionCode: Int): UpdateManifest? {
-        val manifest = parseUpdateManifest(get(server, "download/latest.json", headers))
+        val manifest = parseUpdateManifest(get(server, "download/${BuildConfig.UPDATE_CHANNEL}latest.json", headers))
         return manifest.takeIf { it.isNewerThan(installedVersionCode) }
     }
 

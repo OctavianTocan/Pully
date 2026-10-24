@@ -4,8 +4,9 @@ The updater installs only an APK whose SHA-256 matches `latest.json` and whose
 installed. Installation goes through Android's own installer and its approval.
 
 @cc [owner:OctavianTocan,label:security;architecture] updater-asks-only-its-server
-Updates come only from the configured server's `/download/latest.json` and the APK it
-names, with the same Access headers as every other request. No third-party update
+Updates come only from the configured server's `/download/latest.json` (Pully Staging:
+`/download/staging/latest.json`, android `android-staging-channel`) and the APK it names,
+with the same Access headers as every other request. No third-party update
 service or library is in the path.
 The manifest MUST name a binary APK URL rather than the `/download` HTML page.
 Source: Tavi's 22 Oct 2026 download-page and removed direct-APK decision.

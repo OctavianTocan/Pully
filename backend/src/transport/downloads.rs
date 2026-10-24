@@ -20,6 +20,16 @@ pub(super) async fn response(host: &ServerHost, path: &str) -> Response {
             ),
         },
         "/download/pully.apk" => super::android_file_response(host, "pulls.apk").await,
+        "/download/staging/latest.json" => match manifest_in(host, STAGING).await {
+            Some(value) => ([(header::CACHE_CONTROL, "no-store")], Json(value)).into_response(),
+            None => super::error(
+                StatusCode::NOT_FOUND,
+                "No staging build has been published.",
+            ),
+        },
+        "/download/staging/pully.apk" => {
+            super::android_file_response(host, "staging/pulls.apk").await
+        }
         _ => {
             let relative = path
                 .strip_prefix("/download/")
@@ -73,9 +83,26 @@ fn valid_release(value: &Value) -> bool {
             .is_some_and(|sha| sha.len() == 64 && sha.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
+/// The staging app's channel: its files sit under `staging/` beside the stable app's, built from
+/// main by `.github/workflows/staging.yml` (android/CONTRACTS, `android-staging-channel`).
+const STAGING: &str = "staging/";
+
 async fn manifest(host: &ServerHost) -> Option<Value> {
-    let mut value = metadata(host, "latest.json").await?;
-    if !valid_release(&value) || host.android_file("pulls.apk").await.ok()??.size == 0 {
+    manifest_in(host, "").await
+}
+
+/// The update manifest of the channel whose files start with `channel` (`""` or [`STAGING`]),
+/// with its `apkUrl` pointing at this channel's binary download.
+async fn manifest_in(host: &ServerHost, channel: &str) -> Option<Value> {
+    let mut value = metadata(host, &format!("{channel}latest.json")).await?;
+    if !valid_release(&value)
+        || host
+            .android_file(&format!("{channel}pulls.apk"))
+            .await
+            .ok()??
+            .size
+            == 0
+    {
         return None;
     }
     let mut url = url::Url::parse(value["apkUrl"].as_str()?).ok()?;
@@ -86,16 +113,37 @@ async fn manifest(host: &ServerHost) -> Option<Value> {
     {
         return None;
     }
-    let prefix = url
-        .path()
-        .strip_suffix("/android/pulls.apk")
-        .or_else(|| url.path().strip_suffix("/download/pully.apk"))?;
-    let path = format!("{prefix}/download/pully.apk");
+    let binary = format!("/download/{channel}pully.apk");
+    let prefix = if channel.is_empty() {
+        url.path().strip_suffix("/android/pulls.apk")
+    } else {
+        None
+    }
+    .or_else(|| url.path().strip_suffix(binary.as_str()))?;
+    let path = format!("{prefix}{binary}");
     url.set_path(&path);
     url.set_query(None);
     url.set_fragment(None);
     value["apkUrl"] = Value::String(url.into());
     Some(value)
+}
+
+/// The staging server's origin, from `PULLS_REVIEW_STAGING_URL`, when this server does not serve
+/// the staging app itself.
+fn staging_server() -> Option<String> {
+    staging_origin(&crate::rt::env::var("PULLS_REVIEW_STAGING_URL").ok()?)
+}
+
+/// `value` as a bare HTTPS origin, or `None` for anything else.
+fn staging_origin(value: &str) -> Option<String> {
+    let url = url::Url::parse(value.trim()).ok()?;
+    (url.scheme() == "https"
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url.path() == "/"
+        && url.query().is_none())
+    .then(|| url.origin().ascii_serialization())
 }
 
 fn escape(text: &str) -> String {
@@ -150,6 +198,13 @@ async fn landing(host: &ServerHost) -> Response {
             "<li><a href=\"/download/{relative}\" download>Pully {}</a></li>",
             escape(name)
         ));
+    }
+    if let Some(value) = manifest_in(host, STAGING).await {
+        html.push_str(&format!("<h2>Pully Staging</h2><p><a href=\"/download/staging/pully.apk\" download>Download Pully Staging {}</a></p><p>Built from main after every merge. It installs beside Pully as its own app, starts on the staging server and updates itself from there.</p>",
+            escape(value["versionName"].as_str().unwrap())));
+    } else if let Some(url) = staging_server() {
+        html.push_str(&format!("<h2>Pully Staging</h2><p><a href=\"{}/download\">Pully Staging is on the staging server</a>. It is built from main after every merge and installs beside Pully as its own app.</p>",
+            escape(&url)));
     }
     if !links.is_empty() {
         html.push_str("<h2>Available past versions</h2><p>These versions install beside Pully. Open them from Pully’s Settings → Advanced → Past versions; they do not have their own launcher icon.</p><ul>");
@@ -247,6 +302,76 @@ mod tests {
         fn drop(&mut self) {
             self.task.abort();
             let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+
+    #[tokio::test]
+    async fn the_staging_app_has_its_own_channel_beside_the_stable_one() {
+        let server = Server::new().await;
+        server.publish();
+        assert_eq!(
+            server.get("/download/staging/latest.json").await.status(),
+            StatusCode::NOT_FOUND
+        );
+        assert!(!server
+            .get("/download")
+            .await
+            .text()
+            .await
+            .unwrap()
+            .contains("Staging"));
+        let staging = server.artifacts.join("staging");
+        std::fs::create_dir_all(&staging).unwrap();
+        let bytes = b"staging fixture APK bytes";
+        let sha = hex::encode(Sha256::digest(bytes));
+        std::fs::write(staging.join("pulls.apk"), bytes).unwrap();
+        std::fs::write(staging.join("latest.json"), json!({"versionCode":812,"versionName":"0.62.0-staging.812","sha256":sha,"apkUrl":"https://staging.example/download/staging/pully.apk?x=1","sourceCommit":"fixture"}).to_string()).unwrap();
+        let manifest: Value = server
+            .get("/download/staging/latest.json")
+            .await
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(
+            manifest["apkUrl"],
+            "https://staging.example/download/staging/pully.apk"
+        );
+        assert_eq!(manifest["versionCode"], 812);
+        let apk = server.get("/download/staging/pully.apk").await;
+        assert_eq!(apk.status(), StatusCode::OK);
+        assert_eq!(&apk.bytes().await.unwrap()[..], bytes);
+        let stable: Value = server
+            .get("/download/latest.json")
+            .await
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(stable["versionCode"], 76);
+        let page = server.get("/download").await.text().await.unwrap();
+        assert!(page.contains("href=\"/download/staging/pully.apk\""));
+        assert!(page.contains("Pully Staging 0.62.0-staging.812"));
+        // A stable apkUrl never stands in for the staging binary.
+        std::fs::write(staging.join("latest.json"), json!({"versionCode":813,"versionName":"0.62.0-staging.813","sha256":sha,"apkUrl":"https://staging.example/download/pully.apk"}).to_string()).unwrap();
+        assert_eq!(
+            server.get("/download/staging/latest.json").await.status(),
+            StatusCode::NOT_FOUND
+        );
+    }
+
+    #[test]
+    fn the_staging_link_takes_only_a_bare_https_origin() {
+        assert_eq!(
+            staging_origin(" https://pully-staging.example/ ").as_deref(),
+            Some("https://pully-staging.example")
+        );
+        for refused in [
+            "http://pully-staging.example",
+            "https://user@pully-staging.example",
+            "https://pully-staging.example/path",
+            "https://pully-staging.example/?q=1",
+            "javascript:alert(1)",
+        ] {
+            assert_eq!(staging_origin(refused), None, "{refused}");
         }
     }
 

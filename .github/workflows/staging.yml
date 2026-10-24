@@ -1,0 +1,77 @@
+name: Staging
+
+# Staging is the Cloudflare server and Pully Staging, both built from main after every merge
+# (Tavi, 24 Oct 2026: "set up a staging app that updates when we merge to main"). The stable
+# server and app still come only from the release branch (docs/RELEASE_TRACK.md). Until the
+# operator sets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and the PULLY_STAGING_HOST variable,
+# with the Cloudflare Access application for that host in place first, every run skips.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      STAGING_HOST: ${{ vars.PULLY_STAGING_HOST }}
+    steps:
+      - name: Check the staging setup
+        id: setup
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && [[ "$STAGING_HOST" =~ ^[a-z0-9.-]+\.[a-z]+$ ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo 'Staging is not set up yet (CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, PULLY_STAGING_HOST); nothing was deployed.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        if: steps.setup.outputs.ready == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install the Worker toolchain
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          rustup target add wasm32-unknown-unknown
+          cargo install worker-build --version 0.8.7 --locked
+      - name: Deploy the staging server
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: packages/worker
+        run: |
+          node scripts/staging-config.mjs "$STAGING_HOST" > wrangler.staging.json
+          npx wrangler deploy -c wrangler.staging.json
+      - uses: actions/setup-java@v5
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android command-line tools
+        if: steps.setup.outputs.ready == 'true'
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4
+        with:
+          packages: ''
+      - name: Publish Pully Staging
+        if: steps.setup.outputs.ready == 'true'
+        run: |
+          sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+          packages/worker/scripts/publish-staging-android.sh "https://$STAGING_HOST"
+          echo "Deployed the staging server and Pully Staging to https://$STAGING_HOST/download" >> "$GITHUB_STEP_SUMMARY"
