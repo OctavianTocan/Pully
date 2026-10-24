@@ -49,6 +49,23 @@ describe('integration and release workflow boundaries', () => {
       assert.ok(android.includes(proof), proof)
   })
 
+  it('keeps staging on main to its own server and app, never the stable files', () => {
+    const staging = workflow('staging')
+    assert.deepEqual(staging.on.push, { branches: ['main'] })
+    assert.equal(staging.on.pull_request, undefined)
+    const steps = staging.jobs.staging.steps
+    assert.ok(steps.slice(1).every(step => step.if === 'steps.setup.outputs.ready == \'true\''), 'every step after the check waits for the operator setup')
+    const run = steps.map(step => step.run || '').join('\n')
+    assert.ok(run.includes('scripts/staging-config.mjs "$STAGING_HOST"'))
+    assert.ok(run.includes('publish-staging-android.sh "https://$STAGING_HOST"'))
+    assert.doesNotMatch(run, /publish-apk\.sh|upload-android\.sh|release-track/)
+    const publish = read('packages/worker/scripts/publish-staging-android.sh')
+    assert.ok(publish.includes('-Ppully.channel=staging'))
+    assert.ok(publish.includes('name=\'com.octaviantocan.pulls.staging\''))
+    const objects = [...publish.matchAll(/r2 object put (\S+)/g)].map(match => match[1])
+    assert.deepEqual(objects, ['pully-android/staging/pulls.apk', 'pully-android/staging/latest.json'])
+  })
+
   it('fences manual/tag and legacy deployment consumers before publication', () => {
     const tag = workflow('release')
     assert.equal(tag.jobs.release.needs, 'release-source')

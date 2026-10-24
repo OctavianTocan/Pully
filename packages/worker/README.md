@@ -46,6 +46,19 @@ To try downloads, fill the local bucket from an Android directory:
 `wrangler dev` builds the agent container with the local Docker, so AI work needs Docker
 running; without it, AI calls answer that the container is unavailable.
 
+## Staging
+
+`.github/workflows/staging.yml` deploys this Worker to the staging host and publishes Pully
+Staging after every merge to main (`docs/RELEASE_TRACK.md`, Staging). It needs, once:
+
+- a Cloudflare Access application for the staging host, with the same policy as today's server;
+- the GitHub secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the variable
+  `PULLY_STAGING_HOST` (for example `pully-staging.octaviantocan.com`);
+- the `pully-android` bucket, and the Worker secrets below.
+
+`scripts/staging-config.mjs` adds the host as the Worker's custom domain for that deploy only;
+`scripts/publish-staging-android.sh` builds the app and puts it under `staging/` in the bucket.
+
 ## Deploy (after Tavi's go-ahead)
 
 1. Copy today's server data in (a one-off import, still to write), and create the bucket with

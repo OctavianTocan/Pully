@@ -8,7 +8,11 @@ a Worker"; `plans/12-hosted-server.md`, Update 24 Oct).
 @cc [owner:OctavianTocan,label:security] hosted-server-only-behind-access
 The Worker MUST NOT have a `workers.dev` or preview URL. A route or custom domain MUST be added only
 together with the Cloudflare Access policy in front of it, with Tavi's go-ahead for the hostname,
-because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-account`).
+because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-account`). The
+staging server's custom domain comes only from the `PULLY_STAGING_HOST` repository variable
+(`scripts/staging-config.mjs`), which the operator sets after its Access application exists;
+`wrangler.jsonc` itself keeps no route. Source for staging: Tavi, 24 Oct 2026 20:46, a staging
+app that updates when we merge to main.
 
 @cc [owner:OctavianTocan,label:architecture] hosted-data-in-durable-object-sqlite
 The server's records MUST live in the `PullyServer` Durable Object's SQLite storage through

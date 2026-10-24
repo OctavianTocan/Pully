@@ -2,3 +2,4 @@
 /build
 /target
 .dev.vars
+wrangler.staging.json

@@ -1,9 +1,11 @@
 package com.octaviantocan.pulls.data
 
 import android.content.Context
+import com.octaviantocan.pulls.BuildConfig
 
 data class ServerConfig(
-    val url: String = "https://prs.octaviantocan.com",
+    /** The stable app's server, or the staging server for the staging app (android-staging-channel). */
+    val url: String = BuildConfig.DEFAULT_SERVER,
     val accessId: String = "",
     val accessSecret: String = "",
     val engine: String = "claude-code",

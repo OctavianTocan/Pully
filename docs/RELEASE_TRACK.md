@@ -28,7 +28,18 @@ newer failed/incomplete run, skipped check or unavailable evidence refuses publi
 The version comparison must come from this repository's successful release-push CI
 run. Historical builds use only that admitted release's first-parent history and
 exclude unshipped cached artifacts without deleting them. Tag publication needs the
-same admission. No tag or deployment is triggered by merging to main.
+same admission. No tag or stable deployment is triggered by merging to main.
+
+## Staging
+
+Staging is the one thing main deploys (Tavi, 24 Oct 2026). After every merge,
+`.github/workflows/staging.yml` deploys the Cloudflare server (`packages/worker`) to the
+`PULLY_STAGING_HOST` domain and publishes Pully Staging, a separate app
+(`com.octaviantocan.pulls.staging`) that installs beside Pully, starts on that server and
+updates from its `/download/staging/` channel. It never touches the stable server, the stable
+APK or `latest.json` (android/CONTRACTS, `android-staging-channel`). Until the operator sets
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `PULLY_STAGING_HOST`, each run skips. A
+stable server that sets `PULLS_REVIEW_STAGING_URL` links to the staging download page.
 Historical publication refuses shallow or unavailable version history before rewriting
 the existing index; fetch complete release history first. Its immutable source remains
 available until the background history worker finishes.

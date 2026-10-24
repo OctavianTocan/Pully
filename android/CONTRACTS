@@ -44,6 +44,17 @@ Source: Tavi, 21 Oct 2026, "fix all the things you mentioned", after a manual re
 uncommitted version edits blocking deployment; "Resolve all reviews and merge those PRs",
 concurrent-publication review.
 
+@cc [owner:OctavianTocan,label:security;architecture] android-staging-channel
+Pully Staging is the one build published from main: `.github/workflows/staging.yml` builds
+it after every merge with `-Ppully.channel=staging`. It MUST be its own package,
+`com.octaviantocan.pulls.staging`, labelled "Pully Staging", so it installs beside Pully and
+can never replace it; it MUST read updates only from `/download/staging/` and be published only
+under `staging/`, never over the stable files. Its versionCode is the number of commits on
+main, so each merge is newer, and it is signed with the pinned key. It starts on the staging
+server. This is the only exception to `android-publish-clean-newer-builds`' release source.
+Source: Tavi, 24 Oct 2026 20:46, "set up a staging app that updates when we merge to main.
+And put it on the downloads."
+
 @cc [owner:OctavianTocan,label:security] android-pinned-signing-key
 The published APK MUST be signed with the pinned `app/debug.keystore`, so every machine
 signs identically and an installed app keeps accepting updates. The key MUST NOT change.

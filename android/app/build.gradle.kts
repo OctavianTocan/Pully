@@ -17,6 +17,19 @@ if (personalAuthOrigin.isNotEmpty()) {
     }
 }
 
+// The staging app (`-Ppully.channel=staging`, built from main by .github/workflows/staging.yml): its own package beside
+// Pully, its own update channel on the server, and the staging server as its first address (android/CONTRACTS,
+// android-staging-channel). Every other build is the stable app.
+val channel = providers.gradleProperty("pully.channel").orElse("stable").get()
+require(channel == "stable" || channel == "staging") { "pully.channel must be stable or staging." }
+val staging = channel == "staging"
+val stagingBuild = providers.gradleProperty("pully.stagingBuild").orElse("0").get().toInt()
+require(!staging || stagingBuild in 1..2_000_000_000) { "A staging build needs pully.stagingBuild, the main commit count." }
+val defaultServer = providers.gradleProperty("pully.defaultServer").orElse("https://prs.octaviantocan.com").get()
+require(Regex("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?").matches(defaultServer)) {
+    "pully.defaultServer must be an HTTPS origin without a path."
+}
+
 android {
     namespace = "com.octaviantocan.pulls"
     compileSdk {
@@ -31,6 +44,14 @@ android {
         versionCode = 79
         versionName = "0.62.0"
         buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
+        buildConfigField("String", "DEFAULT_SERVER", "\"$defaultServer\"")
+        buildConfigField("String", "UPDATE_CHANNEL", "\"${if (staging) "staging/" else ""}\"")
+        manifestPlaceholders["appLabel"] = if (staging) "Pully Staging" else "@string/app_name"
+        if (staging) {
+            applicationIdSuffix = ".staging"
+            versionCode = stagingBuild
+            versionNameSuffix = "-staging.$stagingBuild"
+        }
     }
     signingConfigs {
         // The published APK is debug-signed; pin the key so every machine signs
