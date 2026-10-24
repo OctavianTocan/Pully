@@ -6,8 +6,47 @@
 > `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
 > has been removed. Cloudflare deployment remains separately approved work.
 
-Status: **step 1 built** (the host seam). Nothing is deployed; each step that creates
-or changes anything on Cloudflare waits for Tavi's go-ahead.
+Status: **step 1 built** (the host seam); **the container host built** (24 Oct, below).
+Nothing is deployed; each step that creates or changes anything on Cloudflare waits for
+Tavi's go-ahead.
+
+## Update, 24 October 2026: the server in a container
+
+Tavi chose "Move the server, AI last" (24 Oct 12:57). Steps 3 and 4 below were written
+for the TypeScript server, where moving the code into a Worker was natural. The server is
+now 60,000 lines of Rust on tokio, files and child processes, which Workers cannot run;
+mymind-reconstruction shows a full wasm port works, but its server was far smaller. So
+the server moves as it is:
+
+- **`docker/server/Dockerfile`** builds `pulls-review-server` and `pully-container`. The
+  container runs `pulls-review-server --server` (no checkout, no Docker, no Node) on port
+  8080, with its store, analytics and Android files under `/var/lib/pully`.
+- **The data folder lives in R2.** A container's disk is wiped when it stops, so
+  `pully-container` (`backend/src/data_mirror.rs`) restores `/var/lib/pully` from R2
+  before the server starts and saves every changed file about two seconds after it
+  changes, plus once more when the container is stopped. If the restore fails, the server
+  does not start. It talks plain HTTP to `data.pully`, which the Worker's outbound handler
+  answers from the bucket, so the container holds no R2 credential.
+- **`packages/worker`** is the Worker and one `PullyServer` Durable Object
+  (`@cloudflare/containers`). It passes every request to the server, starts it on demand,
+  keeps it awake (`KEEP_AWAKE`, a five-minute cron after deploys) and hands it only the
+  variables named in `SERVER_ENVIRONMENT`. No route, no workers.dev URL: the hostname
+  comes with an Access policy and Tavi's go-ahead.
+- **Cost:** Workers Paid ($5 a month, already on the account for mymind) plus a `basic`
+  instance (1/4 vCPU, 1 GiB) kept awake, about $7 to $10 a month by Cloudflare's
+  published rates.
+- **Faster paths later:** once it runs, a hot path (opening a pull request, the Inbox)
+  can move into the Worker on its own, with step 2's numbers deciding which.
+
+What stays for later steps: AI (step 5, now one Durable Object and container per Pully
+account with the CLIs' home in R2; see `/mnt/project-files/plans/ai-on-cloudflare.md`),
+APK uploads (the container reads `/var/lib/pully/android`, restored only at start), the
+public/personal server (`--public-listen`), and the web page (step 6).
+
+Deploying needs Tavi: the go-ahead, a hostname with an Access policy, the R2 bucket
+`pully-server-data`, Worker secrets (`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google
+variables, `TYPESAFE_API_KEY`), and a copy of today's data folder uploaded under `data/`
+so nothing starts empty.
 
 ## Why
 

@@ -5,6 +5,7 @@ pub mod agent_process;
 pub mod ai;
 pub mod analytics;
 pub mod brief;
+pub mod data_mirror;
 pub mod feedback;
 pub mod github_stats;
 pub mod google_sign_in;

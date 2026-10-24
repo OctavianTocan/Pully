@@ -1,0 +1,22 @@
+@cc [owner:OctavianTocan,label:architecture] hosted-server-is-the-native-server
+The hosted server MUST be today's Rust server (`docker/server/Dockerfile`, `pulls-review-server
+--server`) run in a Cloudflare Container, with this Worker and its `PullyServer` Durable Object only
+starting it, keeping it awake and passing requests through. Server behaviour MUST NOT be
+reimplemented in the Worker (Tavi, 24 Oct 2026, "Move the server, AI last";
+`plans/12-hosted-server.md`, Update 24 Oct).
+
+@cc [owner:OctavianTocan,label:security] hosted-server-only-behind-access
+The Worker MUST NOT have a `workers.dev` or preview URL. A route or custom domain MUST be added only
+together with the Cloudflare Access policy in front of it, with Tavi's go-ahead for the hostname,
+because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-account`).
+
+@cc [owner:OctavianTocan,label:security] hosted-data-reached-only-by-the-container
+The data folder in R2 MUST be reachable only through the container's outbound handler for
+`data.pully`; the Worker's own `fetch` MUST NOT read or write it. The container gets no R2
+credential, and stored paths MUST stay under `data/` (`src/data.ts`, `dataPath`).
+
+@cc [owner:OctavianTocan,label:security] hosted-secrets-named-not-forwarded
+Only the variables named in `SERVER_ENVIRONMENT` (`src/index.ts`) reach the server process, and only
+when set as Worker variables or secrets. Model provider API keys for Claude Code and Codex MUST NOT be
+added to it (root CONTRACTS, `secrets-come-from-the-environment`; backend CONTRACTS,
+`ai-runs-on-the-callers-own-sign-in`).
