@@ -166,3 +166,19 @@ and repository-source generations. A retained choice or queued wipe from either 
 generation MUST NOT edit preferences or touch SettingsSync for a replacement account.
 An eligible current picker MUST retain the shared theme wipe and immediate preference
 updates. Source: the independently confirmed 22 Oct 2026 Guest theme-ownership review.
+
+@cc [owner:OctavianTocan,label:product] settings-github-links-offered-once
+Pully MUST ask once whether it may open GitHub links: a sheet in the private app after
+the first quiet start, and a GitHub links row in the guest welcome sheet. Both show the
+same On or Off from Android's own answer and open Android's page; Not now never asks
+again ("you actually need to prompt people to allow Pulley to set itself as your thing
+to open things", recording 23 Oct 12:12, 00:59 to 01:09). Nothing shows before Android 12.
+
+@cc [owner:OctavianTocan,label:product;security] settings-access-sign-in-in-app
+When the server answers that it is behind Cloudflare Access, setup MUST lead with Sign in
+to your server: the server's own Access login in a page inside Pully, which keeps the
+CF_Authorization token it ends with for that server alone (recording 23 Oct 12:12, 01:19
+to 01:33). The token MUST be dropped when the server address changes, MUST NOT be shown
+or logged, and an Access service token, when set, still wins. The page MUST say to use
+the emailed code, since Google does not sign in inside an app's page.
+

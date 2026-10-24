@@ -1,6 +1,7 @@
 @cc [owner:OctavianTocan,label:security] data-no-user-credentials
 The legacy private connection talks to the one server set in Settings. Its credentials are
-the optional Cloudflare Access client ID and secret and the account's session, which are
+the optional Cloudflare Access client ID and secret (or an in-app Access sign-in's token,
+settings-access-sign-in-in-app) and the account's session, which are
 sent only to that server, stored only on the phone, and never logged or shown back in
 full. The account's password is sent once, to sign in, and never stored (Tavi, 16 Oct
 12:47). The session MUST go only to the server address it signed in on, and the password

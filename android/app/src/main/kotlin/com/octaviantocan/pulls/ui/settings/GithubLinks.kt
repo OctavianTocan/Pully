@@ -29,6 +29,7 @@ import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.t
 
 /**
  * Whether a tapped github.com link opens in Pully. Android 12 and later send a web link only to the app that owns the
@@ -116,6 +117,52 @@ internal fun GithubLinksGroup(open: () -> Unit) {
                 LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
             }
         }
+    }
+}
+
+/**
+ * The GitHub links prompt where a reader first arrives (Explore's welcome sheet, and once on Home): one row that says
+ * whether github.com links open in Pully and takes the reader to Android's page, where only they can turn it on
+ * ("you actually need to prompt people to allow Pully to set itself as your thing to open things. Otherwise it's not
+ * gonna work", recording 23 Oct 12:12, 00:59 to 01:09). Nothing shows before Android 12, which asks on every link.
+ */
+@Composable
+internal fun GithubLinksPrompt() {
+    if (!GithubLinks.asked) return
+    val c = LocalPullsColors.current
+    val context = LocalContext.current
+    val state = rememberLinkState()
+    val on = state.handling && state.hosts["github.com"] == true && state.hosts["www.github.com"] == true
+    SheetCard {
+        SheetRow(t("githubLinks.prompt"), { GithubLinks.openSettings(context) }, first = true, iconless = true) {
+            Text(t(if (on) "githubLinks.on" else "githubLinks.off"), style = PullsType.sm, color = if (on) c.text else c.muted)
+            LuIcon(Lu.chev, tint = c.faint, size = 18.dp)
+        }
+    }
+    if (!on) Text(
+        t("githubLinks.how"),
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp), style = PullsType.sm, color = c.muted,
+    )
+}
+
+/** Whether Home has offered [GithubLinksPrompt] on its own sheet; it does so once per install, and only while links are off. */
+internal object GithubLinksOffer {
+    private const val PREFS = "pully-explore"
+    fun due(context: Context): Boolean = GithubLinks.asked && !GithubLinks.allowed(context) &&
+        !context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("linksOffered", false)
+    fun done(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("linksOffered", true).apply()
+}
+
+/** Home's one-time GitHub links sheet: the prompt, and Not now. */
+@Composable
+internal fun GithubLinksOfferSheet(onClose: () -> Unit) {
+    com.octaviantocan.pulls.ui.design.PullsSheet(onClose, t("githubLinks.prompt"), expandable = false) {
+        Text(
+            t("githubLinks.why"),
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 12.dp), style = PullsType.read, color = LocalPullsColors.current.muted,
+        )
+        GithubLinksPrompt()
+        com.octaviantocan.pulls.ui.design.PillButton(t("githubLinks.notNow"), onClose, Modifier.padding(16.dp))
     }
 }
 

@@ -9,7 +9,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.octaviantocan.pulls.ui.AppNavigation
 import com.octaviantocan.pulls.ui.AppPages
@@ -27,6 +30,8 @@ import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.PullToCommands
 import com.octaviantocan.pulls.ui.personal.PersonalBrowseMount
 import com.octaviantocan.pulls.ui.personal.PersonalBrowsePages
+import com.octaviantocan.pulls.ui.review.PublicReviewFrame
+import com.octaviantocan.pulls.ui.review.publicPullTarget
 
 @Composable
 fun GuestPages(
@@ -39,16 +44,27 @@ fun GuestPages(
     onCommands: () -> Unit = { Commands.open() },
     githubAccount: String? = null,
     personal: PersonalBrowseMount? = null,
+    publicReview: PublicReviewFrame? = null,
+    links: (@Composable () -> Unit)? = null,
+    welcomeSeen: Boolean = true,
+    onWelcomeSeen: () -> Unit = {},
 ) {
     SideEffect { session.keepRoutes(); personal?.keepRoutes() }
+    // The sheet with the ways in opens by itself the first time Explore is shown, then from the account button.
+    var welcome by remember { mutableStateOf(!welcomeSeen) }
+    if (welcome) GuestWelcomeSheet(
+        onClose = { welcome = false; onWelcomeSeen() },
+        onGitHubSignIn = onGitHubSignIn?.let { action -> { welcome = false; onWelcomeSeen(); session.runFrom(Screen.Explore, action) } },
+        onExistingAccount = { welcome = false; onWelcomeSeen(); onExistingAccount() },
+        githubAccount = githubAccount, links = links,
+    )
     PullToCommands({ session.runFrom(navigation.stack.last(), onCommands) }, Modifier.fillMaxSize()) {
         AppPages(navigation, motion, Modifier.fillMaxSize()) { screen ->
             when (screen) {
                 Screen.Explore -> ExploreScreen(
                     session.repositories, session::openRepository,
-                    onGitHubSignIn?.let { action -> { session.runFrom(screen, action) } },
-                    { session.runFrom(screen, onExistingAccount) },
-                    githubAccount,
+                    onAccount = { session.runFrom(screen) { welcome = true } },
+                    githubAccount = githubAccount,
                 )
                 is Screen.PublicRepo -> {
                     val state = remember(session, screen) { session.pulls(screen) }
@@ -56,7 +72,7 @@ fun GuestPages(
                         session.retain(screen)
                         onDispose { session.release(screen) }
                     }
-                    ExplorePullsScreen(state, { session.runFrom(screen, navigation.nav.back) }, { url -> session.runFrom(screen) { onOpenGitHub(url) } })
+                    ExplorePullsScreen(state, { session.runFrom(screen, navigation.nav.back) }, { pull -> session.openPull(screen, pull) })
                 }
                 is Screen.PersonalPulls, is Screen.PersonalRepositories, is Screen.PersonalRepo -> {
                     val browse = personal?.session
@@ -78,6 +94,7 @@ fun GuestPages(
                         PillButton(t("personalBrowse.back"), { session.runFrom(screen, navigation.nav.back) })
                     }
                 }
+                is Screen.Review if publicReview != null && publicPullTarget(screen) != null -> publicReview.Page(screen, navigation.nav)
                 else -> {
                     val colors = LocalPullsColors.current
                     val publicUrl = guestGitHubUrl(screen)

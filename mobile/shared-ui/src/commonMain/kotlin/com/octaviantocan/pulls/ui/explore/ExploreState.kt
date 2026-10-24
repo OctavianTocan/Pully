@@ -140,8 +140,8 @@ class ExplorePullsState(val repository: ExploreRepository, client: PublicBrowseC
     fun foreground() { if (owner.valid && !loading) { if (!started) start() else load(1, quiet = hasLoaded) } }
     fun retry() { if (!loading) load(attemptedPage, quiet = hasLoaded && attemptedPage == 1) }
     fun loadMore() { if (!loading) nextPage?.let(::load) }
-    fun open(pull: ExplorePull, action: (String) -> Unit) {
-        if (owner.valid && pulls.any { it == pull }) action(pull.url)
+    fun open(pull: ExplorePull, action: (ExplorePull) -> Unit) {
+        if (owner.valid && pulls.any { it == pull }) action(pull)
     }
     fun runIfCurrent(action: () -> Unit) { if (owner.valid) action() }
 

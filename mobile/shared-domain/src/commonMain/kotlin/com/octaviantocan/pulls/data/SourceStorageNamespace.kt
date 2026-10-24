@@ -21,8 +21,25 @@ fun sourceStorageNamespace(
         put("server", endpoint)
         put("owner", owner)
         put("access", JsonArray(access.map { (name, value) ->
-            JsonArray(listOf(JsonPrimitive(name.lowercase()), JsonPrimitive(value)))
+            // A Cloudflare sign-in's token changes with every sign-in; the person it names is what keeps the copies apart.
+            val stable = if (name.equals(ACCESS_TOKEN_HEADER, ignoreCase = true)) "identity:${accessTokenIdentity(value) ?: value}" else value
+            JsonArray(listOf(JsonPrimitive(name.lowercase()), JsonPrimitive(stable)))
         }))
     }
     return sha256Utf8(identity.toString())
 }
+
+/** The header that carries a Cloudflare Access sign-in's token (`CF_Authorization`), as `cloudflared access curl` sends it. */
+const val ACCESS_TOKEN_HEADER = "cf-access-token"
+
+/** Who a Cloudflare Access token names (its `email`, else `sub`), read without checking its signature; null when unreadable. */
+fun accessTokenIdentity(token: String): String? = runCatching {
+    val payload = token.split('.').getOrNull(1) ?: return null
+    val json = kotlinx.serialization.json.Json.parseToJsonElement(
+        kotlin.io.encoding.Base64.UrlSafe.withPadding(kotlin.io.encoding.Base64.PaddingOption.ABSENT_OPTIONAL).decode(payload).decodeToString(),
+    ) as? kotlinx.serialization.json.JsonObject ?: return null
+    val email = (json["email"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+    val subject = (json["sub"] as? JsonPrimitive)?.takeIf { it.isString }?.content
+    (email ?: subject)?.takeIf { it.isNotBlank() }
+}.getOrNull()
+

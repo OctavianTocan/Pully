@@ -135,9 +135,12 @@ inherit legacy Access headers, cookies, authenticators or shared HTTP caches. On
 personal session/read routes and the explicit repository-consent start MAY send a validated Pully bearer; ownership proofs MUST be
 sent only in status/claim/cancel JSON bodies. GitHub credentials MUST remain on the
 server. The browser URL MUST use fixed HTTPS GitHub authorization, the captured Pully
-callback and S256. Ordinary sign-in MUST request only public-read consent; a separate
+callback and S256, or be exactly https://github.com/login/device with a short
+upper-case user code that the sheet shows and copies before opening GitHub (GitHub CLI
+device sign-in, Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."). Ordinary sign-in MUST request only public-read consent; a separate
 repository-consent purpose MUST capture the verified initiating account/session and
-request only the fixed repo/offline_access grant. Source changes/cancellation MUST reject late
+request only the fixed repository grant (repo/offline_access, or repo read:org for
+device sign-in). Source changes/cancellation MUST reject late
 results; retired cleanup MAY contact only the captured origin with its own cancelled
 attempt/session. HTTP and parse errors MUST retain fixed safe categories, and HTML
 or generic HTTP401 MUST NOT imply session expiry. Source: Tavi's 21 Oct 2026 personal

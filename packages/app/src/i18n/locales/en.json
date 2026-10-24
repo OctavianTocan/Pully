@@ -14,6 +14,7 @@
   },
   "explore": {
     "title": "Explore",
+    "account": "Account",
     "intro": "Discover public projects and their open pull requests. No sign-in needed.",
     "signIn": "Sign in with GitHub",
     "signInUnavailable": "GitHub sign-in is being set up. You can browse public projects now.",
@@ -56,12 +57,14 @@
     "intro": "Read pull requests, explore changes and follow reviews.",
     "serverSettings": "Server settings",
     "checking": "Connecting…",
+    "accessSignIn": "Sign in to your server",
+    "accessHint": "Your server is behind Cloudflare Access. Sign in with the code it emails you: Google's sign-in does not open inside an app.",
     "saved": "Saved. Pully is connected.",
     "emptyInbox": "Paste a GitHub pull request link below to open one.",
     "problem": {
       "FirstConnection": "Choose a Pully server to get started. It may ask you to sign in after connecting.",
       "Configuration": "Check the server address. If your server needs Access credentials, enter both fields.",
-      "Access": "This server needs access authorization before Pully can connect. Check Server settings or ask the person who runs it.",
+      "Access": "This server is behind Cloudflare Access. Sign in to it here, or add an Access service token in Server settings.",
       "HttpRejected": "The server did not allow Pully to connect. Check the server address or ask the person who runs it.",
       "WebPage": "Your server opened a web page instead of Pully. Check its address or access settings, then try again.",
       "SignIn": "Your server could not confirm your account. Try again or check Server settings.",
@@ -72,6 +75,14 @@
       "Timeout": "Your server took too long to respond. Check your connection and try again.",
       "Unreachable": "Pully could not reach your server. Check your connection or Server settings, then try again."
     }
+  },
+  "githubLinks": {
+    "prompt": "Open GitHub links in Pully",
+    "on": "On",
+    "off": "Off",
+    "how": "On Android's page, turn on Open supported links, then every address under Supported web addresses.",
+    "why": "Until Android lets Pully take them, github.com links from other apps open in the GitHub app or the browser.",
+    "notNow": "Not now"
   },
   "mobilePreview": {
     "title": "Pully internal preview",
@@ -1084,6 +1095,9 @@
     "publicAccount": "Your account is connected. Public repositories remain available here.",
     "continueGitHub": "Continue with GitHub",
     "finishOnGitHub": "Finish signing in on GitHub, then return to Pully.",
+    "deviceIntro": "Enter this code on GitHub to connect your account.",
+    "copyAndOpen": "Copy code and open GitHub",
+    "deviceHint": "GitHub asks you to authorize \"GitHub CLI\". That is how Pully signs in, the same way gh auth login does. Come back here when you're done.",
     "tryAgain": "Try again",
     "signOut": "Sign out",
     "cancel": "Cancel sign-in",

@@ -25,6 +25,7 @@ import com.octaviantocan.pulls.ui.design.PullsSpace
 import com.octaviantocan.pulls.ui.design.PullsType
 import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.SheetRow
+import com.octaviantocan.pulls.ui.design.rememberTextCopy
 import com.octaviantocan.pulls.ui.design.t
 
 /** Both native hosts own foreground/browser services; account state and presentation are shared. */
@@ -40,6 +41,7 @@ fun PersonalAccountSheet(
 ) {
     val colors = LocalPullsColors.current
     val scope = rememberCoroutineScope()
+    val copy = rememberTextCopy()
     val owner = remember(account, repositoryConsent) {
         PersonalAccountSheetOwner(if (repositoryConsent) account.openRepositoryConsent(scope, onOpenBrowser)
             else account.openSignIn(scope, onOpenBrowser), onClose)
@@ -79,8 +81,18 @@ fun PersonalAccountSheet(
                 }
                 flow is PersonalSignInState.Starting || flow is PersonalSignInState.Finishing -> RowsSkeleton(rows = 2)
                 flow is PersonalSignInState.Waiting -> {
-                    Text(t("personal.finishOnGitHub"), style = PullsType.read, color = colors.text)
-                    (flow as PersonalSignInState.Waiting).problem?.let {
+                    val code = (flow as PersonalSignInState.Waiting).userCode
+                    if (code != null) {
+                        // GitHub CLI device sign-in: the person types this code at github.com/login/device.
+                        Text(t("personal.deviceIntro"), style = PullsType.read, color = colors.text)
+                        Text(code, style = PullsType.xxl.copy(fontFamily = PullsType.mono), color = colors.text)
+                        CtaButton(t("personal.copyAndOpen"), {
+                            copy(code)
+                            signIn?.controller?.openGitHub()
+                        }, Modifier.fillMaxWidth())
+                        Text(t("personal.deviceHint"), style = PullsType.sm, color = colors.muted)
+                    } else Text(t("personal.finishOnGitHub"), style = PullsType.read, color = colors.text)
+                    flow.problem?.let {
                         Problem(it)
                         CtaButton(t("personal.tryAgain"), { signIn?.controller?.retry() }, Modifier.fillMaxWidth())
                     }

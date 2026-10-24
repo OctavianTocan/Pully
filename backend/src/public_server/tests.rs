@@ -1110,3 +1110,22 @@ async fn startup_secret_file_permissions_and_invalid_configuration_fail_without_
     assert!(router(config).await.is_err());
     assert!(!root.0.join("isolated").exists());
 }
+
+#[tokio::test]
+async fn github_cli_sign_in_needs_no_app_secret_and_is_only_enabled_explicitly() {
+    let root = Root::new();
+    let config = configuration(&root);
+    let oauth = config.personal.as_ref().unwrap().oauth_app_file.clone();
+    private(&oauth, &json!({"githubCli": true}));
+    assert!(router(config).await.is_ok());
+    for refused in [
+        json!({"githubCli": false}),
+        json!({"githubCli": true, "clientSecret": "fixture-pully-secret"}),
+        json!({}),
+    ] {
+        let root = Root::new();
+        let config = configuration(&root);
+        private(&config.personal.as_ref().unwrap().oauth_app_file, &refused);
+        assert!(router(config).await.is_err());
+    }
+}

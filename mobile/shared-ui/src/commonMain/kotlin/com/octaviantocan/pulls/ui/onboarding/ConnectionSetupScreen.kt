@@ -24,7 +24,10 @@ import com.octaviantocan.pulls.ui.design.t
 
 /** Current private-server setup/recovery; hosts replace it with Explore when public browsing is available. */
 @Composable
-fun ConnectionSetupScreen(checking: Boolean, problem: ConnectionProblem?, onRetry: () -> Unit, onServerSettings: () -> Unit, onExplore: (() -> Unit)? = null) {
+fun ConnectionSetupScreen(
+    checking: Boolean, problem: ConnectionProblem?, onRetry: () -> Unit, onServerSettings: () -> Unit, onExplore: (() -> Unit)? = null,
+    onAccessSignIn: (() -> Unit)? = null,
+) {
     val colors = LocalPullsColors.current
     Column(
         Modifier.fillMaxSize().background(colors.base).padding(top = headerTopPadding()).navigationBarsPadding()
@@ -39,7 +42,13 @@ fun ConnectionSetupScreen(checking: Boolean, problem: ConnectionProblem?, onRetr
             )
             Spacer(Modifier.height(PullsSpace.x6))
         }
-        CtaButton(t("connection.serverSettings"), onServerSettings, Modifier.fillMaxWidth())
+        // A server behind Cloudflare Access is signed in to here, where the host can; Server settings keeps the service token.
+        val signIn = onAccessSignIn?.takeIf { problem == ConnectionProblem.Access && !checking }
+        if (signIn != null) CtaButton(t("connection.accessSignIn"), signIn, Modifier.fillMaxWidth().padding(bottom = PullsSpace.x3))
+        CtaButton(
+            t("connection.serverSettings"), onServerSettings, Modifier.fillMaxWidth(),
+            container = if (signIn != null) colors.paper2 else colors.cta, contentColor = if (signIn != null) colors.text else colors.onCta,
+        )
         CtaButton(
             t(if (checking) "connection.checking" else "common.retry"), onRetry,
             Modifier.fillMaxWidth().padding(top = PullsSpace.x3), container = colors.paper2, contentColor = colors.text, enabled = !checking,

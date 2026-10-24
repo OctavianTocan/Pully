@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 sealed interface PersonalSignInState {
     data object Idle : PersonalSignInState
     data object Starting : PersonalSignInState
-    data class Waiting(val expiresAt: Long, val problem: PersonalAuthProblem? = null) : PersonalSignInState
+    data class Waiting(val expiresAt: Long, val problem: PersonalAuthProblem? = null, val userCode: String? = null) : PersonalSignInState
     data object Finishing : PersonalSignInState
     data class Connected(val account: PersonalAccountStatus) : PersonalSignInState
     data class Failed(val problem: PersonalAuthProblem) : PersonalSignInState
@@ -79,7 +79,7 @@ class PersonalSignInController(
                 if (seconds <= 0) throw PersonalAuthError(PersonalAuthProblem.Expired)
                 pending = attempt
                 browserOpened = false
-                mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt)
+                mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt, userCode = attempt.userCode)
                 expiryJob = scope.launch {
                     delay(seconds * 1000)
                     if (current() && pending === attempt) fail(PersonalAuthProblem.Expired)
@@ -108,6 +108,15 @@ class PersonalSignInController(
 
     fun retry(): Boolean = resumePolling()
 
+    /** Device sign-in: opens github.com/login/device once the person has the code; polling carries on meanwhile. */
+    fun openGitHub(): Boolean {
+        val attempt = pending ?: return false
+        if (!current() || attempt.userCode == null) return false
+        try { openBrowser(attempt.authorizeUrl) }
+        catch (_: Exception) { fail(PersonalAuthProblem.Unavailable); return false }
+        return true
+    }
+
     fun cancel() {
         clearPending()
         mutableState.value = PersonalSignInState.Idle
@@ -124,7 +133,8 @@ class PersonalSignInController(
     private fun resumePolling(): Boolean {
         val attempt = pending ?: return false
         if (!current() || !inForeground || claiming || pollJob?.isActive == true) return false
-        if (!browserOpened) {
+        // A device code is copied first, so GitHub opens only when the person asks (openGitHub).
+        if (!browserOpened && attempt.userCode == null) {
             browserOpened = true
             try { openBrowser(attempt.authorizeUrl) }
             catch (_: Exception) { fail(PersonalAuthProblem.Unavailable); return false }
@@ -132,7 +142,7 @@ class PersonalSignInController(
         // Opening the native browser can synchronously move the activity to background.
         if (!current() || !inForeground || pending !== attempt) return false
         val revision = ++pollRevision
-        mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt)
+        mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt, userCode = attempt.userCode)
         pollJob = scope.launch {
             try {
                 while (true) {
@@ -145,7 +155,7 @@ class PersonalSignInController(
                             continue
                         }
                         if (error.problem in retryablePersonalProblems) {
-                            mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt, error.problem)
+                            mutableState.value = PersonalSignInState.Waiting(attempt.expiresAt, error.problem, attempt.userCode)
                             return@launch
                         }
                         throw error

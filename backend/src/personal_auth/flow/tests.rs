@@ -1,7 +1,9 @@
 use super::*;
 use crate::{
     identity::VerifiedGitHubIdentity,
-    personal_auth::provider::{GitHubTokens, ProviderFuture, RefreshToken},
+    personal_auth::provider::{
+        DeviceCode, GitHubTokens, ProviderFuture, ReconnectRequired, RefreshToken,
+    },
     store::test_support::HeldLock,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -28,6 +30,10 @@ struct Provider {
     entered: Notify,
     release: Notify,
     verifiers: Mutex<Vec<String>>,
+    device_steps: Mutex<VecDeque<&'static str>>,
+    device_authorities: Mutex<Vec<GitHubAuthority>>,
+    device_polls: AtomicUsize,
+    github_id: AtomicU64,
 }
 impl GitHubProvider for Provider {
     fn exchange<'a>(
@@ -64,7 +70,49 @@ impl GitHubProvider for Provider {
         Box::pin(async { anyhow::bail!("Unexpected refresh") })
     }
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity> {
-        Box::pin(async move { VerifiedGitHubIdentity::fixture(42, "fixture-reader", &token) })
+        Box::pin(async move {
+            let id = match self.github_id.load(Ordering::SeqCst) {
+                0 => 42,
+                id => id,
+            };
+            VerifiedGitHubIdentity::fixture(id, "fixture-reader", &token)
+        })
+    }
+    fn device_code<'a>(&'a self, authority: GitHubAuthority) -> ProviderFuture<'a, DeviceCode> {
+        Box::pin(async move {
+            self.device_authorities.lock().unwrap().push(authority);
+            Ok(DeviceCode {
+                device_code: "fixture-device-code".into(),
+                user_code: "WDJB-MJHT".into(),
+                interval: 1,
+                expires_in: 900,
+            })
+        })
+    }
+    fn poll_device<'a>(&'a self, device_code: &'a str, _: u64) -> ProviderFuture<'a, DevicePoll> {
+        Box::pin(async move {
+            assert_eq!(device_code, "fixture-device-code");
+            self.device_polls.fetch_add(1, Ordering::SeqCst);
+            match self
+                .device_steps
+                .lock()
+                .unwrap()
+                .pop_front()
+                .unwrap_or("pending")
+            {
+                "pending" => Ok(DevicePoll::Pending),
+                "slow" => Ok(DevicePoll::SlowDown(10)),
+                "flaky" => anyhow::bail!("fixture-secret-network"),
+                "denied" => Err(DeviceDenied.into()),
+                "expired" => Err(ReconnectRequired.into()),
+                _ => Ok(DevicePoll::Tokens(GitHubTokens {
+                    access_token: "fixture-gh-cli".into(),
+                    expires_at: None,
+                    refresh: None,
+                    scopes: std::collections::BTreeSet::from(["repo".into(), "read:org".into()]),
+                })),
+            }
+        })
     }
 }
 struct Root(PathBuf);
@@ -82,20 +130,26 @@ pub(in crate::personal_auth) struct Harness {
 }
 impl Harness {
     pub(in crate::personal_auth) fn new() -> Self {
-        let root = Root(
-            std::env::temp_dir().join(format!("pully-personal-flow-{}", uuid::Uuid::new_v4())),
-        );
-        let store = Store::new(root.0.clone()).unwrap();
-        let clock = Arc::new(Clock(AtomicU64::new(100)));
-        let provider = Arc::new(Provider::default());
-        let config = Arc::new(
+        Self::with(
             OAuthConfig::new(
                 "pully-own-fixture-app".into(),
                 "fixture-server-secret".into(),
                 "https://auth.pully.example/api/personal/v1/auth/github/callback",
             )
             .unwrap(),
+        )
+    }
+    fn device() -> Self {
+        Self::with(OAuthConfig::github_cli())
+    }
+    fn with(config: OAuthConfig) -> Self {
+        let root = Root(
+            std::env::temp_dir().join(format!("pully-personal-flow-{}", uuid::Uuid::new_v4())),
         );
+        let store = Store::new(root.0.clone()).unwrap();
+        let clock = Arc::new(Clock(AtomicU64::new(100)));
+        let provider = Arc::new(Provider::default());
+        let config = Arc::new(config);
         let vault = PersonalVault::new(
             store.clone(),
             Arc::new(VaultKeys::new(1, BTreeMap::from([(1, [19; 32])])).unwrap()),
@@ -112,18 +166,19 @@ impl Harness {
             provider,
         }
     }
-    fn start(&self) -> (StartReply, String) {
+    async fn start(&self) -> (StartReply, String) {
         let proof = random_secret().unwrap();
         let reply = self
             .service
             .start(StartRequest {
                 native_challenge: wire::native_challenge(&proof).unwrap(),
             })
+            .await
             .unwrap();
         (reply, proof)
     }
     async fn ready(&self) -> (StartReply, String) {
-        let (start, proof) = self.start();
+        let (start, proof) = self.start().await;
         self.service
             .callback(state(&start), Some("fixture-code".into()), false)
             .await
@@ -170,7 +225,7 @@ async fn wait_phase(service: &PersonalAuth, id: &str, predicate: impl Fn(&Phase)
 #[tokio::test]
 async fn actual_start_callback_claim_vault_path_keeps_all_github_tokens_server_side() {
     let h = Harness::new();
-    let (start, proof) = h.start();
+    let (start, proof) = h.start().await;
     let url = Url::parse(&start.authorize_url).unwrap();
     assert_eq!(url.origin().ascii_serialization(), "https://github.com");
     assert!(!url.as_str().contains(&proof));
@@ -329,7 +384,7 @@ async fn concurrent_claims_publish_exactly_one_session_without_reusing_the_recei
 #[tokio::test]
 async fn explicit_cancel_removes_callback_authority_and_never_exchanges_a_late_code() {
     let h = Harness::new();
-    let (start, proof) = h.start();
+    let (start, proof) = h.start().await;
     assert!(
         h.service
             .cancel(request(&start, &proof))
@@ -350,7 +405,7 @@ async fn explicit_cancel_removes_callback_authority_and_never_exchanges_a_late_c
 #[tokio::test]
 async fn cancellation_during_accepted_exchange_denies_its_late_tokens() {
     let h = Harness::new();
-    let (start, proof) = h.start();
+    let (start, proof) = h.start().await;
     h.provider.block.store(true, Ordering::SeqCst);
     let callback = {
         let service = h.service.clone();
@@ -375,7 +430,7 @@ async fn cancellation_during_accepted_exchange_denies_its_late_tokens() {
 #[tokio::test]
 async fn dropping_callback_http_observer_does_not_cancel_the_accepted_exchange() {
     let h = Harness::new();
-    let (start, proof) = h.start();
+    let (start, proof) = h.start().await;
     h.provider.block.store(true, Ordering::SeqCst);
     let callback = {
         let service = h.service.clone();
@@ -534,7 +589,7 @@ async fn an_unconfirmed_session_cannot_be_promoted_after_the_original_attempt_de
 #[tokio::test]
 async fn browser_handoff_keeps_pending_attempt_until_return_without_background_cancellation() {
     let h = Harness::new();
-    let (start, proof) = h.start();
+    let (start, proof) = h.start().await;
     assert!(h.service.status(request(&start, &proof)).unwrap().phase == AttemptPhase::Pending);
     h.clock.0.fetch_add(120, Ordering::SeqCst);
     h.service
@@ -587,26 +642,28 @@ async fn unattended_ready_attempt_is_removed_by_its_lifetime_timer() {
 #[tokio::test]
 async fn start_and_poll_rates_and_total_pending_attempts_are_bounded() {
     let h = Harness::new();
-    let (first, proof) = h.start();
+    let (first, proof) = h.start().await;
     assert!(h.service.status(request(&first, &proof)).is_ok());
     assert!(matches!(
         h.service.status(request(&first, &proof)),
         Err(AuthError::RateLimited)
     ));
     for _ in 1..STARTS_PER_MINUTE {
-        h.start();
+        h.start().await;
     }
     let challenge = wire::native_challenge(&proof).unwrap();
     assert!(matches!(
-        h.service.start(StartRequest {
-            native_challenge: challenge.clone()
-        }),
+        h.service
+            .start(StartRequest {
+                native_challenge: challenge.clone()
+            })
+            .await,
         Err(AuthError::RateLimited)
     ));
     for _ in 0..3 {
         h.clock.0.fetch_add(60, Ordering::SeqCst);
         for _ in 0..STARTS_PER_MINUTE {
-            h.start();
+            h.start().await;
         }
     }
     h.clock.0.fetch_add(60, Ordering::SeqCst);
@@ -615,9 +672,11 @@ async fn start_and_poll_rates_and_total_pending_attempts_are_bounded() {
         MAX_ATTEMPTS
     );
     assert!(matches!(
-        h.service.start(StartRequest {
-            native_challenge: challenge
-        }),
+        h.service
+            .start(StartRequest {
+                native_challenge: challenge
+            })
+            .await,
         Err(AuthError::RateLimited)
     ));
 }
@@ -625,7 +684,7 @@ async fn start_and_poll_rates_and_total_pending_attempts_are_bounded() {
 #[tokio::test]
 async fn denied_or_failed_provider_results_are_fixed_safe_states_without_secret_readback() {
     let h = Harness::new();
-    let (denied, proof) = h.start();
+    let (denied, proof) = h.start().await;
     h.service
         .callback(state(&denied), None, true)
         .await
@@ -635,7 +694,7 @@ async fn denied_or_failed_provider_results_are_fixed_safe_states_without_secret_
         serde_json::json!({"phase":"failed","failure":"denied"})
     );
     h.provider.fail.store(true, Ordering::SeqCst);
-    let (failed, proof) = h.start();
+    let (failed, proof) = h.start().await;
     h.service
         .callback(state(&failed), Some("fixture-code".into()), false)
         .await
@@ -699,4 +758,152 @@ async fn legacy_link_owner_retired_during_browser_handoff_cannot_install_a_perso
     accounts.sign_out_async(&session).await.unwrap();
     assert!(h.service.claim(request(&start, &proof)).await.is_err());
     assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());
+}
+
+fn steps(h: &Harness, steps: &[&'static str]) {
+    h.provider.device_steps.lock().unwrap().extend(steps);
+}
+
+/// Device attempts finish on the server's own timer; paused test time lets it run instantly.
+async fn settle(h: &Harness, id: &str) -> &'static str {
+    for _ in 0..600 {
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let attempts = h.service.0.attempts.lock().unwrap();
+        match attempts.attempts.get(id).map(|attempt| &attempt.phase) {
+            Some(Phase::Ready(_)) => return "ready",
+            Some(Phase::Failed(_)) => return "failed",
+            Some(Phase::Device(_) | Phase::Exchanging) => {}
+            Some(_) => return "other",
+            None => return "gone",
+        }
+    }
+    "waiting"
+}
+
+#[tokio::test(start_paused = true)]
+async fn device_sign_in_shows_githubs_code_and_the_server_polls_until_approval() {
+    let h = Harness::device();
+    steps(&h, &["pending", "flaky", "pending", "approve"]);
+    let (start, proof) = h.start().await;
+    assert_eq!(
+        serde_json::to_value(&start).unwrap()["authorizeUrl"],
+        "https://github.com/login/device"
+    );
+    assert_eq!(start.user_code.as_deref(), Some("WDJB-MJHT"));
+    assert!(!serde_json::to_string(&start)
+        .unwrap()
+        .contains("fixture-device-code"));
+    assert_eq!(start.expires_at, 700);
+    assert_eq!(
+        h.provider.device_authorities.lock().unwrap().as_slice(),
+        [GitHubAuthority::PublicRead]
+    );
+    assert!(h.service.status(request(&start, &proof)).unwrap().phase == AttemptPhase::Pending);
+    assert_eq!(settle(&h, &start.attempt_id).await, "ready");
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 4);
+    assert_eq!(h.provider.exchanges.load(Ordering::SeqCst), 0);
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    assert_eq!(claimed.status.github_id, 42);
+    let stored = h
+        .store
+        .get("personal-auth-v1:state")
+        .unwrap()
+        .unwrap()
+        .to_string();
+    assert!(!stored.contains("fixture-gh-cli"));
+    assert!(matches!(
+        h.service
+            .callback("a".repeat(43), Some("fixture-code".into()), false)
+            .await,
+        Err(_)
+    ));
+}
+
+#[tokio::test(start_paused = true)]
+async fn device_sign_in_honours_slow_down_and_ends_on_denial_or_expiry() {
+    let h = Harness::device();
+    steps(&h, &["slow", "denied"]);
+    let (denied, proof) = h.start().await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
+    // The next poll waits the ten seconds GitHub asked for, not the original one.
+    tokio::time::sleep(Duration::from_secs(8)).await;
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
+    assert_eq!(settle(&h, &denied.attempt_id).await, "failed");
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        serde_json::to_value(h.service.status(request(&denied, &proof)).unwrap()).unwrap(),
+        serde_json::json!({"phase":"failed","failure":"denied"})
+    );
+    steps(&h, &["expired"]);
+    let (expired, proof) = h.start().await;
+    assert_eq!(settle(&h, &expired.attempt_id).await, "failed");
+    assert!(matches!(
+        h.service.status(request(&expired, &proof)).unwrap().failure,
+        Some(FailureKind::Reconnect)
+    ));
+}
+
+#[tokio::test(start_paused = true)]
+async fn cancelling_a_device_sign_in_stops_polling_github() {
+    let h = Harness::device();
+    let (start, proof) = h.start().await;
+    tokio::time::sleep(Duration::from_millis(1500)).await;
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
+    assert!(
+        h.service
+            .cancel(request(&start, &proof))
+            .await
+            .unwrap()
+            .cancelled
+    );
+    steps(&h, &["approve"]);
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    assert_eq!(h.provider.device_polls.load(Ordering::SeqCst), 1);
+    assert!(h.service.claim(request(&start, &proof)).await.is_err());
+    assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());
+}
+
+#[tokio::test(start_paused = true)]
+async fn device_repository_consent_asks_for_repo_scopes_and_must_be_the_same_github_user() {
+    let h = Harness::device();
+    steps(&h, &["approve"]);
+    let (initial, proof) = h.start().await;
+    assert_eq!(settle(&h, &initial.attempt_id).await, "ready");
+    let issued = h.service.claim(request(&initial, &proof)).await.unwrap();
+    let consent_with = |proof: &str| StartRequest {
+        native_challenge: wire::native_challenge(proof).unwrap(),
+    };
+    let other_proof = random_secret().unwrap();
+    let other = h
+        .service
+        .start_repository_consent(&issued.session, consent_with(&other_proof))
+        .await
+        .unwrap();
+    assert_eq!(
+        h.provider.device_authorities.lock().unwrap().last(),
+        Some(&GitHubAuthority::PrivateRepositories)
+    );
+    h.provider.github_id.store(7, Ordering::SeqCst);
+    steps(&h, &["approve"]);
+    assert_eq!(settle(&h, &other.attempt_id).await, "failed");
+    assert!(matches!(
+        h.service
+            .status(request(&other, &other_proof))
+            .unwrap()
+            .failure,
+        Some(FailureKind::Denied)
+    ));
+    h.provider.github_id.store(42, Ordering::SeqCst);
+    h.clock.0.fetch_add(POLL_SECONDS, Ordering::SeqCst);
+    let same_proof = random_secret().unwrap();
+    let same = h
+        .service
+        .start_repository_consent(&issued.session, consent_with(&same_proof))
+        .await
+        .unwrap();
+    steps(&h, &["approve"]);
+    assert_eq!(settle(&h, &same.attempt_id).await, "ready");
+    let upgraded = h.service.claim(request(&same, &same_proof)).await.unwrap();
+    assert_eq!(upgraded.status.github_id, 42);
 }
