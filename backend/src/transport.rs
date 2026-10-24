@@ -652,14 +652,7 @@ async fn android_file_response(host: &crate::host::ServerHost, relative: &str) -
             } else {
                 "image/jpeg"
             };
-            let stream = futures_util::stream::try_unfold(file.file, |mut file| async move {
-                use tokio::io::AsyncReadExt;
-                let mut bytes = vec![0; 64 * 1024];
-                let n = file.read(&mut bytes).await?;
-                bytes.truncate(n);
-                Ok::<_, std::io::Error>(if n == 0 { None } else { Some((bytes, file)) })
-            });
-            let mut response = Response::new(Body::from_stream(stream));
+            let mut response = Response::new(Body::from_stream(file.body));
             response
                 .headers_mut()
                 .insert(header::CONTENT_TYPE, mime.parse().unwrap());

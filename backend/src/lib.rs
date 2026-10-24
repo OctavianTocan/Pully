@@ -76,16 +76,30 @@ impl AppState {
     pub fn from_host(host: host::ServerHost) -> Result<Arc<Self>> {
         Self::from_identity_host(host, identity::RequestIdentity::LegacyPrivate)
     }
+    /// Like [`AppState::from_host`], recording usage analytics in `analytics`.
+    pub fn from_host_with_analytics(
+        host: host::ServerHost,
+        analytics: analytics::Analytics,
+    ) -> Result<Arc<Self>> {
+        Self::build(host, identity::RequestIdentity::LegacyPrivate, analytics)
+    }
     pub(crate) fn from_identity_host(
         host: host::ServerHost,
         identity: identity::RequestIdentity,
     ) -> Result<Arc<Self>> {
-        let store = host.storage.clone();
         let analytics = if identity.is_legacy() {
             analytics::Analytics::new()
         } else {
-            analytics::Analytics::for_tenant(store.root().join("analytics"))
+            analytics::Analytics::for_tenant(host.storage.root().join("analytics"))
         };
+        Self::build(host, identity, analytics)
+    }
+    fn build(
+        host: host::ServerHost,
+        identity: identity::RequestIdentity,
+        analytics: analytics::Analytics,
+    ) -> Result<Arc<Self>> {
+        let store = host.storage.clone();
         Ok(Arc::new(Self {
             identity,
             host,

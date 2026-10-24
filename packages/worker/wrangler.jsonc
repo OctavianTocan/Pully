@@ -1,6 +1,6 @@
 // The hosted Pully server (plans/12-hosted-server.md): the Rust server built for Workers. Every
-// request goes to one PullyServer Durable Object, which keeps the server's data in its SQLite
-// storage. There is no route and no workers.dev or preview URL: the hostname and the Cloudflare
+// request goes to one PullyServer Durable Object, which keeps the server's data and analytics in
+// its SQLite storage; published Android builds are in the pully-android R2 bucket. There is no route and no workers.dev or preview URL: the hostname and the Cloudflare
 // Access policy in front of it come with Tavi's go-ahead to deploy (CONTRACTS,
 // hosted-server-only-behind-access).
 {
@@ -14,5 +14,6 @@
     "bindings": [{ "name": "PULLY_SERVER", "class_name": "PullyServer" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PullyServer"] }],
+  "r2_buckets": [{ "binding": "PULLY_ANDROID", "bucket_name": "pully-android" }],
   "observability": { "enabled": true }
 }

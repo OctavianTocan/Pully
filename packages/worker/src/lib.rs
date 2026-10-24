@@ -1,18 +1,24 @@
 //! The hosted Pully server: the Rust server (`backend/`) built for Cloudflare Workers. The
 //! Worker sends every request to one `PullyServer` Durable Object, which answers it with the
-//! server's own router and keeps the server's data in its SQLite storage.
+//! server's own router and keeps the server's data and analytics in its SQLite storage.
+//! Published Android builds come from the `PULLY_ANDROID` R2 bucket.
 
 use axum::body::Body;
+use futures_util::{future::BoxFuture, StreamExt};
 use pulls_review_server::scheduler::{warm_round, Rejections, WARM_EVERY};
 use pulls_review_server::{
-    host::ServerHost,
+    analytics::{Analytics, DayFiles},
+    host::{AndroidFiles, HostFile, ServerHost},
     store::{Records, Store},
     transport::{router, HttpState},
     AppState,
 };
-use std::{cell::RefCell, path::PathBuf, time::Duration};
+use send_wrapper::SendWrapper;
+use std::{cell::RefCell, path::PathBuf, sync::Arc, time::Duration};
 use tower_service::Service;
-use worker::{durable_object, event, Context, Env, Request, Response, Result, SqlStorage, State};
+use worker::{
+    durable_object, event, Bucket, Context, Env, Request, Response, Result, SqlStorage, State,
+};
 
 /// The Worker variables and secrets the server reads, when they are set.
 const SERVER_ENVIRONMENT: &[&str] = &[
@@ -65,9 +71,16 @@ impl worker::DurableObject for PullyServer {
                 .ok()?;
             Some((name.to_string(), value))
         }));
-        let records = SqlRecords::new(state.storage().sql()).expect("Durable Object storage");
+        let sql = state.storage().sql();
+        let records = SqlRecords::new(sql.clone()).expect("Durable Object storage");
         let store = Store::with_records(PathBuf::from("/pully-server"), Box::new(records));
-        let app = AppState::from_host(ServerHost::new(store, None, None)).expect("server state");
+        let days = SqlDays::new(sql).expect("Durable Object storage");
+        let android = R2Android {
+            bucket: SendWrapper::new(env.bucket("PULLY_ANDROID").expect("Android bucket")),
+        };
+        let host = ServerHost::new(store, None, None).with_android_files(Arc::new(android));
+        let app = AppState::from_host_with_analytics(host, Analytics::in_day_files(Arc::new(days)))
+            .expect("server state");
         let allow = pulls_review_server::rt::env::var("PULLY_PUBLIC_URL")
             .into_iter()
             .collect();
@@ -86,6 +99,7 @@ impl worker::DurableObject for PullyServer {
         if storage.get_alarm().await?.is_none() {
             storage.set_alarm(FIRST_WARM).await?;
         }
+        let head = request.method() == worker::Method::Head;
         let mut builder = axum::http::Request::builder()
             .method(request.method().as_ref())
             .uri(request.url()?.as_str());
@@ -100,7 +114,7 @@ impl worker::DurableObject for PullyServer {
             Ok(response) => response,
             Err(never) => match never {},
         };
-        Response::try_from(response)
+        worker_response(response, head)
     }
 
     /// Refreshes the open pull requests the way the native server's `warm` loop does, then
@@ -112,6 +126,43 @@ impl worker::DurableObject for PullyServer {
         self.state.storage().set_alarm(WARM_EVERY).await?;
         Response::empty()
     }
+}
+
+/// Converts the router's response. The runtime drops `Content-Length` from a streamed body
+/// unless the stream's length is fixed, and the phone shows update download progress from it,
+/// so a response that states its length is sent through a `FixedLengthStream`.
+fn worker_response(response: axum::response::Response, head: bool) -> Result<Response> {
+    let length = response
+        .headers()
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
+    // A response with no body (HEAD, 204, 304, or a stated length of 0) needs no stream.
+    let Some(length) =
+        length.filter(|&length| length > 0 && !head && !null_body(response.status()))
+    else {
+        return Response::try_from(response);
+    };
+    let (parts, body) = response.into_parts();
+    let chunks = body.into_data_stream().map(|chunk| {
+        chunk
+            .map(|bytes| bytes.to_vec())
+            .map_err(|e| worker::Error::RustError(e.to_string()))
+    });
+    let fixed: worker::worker_sys::FixedLengthStream =
+        worker::FixedLengthStream::wrap(chunks, length).into();
+    let mut sent = Response::from_body(worker::ResponseBody::Stream(fixed.readable()))?
+        .with_status(parts.status.as_u16());
+    for (name, value) in &parts.headers {
+        if let Ok(value) = value.to_str() {
+            sent.headers_mut().append(name.as_str(), value)?;
+        }
+    }
+    Ok(sent)
+}
+
+/// Whether the runtime refuses any body for `status`.
+fn null_body(status: axum::http::StatusCode) -> bool {
+    matches!(status.as_u16(), 101 | 204 | 205 | 304)
 }
 
 /// [`Records`] in Durable Object SQLite. A row holds at most 2 MB, so a record is stored as
@@ -203,5 +254,110 @@ impl Records for SqlRecords {
             }
         }
         Ok(ids)
+    }
+}
+
+/// Analytics [`DayFiles`] in Durable Object SQLite: one row per event, each under 8 KiB.
+struct SqlDays {
+    sql: SqlStorage,
+}
+
+impl SqlDays {
+    fn new(sql: SqlStorage) -> Result<Self> {
+        sql.exec(
+            "CREATE TABLE IF NOT EXISTS analytics (day TEXT NOT NULL, line TEXT NOT NULL)",
+            None,
+        )?;
+        sql.exec(
+            "CREATE INDEX IF NOT EXISTS analytics_day ON analytics (day)",
+            None,
+        )?;
+        Ok(Self { sql })
+    }
+}
+
+impl DayFiles for SqlDays {
+    fn append(&self, day: &str, lines: &[String]) -> anyhow::Result<()> {
+        // No await between the inserts, so they commit together or not at all.
+        for line in lines {
+            self.sql
+                .exec(
+                    "INSERT INTO analytics (day, line) VALUES (?, ?)",
+                    vec![day.into(), line.as_str().into()],
+                )
+                .map_err(failed)?;
+        }
+        Ok(())
+    }
+    fn read(&self, day: &str) -> anyhow::Result<Vec<String>> {
+        let cursor = self
+            .sql
+            .exec(
+                "SELECT line FROM analytics WHERE day = ? ORDER BY rowid",
+                vec![day.into()],
+            )
+            .map_err(failed)?;
+        let mut lines = Vec::new();
+        for row in cursor.raw() {
+            match row.map_err(failed)?.into_iter().next() {
+                Some(worker::SqlStorageValue::String(line)) => lines.push(line),
+                _ => anyhow::bail!("Invalid stored analytics line"),
+            }
+        }
+        Ok(lines)
+    }
+    fn days(&self) -> anyhow::Result<Vec<String>> {
+        let cursor = self
+            .sql
+            .exec("SELECT DISTINCT day FROM analytics", None)
+            .map_err(failed)?;
+        let mut days = Vec::new();
+        for row in cursor.raw() {
+            match row.map_err(failed)?.into_iter().next() {
+                Some(worker::SqlStorageValue::String(day)) => days.push(day),
+                _ => anyhow::bail!("Invalid stored analytics day"),
+            }
+        }
+        Ok(days)
+    }
+    fn remove(&self, day: &str) -> anyhow::Result<()> {
+        self.sql
+            .exec("DELETE FROM analytics WHERE day = ?", vec![day.into()])
+            .map_err(failed)?;
+        Ok(())
+    }
+}
+
+/// Published Android files (`pulls.apk`, `latest.json`, `past/`, `changelog/`) in R2, under
+/// the same names as in the native server's Android directory.
+struct R2Android {
+    bucket: SendWrapper<Bucket>,
+}
+
+impl AndroidFiles for R2Android {
+    fn open<'a>(&'a self, name: &'a str) -> BoxFuture<'a, anyhow::Result<Option<HostFile>>> {
+        Box::pin(SendWrapper::new(async move {
+            let Some(object) = self
+                .bucket
+                .get(name)
+                .execute()
+                .await
+                .map_err(|e| anyhow::anyhow!("Reading the Android bucket failed: {e}"))?
+            else {
+                return Ok(None);
+            };
+            let size = object.size();
+            let Some(body) = object.body() else {
+                return Ok(None);
+            };
+            let stream = body
+                .stream()
+                .map_err(|e| anyhow::anyhow!("Reading the Android bucket failed: {e}"))?
+                .map(|chunk| chunk.map_err(|e| std::io::Error::other(e.to_string())));
+            Ok(Some(HostFile {
+                body: Box::pin(SendWrapper::new(stream)),
+                size,
+            }))
+        }))
     }
 }
