@@ -3,13 +3,14 @@
 //! server's own router and keeps the server's data in its SQLite storage.
 
 use axum::body::Body;
+use pulls_review_server::scheduler::{warm_round, Rejections, WARM_EVERY};
 use pulls_review_server::{
     host::ServerHost,
     store::{Records, Store},
     transport::{router, HttpState},
     AppState,
 };
-use std::path::PathBuf;
+use std::{cell::RefCell, path::PathBuf, time::Duration};
 use tower_service::Service;
 use worker::{durable_object, event, Context, Env, Request, Response, Result, SqlStorage, State};
 
@@ -27,6 +28,9 @@ const SERVER_ENVIRONMENT: &[&str] = &[
     "PULLS_REVIEW_SUGGEST_MODEL",
     "PULLS_REVIEW_ANALYTICS",
 ];
+
+/// How soon after the first request the first refresh runs, as the native server waits.
+const FIRST_WARM: Duration = Duration::from_secs(5);
 
 /// The port `wrangler dev` listens on, so local browser origins are trusted.
 const DEV_PORT: u16 = 8787;
@@ -46,7 +50,9 @@ async fn fetch(request: Request, env: Env, _: Context) -> Result<Response> {
 
 #[durable_object]
 pub struct PullyServer {
+    state: State,
     http: HttpState,
+    rejected: RefCell<Rejections>,
 }
 
 impl worker::DurableObject for PullyServer {
@@ -65,12 +71,21 @@ impl worker::DurableObject for PullyServer {
         let allow = pulls_review_server::rt::env::var("PULLY_PUBLIC_URL")
             .into_iter()
             .collect();
-        let http = HttpState::new(app, "localhost", DEV_PORT, allow, true, None)
-            .expect("server address");
-        Self { http }
+        let http =
+            HttpState::new(app, "localhost", DEV_PORT, allow, true, None).expect("server address");
+        Self {
+            state,
+            http,
+            rejected: RefCell::default(),
+        }
     }
 
     async fn fetch(&self, mut request: Request) -> Result<Response> {
+        // The alarm persists, so the first request after a deploy starts the refresh for good.
+        let storage = self.state.storage();
+        if storage.get_alarm().await?.is_none() {
+            storage.set_alarm(FIRST_WARM).await?;
+        }
         let mut builder = axum::http::Request::builder()
             .method(request.method().as_ref())
             .uri(request.url()?.as_str());
@@ -86,6 +101,16 @@ impl worker::DurableObject for PullyServer {
             Err(never) => match never {},
         };
         Response::try_from(response)
+    }
+
+    /// Refreshes the open pull requests the way the native server's `warm` loop does, then
+    /// sets the next alarm. Alarms never overlap, so the rejections are not borrowed twice.
+    async fn alarm(&self) -> Result<Response> {
+        let mut rejected = self.rejected.take();
+        warm_round(&self.http.app, &mut rejected).await;
+        self.rejected.replace(rejected);
+        self.state.storage().set_alarm(WARM_EVERY).await?;
+        Response::empty()
     }
 }
 

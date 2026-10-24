@@ -34,7 +34,6 @@ pub mod review;
 pub mod rt;
 mod review_experiments;
 mod rpc_validation;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod scheduler;
 pub mod source;
 pub mod store;
