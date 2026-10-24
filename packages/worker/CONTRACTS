@@ -37,3 +37,15 @@ download page, `latest.json` and its checks are the server's and not this crate'
 `Content-Length`, because the phone's update download shows its progress from it
 (`android/core/.../DownloadUpdate.kt`). `scripts/upload-android.sh` MUST upload `latest.json`
 last, so the manifest never names an APK the bucket lacks.
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-ai-in-the-logins-own-container
+Claude Code and Codex work for a login MUST run only in the container of that login's `AgentHome`
+Durable Object, named after the login's volume, through the server's own `agent_process` code run
+by `agent_runner` (`hosted-server-is-the-rust-server-in-a-worker`). The object MUST refuse every
+login but the first it served, and the runner MUST refuse every login but its container's. A
+container MUST NOT be given an R2 key, a server secret or another login's home: the object puts
+that login's home back when the container starts and saves it after each run, sign-in, status
+check and sign-out, without opening it. Inside the container, CLI jobs MUST run as a user that cannot read
+the login homes (backend `rust-container-tools-use-scoped-capabilities`). Source: Tavi, 24 Oct
+2026, "Move the server, AI last" and "Rewrite it as a Worker"; the login-storage question asked
+the same day.

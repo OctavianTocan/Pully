@@ -1214,10 +1214,13 @@ dependencies = [
  "axum",
  "console_error_panic_hook",
  "futures-util",
+ "js-sys",
  "pulls-review-server",
  "send_wrapper",
  "tower-service",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
  "worker",
 ]
 

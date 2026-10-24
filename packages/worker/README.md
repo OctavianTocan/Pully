@@ -16,9 +16,13 @@ What runs here today:
 - the download page, the update manifest and the APKs, read from the `pully-android` R2
   bucket under the same names as the native server's Android directory.
 
-What does not yet: AI work, which needs Claude Code and Codex in a container of their own.
-Those calls fail closed: the server's `rt::fs` and `rt::process` refuse every call in the
-Worker.
+- AI work: every Claude Code and Codex run, model list and sign-in goes to the login's own
+  `AgentHome` Durable Object and its container (`agent/Dockerfile`), where the server's
+  `agent_runner` runs the CLIs. The object keeps the login's CLI home as one unopened
+  archive in the `pully-agent-homes` bucket while the container sleeps.
+
+The Worker itself still runs no programs and reads no files: the server's `rt::fs` and
+`rt::process` refuse every call there.
 
 Nothing is deployed. The config has no route on purpose: the hostname goes in together with
 its Cloudflare Access policy.
@@ -39,10 +43,14 @@ editing the server. Local data stays in `.wrangler/state`.
 To try downloads, fill the local bucket from an Android directory:
 `scripts/upload-android.sh ~/.local/share/pulls-review/android --local`.
 
+`wrangler dev` builds the agent container with the local Docker, so AI work needs Docker
+running; without it, AI calls answer that the container is unavailable.
+
 ## Deploy (after Tavi's go-ahead)
 
-1. Copy today's server data in (a one-off import, still to write), and create the bucket with
-   `wrangler r2 bucket create pully-android`, then run `scripts/upload-android.sh <android-dir>`.
+1. Copy today's server data in (a one-off import, still to write), and create the buckets with
+   `wrangler r2 bucket create pully-android` and `wrangler r2 bucket create pully-agent-homes`,
+   then run `scripts/upload-android.sh <android-dir>`.
    Each Android publish then needs the same upload until `android/scripts/publish-apk.sh` does it.
 2. Secrets: `wrangler secret put PULLS_REVIEW_GITHUB_TOKEN`, and the others in
    `SERVER_ENVIRONMENT` (`src/lib.rs`) that today's server has.

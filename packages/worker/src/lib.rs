@@ -20,6 +20,8 @@ use worker::{
     durable_object, event, Bucket, Context, Env, Request, Response, Result, SqlStorage, State,
 };
 
+mod agent;
+
 /// The Worker variables and secrets the server reads, when they are set.
 const SERVER_ENVIRONMENT: &[&str] = &[
     "PULLS_REVIEW_GITHUB_TOKEN",
@@ -70,6 +72,11 @@ impl worker::DurableObject for PullyServer {
                 .or_else(|_| env.var(name).map(|v| v.to_string()))
                 .ok()?;
             Some((name.to_string(), value))
+        }));
+        // Every Claude Code and Codex call goes to its login's container; a second object in
+        // this isolate finds the remote already set.
+        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
+            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
         }));
         let sql = state.storage().sql();
         let records = SqlRecords::new(sql.clone()).expect("Durable Object storage");

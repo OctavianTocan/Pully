@@ -34,13 +34,27 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
   calls wait for a real token); M4 background refresh on the Durable Object's alarm
   (done); M5 APK downloads from R2 and analytics as one Durable Object SQLite row per event
   rather than R2, because R2 objects cannot be appended to (done); M6 AI per Pully account
-  in its own container (`/mnt/project-files/plans/ai-on-cloudflare.md`).
+  in its own container (built, tried locally; see the next point).
+- **AI (M6).** Each login has an `AgentHome` Durable Object, named after its volume, that
+  owns one container (`packages/worker/agent/Dockerfile`: the CLIs plus the server binary).
+  In it, `agent_runner` runs the server's own `agent_process` and `agent_login` code as plain
+  processes, since the container is the sandbox; the Worker's server reaches it through
+  `agent_remote`, which streams each run's activity back as lines of JSON. The runner is root
+  and keeps the login home where only root can read it; each job runs as `pully-cli` in its
+  own job folder with the same selected credential files the Docker jobs get. The container's
+  disk goes when it sleeps (five minutes idle), so the object puts the login's CLI home back
+  from R2 (`pully-agent-homes`, one archive per login) when the container starts, and saves it
+  after each run, sign-in, status check and sign-out without opening it. No container holds
+  an R2 key or a server secret. This replaces mounting R2 in the container, which would give
+  every container a key to every login.
 - **Cost:** Workers Paid ($5 a month, already on the account for mymind). The Worker is
   about 3.9 MB compressed, under the paid plan's 10 MB.
 
 Deploying needs Tavi: the go-ahead, a hostname with an Access policy, Worker secrets
-(`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), and
-an import of today's data so nothing starts empty.
+(`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), the
+`pully-agent-homes` bucket, and an import of today's data so nothing starts empty. Each
+person signs Claude Code and Codex in again from Settings, AI, because today's logins live
+in Docker volumes on the old machine.
 
 ## Why
 
