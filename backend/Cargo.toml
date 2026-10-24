@@ -14,7 +14,10 @@ two-face = { version = "=0.5.2", default-features = false, features = [ "syntect
 roxmltree = "0.20"
 mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
 anyhow = "1"
-axum = { version = "0.8", default-features = false, features = [ "json", "query" ] }
+axum = { version = "0.8", default-features = false, features = [
+  "json",
+  "query"
+] }
 base64 = "0.22"
 futures-util = "0.3"
 hex = "0.4"
@@ -52,8 +55,15 @@ bytes = "1"
 getrandom = { version = "0.2", features = [ "js" ] }
 js-sys = "0.3"
 send_wrapper = { version = "0.6", features = [ "futures" ] }
-tokio = { version = "1", default-features = false, features = [ "sync", "macros", "io-util" ] }
-uuid = { version = "1", features = [ "v4", "js" ] }
+tokio = { version = "1", default-features = false, features = [
+  "sync",
+  "macros",
+  "io-util"
+] }
+uuid = { version = "1", features = [
+  "v4",
+  "js"
+] }
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = { version = "0.3", features = [
