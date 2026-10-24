@@ -57,3 +57,9 @@ the login homes (backend `rust-container-tools-use-scoped-capabilities`). Source
 the same day, answered by Tavi at 19:27 ("Can we not keep the logins in a D1 database? We
 could just store them as text in there"), kept in each login's own object rather than one D1
 database so no query can reach another login.
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-staging-apk-validation
+The staging publisher MUST verify the actual APK package, version and pinned signing key before
+uploading anything. Multiple installed SDK build-tools versions MUST NOT change those checks;
+missing required tools MUST fail before the build or upload. Source: Tavi, 24 Oct 2026, complete
+staging after the first publication exposed the hosted runner's multiple SDK versions.
