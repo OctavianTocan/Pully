@@ -24,6 +24,7 @@ use worker::{
 
 mod agent;
 mod personal;
+mod request_headers;
 
 /// The Worker variables and secrets the server reads, when they are set.
 const SERVER_ENVIRONMENT: &[&str] = &[
@@ -130,11 +131,18 @@ impl worker::DurableObject for PullyServer {
 /// Answers `request` with `router`.
 async fn answer(mut router: axum::Router, request: &mut Request) -> Result<Response> {
     let head = request.method() == worker::Method::Head;
+    let path = request.path();
     let mut builder = axum::http::Request::builder()
         .method(request.method().as_ref())
         .uri(request.url()?.as_str());
     for (name, value) in request.headers() {
-        builder = builder.header(name, value);
+        if name.eq_ignore_ascii_case("cookie") {
+            if let Some(value) = request_headers::forwarded_cookie(&path, &value) {
+                builder = builder.header(name, value);
+            }
+        } else {
+            builder = builder.header(name, value);
+        }
     }
     // Bound the new personal workspace before materializing the Worker's request body;
     // the backend applies the same limits after adapting it into axum.

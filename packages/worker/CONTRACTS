@@ -96,3 +96,13 @@ Percent and underscore characters in encoded ids MUST NOT act as wildcards. Anal
 summary iteration MUST consume record batches or SQLite rows incrementally, with the
 existing cleaner, Stats response and retention unchanged. Source: Tavi25Oct2026 review-fix
 batch, finding 8; backend workspace-stats-reads-only-matching-records.
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-workspace-discards-only-access-transport-cookies
+Before forwarding /workspace/* to the backend, the Worker MUST discard the exact
+CF_Authorization transport cookie and empty Cookie headers. Other cookies MUST remain
+present for the backend's existing rejection, including mixed Access/application cookies
+and malformed or lookalike cookie names. Authorization and every non-cookie header MUST
+remain unchanged; public, personal sign-in, legacy and download cookie forwarding MUST
+remain unchanged. No cookie MAY select an account or replace the confirmed personal
+bearer, and no cookie value MAY be logged. Source: Tavi's 25 Oct 2026 one-GitHub-login
+instruction and the staging service-auth request observed during PR127 live verification.

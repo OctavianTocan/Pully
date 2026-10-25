@@ -53,6 +53,12 @@ jobs:
           pnpm install --frozen-lockfile --ignore-scripts
           rustup target add wasm32-unknown-unknown
           cargo install worker-build --version 0.8.7 --locked
+      - name: Verify the workspace header boundary
+        if: steps.setup.outputs.ready == 'true'
+        working-directory: packages/worker
+        run: |
+          rustc --edition=2021 --test src/request_headers.rs -o "$RUNNER_TEMP/pully-worker-request-headers-test"
+          "$RUNNER_TEMP/pully-worker-request-headers-test"
       - name: Deploy the staging server
         if: steps.setup.outputs.ready == 'true'
         working-directory: packages/worker
