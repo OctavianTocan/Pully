@@ -6,17 +6,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-val personalAuthOrigin = providers.gradleProperty("pully.personalAuthOrigin").orElse("").get()
-require(personalAuthOrigin.isEmpty() || Regex("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?/?").matches(personalAuthOrigin)) {
-    "pully.personalAuthOrigin must be an app-owned HTTPS origin."
-}
-if (personalAuthOrigin.isNotEmpty()) {
-    val configuredOrigin = URI(personalAuthOrigin)
-    require(configuredOrigin.host != null && (configuredOrigin.port == -1 || configuredOrigin.port in 1..65535)) {
-        "pully.personalAuthOrigin must have a valid host and port."
-    }
-}
-
 // The staging app (`-Ppully.channel=staging`, built from main by .github/workflows/staging.yml): its own package beside
 // Pully, its own update channel on the server, and the staging server as its first address (android/CONTRACTS,
 // android-staging-channel). Every other build is the stable app.
@@ -28,6 +17,19 @@ require(!staging || stagingBuild in 1..2_000_000_000) { "A staging build needs p
 val defaultServer = providers.gradleProperty("pully.defaultServer").orElse("https://prs.octaviantocan.com").get()
 require(Regex("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?").matches(defaultServer)) {
     "pully.defaultServer must be an HTTPS origin without a path."
+}
+
+// Personal GitHub sign-in goes to the staging server in the staging app, so it never signs in against production.
+val personalAuthOrigin =
+    if (staging) defaultServer else providers.gradleProperty("pully.personalAuthOrigin").orElse("").get()
+require(personalAuthOrigin.isEmpty() || Regex("https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?/?").matches(personalAuthOrigin)) {
+    "pully.personalAuthOrigin must be an app-owned HTTPS origin."
+}
+if (personalAuthOrigin.isNotEmpty()) {
+    val configuredOrigin = URI(personalAuthOrigin)
+    require(configuredOrigin.host != null && (configuredOrigin.port == -1 || configuredOrigin.port in 1..65535)) {
+        "pully.personalAuthOrigin must have a valid host and port."
+    }
 }
 
 android {

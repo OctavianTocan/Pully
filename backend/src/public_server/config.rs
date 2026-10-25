@@ -67,26 +67,10 @@ pub(super) async fn load(config: PublicServerConfig) -> Result<Option<Loaded>, P
     };
     blocking(move || {
         absolute_normal(&files.data_root)?;
-        let oauth: OAuthFile = serde_json::from_slice(&protected_file(&files.oauth_app_file)?)?;
-        let supplied: KeysFile = serde_json::from_slice(&protected_file(&files.vault_keys_file)?)?;
-        anyhow::ensure!((1..=8).contains(&supplied.keys.len()), "Invalid vault keys");
-        let mut keys = BTreeMap::new();
-        for (version, encoded) in supplied.keys {
-            anyhow::ensure!(encoded.len() == 43, "Invalid vault key");
-            let key: [u8; 32] = URL_SAFE_NO_PAD
-                .decode(encoded)?
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid vault key"))?;
-            keys.insert(version, key);
-        }
-        let oauth = match oauth {
-            OAuthFile::GitHubCli(GitHubCliFile { github_cli: true }) => OAuthConfig::github_cli(),
-            OAuthFile::GitHubCli(_) => anyhow::bail!("Invalid OAuth configuration"),
-            OAuthFile::App(app) => {
-                OAuthConfig::new(app.client_id, app.client_secret, &app.callback)?
-            }
-        };
-        let keys = VaultKeys::new(supplied.active_version, keys)?;
+        let (oauth, keys) = parse(
+            &protected_file(&files.oauth_app_file)?,
+            &protected_file(&files.vault_keys_file)?,
+        )?;
         Ok(Some(Loaded {
             auth: PersonalAuthHostConfig::new(files.data_root.join("personal-auth"), oauth, keys),
             tenant_root: files.data_root.join("personal-tenants"),
@@ -94,6 +78,33 @@ pub(super) async fn load(config: PublicServerConfig) -> Result<Option<Loaded>, P
     })
     .await
     .map_err(|_| PublicServerError)
+}
+
+/// Reads the OAuth file's and the vault keys file's contents. The Worker passes the same text
+/// from its secrets.
+pub(super) fn parse(oauth: &[u8], keys: &[u8]) -> anyhow::Result<(OAuthConfig, VaultKeys)> {
+    anyhow::ensure!(
+        oauth.len() <= 16 * 1024 && keys.len() <= 16 * 1024,
+        "Service secret is too large"
+    );
+    let oauth: OAuthFile = serde_json::from_slice(oauth)?;
+    let supplied: KeysFile = serde_json::from_slice(keys)?;
+    anyhow::ensure!((1..=8).contains(&supplied.keys.len()), "Invalid vault keys");
+    let mut keys = BTreeMap::new();
+    for (version, encoded) in supplied.keys {
+        anyhow::ensure!(encoded.len() == 43, "Invalid vault key");
+        let key: [u8; 32] = URL_SAFE_NO_PAD
+            .decode(encoded)?
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid vault key"))?;
+        keys.insert(version, key);
+    }
+    let oauth = match oauth {
+        OAuthFile::GitHubCli(GitHubCliFile { github_cli: true }) => OAuthConfig::github_cli(),
+        OAuthFile::GitHubCli(_) => anyhow::bail!("Invalid OAuth configuration"),
+        OAuthFile::App(app) => OAuthConfig::new(app.client_id, app.client_secret, &app.callback)?,
+    };
+    Ok((oauth, VaultKeys::new(supplied.active_version, keys)?))
 }
 
 fn absolute_normal(path: &Path) -> anyhow::Result<()> {

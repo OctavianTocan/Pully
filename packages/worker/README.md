@@ -54,7 +54,14 @@ Staging after every merge to main (`docs/RELEASE_TRACK.md`, Staging). It needs, 
 - a Cloudflare Access application for the staging host, with the same policy as today's server;
 - the GitHub secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the variable
   `PULLY_STAGING_HOST` (for example `pully-staging.octaviantocan.com`);
-- the `pully-android` bucket, and the Worker secrets below.
+- the `pully-android` bucket, and the Worker secrets below;
+- for Connect GitHub, the secret `PULLY_PERSONAL_VAULT_KEYS` (the vault keys file's text,
+  `{"activeVersion":1,"keys":{"1":"<43 base64url characters>"}}`; keep old keys while sign-ins
+  made with them are in use) and an Access bypass for `/api/public/` and `/api/personal/`
+  only, as on production.
+
+Public browsing and personal GitHub sign-in go to their own `PersonalServer` object
+(`src/personal.rs`), the Worker's form of the native server's `--public-listen` listener.
 
 `scripts/staging-config.mjs` adds the host as the Worker's custom domain for that deploy only;
 `scripts/publish-staging-android.sh` builds the app and puts it under `staging/` in the bucket.

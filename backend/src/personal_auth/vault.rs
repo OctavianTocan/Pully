@@ -480,7 +480,7 @@ impl PersonalVault {
             return Err(ReconnectRequired.into());
         }
         let this = self.clone();
-        let handle = tokio::runtime::Handle::current();
+        let handle = crate::rt::Handle::current();
         blocking(move || {
             let mut runtime = this
                 .runtime

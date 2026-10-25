@@ -80,13 +80,13 @@ impl VerifiedGitHubIdentity {
             .context("GitHub sign-in is unavailable")?;
         let response = crate::net::send(
             http.get("https://api.github.com/user")
-            .header("User-Agent", "pully")
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .bearer_auth(&token),
+                .header("User-Agent", "pully")
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .bearer_auth(&token),
         )
         .await
-            .map_err(|_| anyhow::anyhow!("GitHub could not verify this sign-in"))?;
+        .map_err(|_| anyhow::anyhow!("GitHub could not verify this sign-in"))?;
         ensure!(
             response.status() == reqwest::StatusCode::OK,
             "GitHub could not verify this sign-in"
@@ -245,21 +245,47 @@ impl RequestIdentity {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+/// Opens the store of one tenant, named by its namespace (64 hex digits). Natively each tenant
+/// has its own directory; the Worker keeps each in its own scope of Durable Object storage.
+pub(crate) type TenantStores = Arc<dyn Fn(&str) -> Result<Store> + Send + Sync>;
+
 /// One bounded owner for each tenant's caches, jobs, model catalog and analytics in this server lifetime.
 pub(crate) struct TenantStates {
-    root: PathBuf,
+    stores: TenantStores,
     limit: usize,
     states: Arc<Mutex<HashMap<String, Arc<AppState>>>>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl TenantStates {
+    /// Tenants in their own directories under `root`.
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn new(root: PathBuf, limit: usize) -> Result<Self> {
-        ensure!((1..=1024).contains(&limit), "Invalid tenant-state limit");
         let root = Store::new(root)?.root().to_owned();
+        Self::with_stores(
+            Arc::new(move |key| {
+                let path = root.join(key);
+                match std::fs::create_dir(&path) {
+                    Ok(()) => {}
+                    Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+                    Err(_) => bail!("Could not create account storage"),
+                }
+                let metadata = std::fs::symlink_metadata(&path)
+                    .context("Could not inspect account storage")?;
+                ensure!(
+                    metadata.is_dir()
+                        && !metadata.file_type().is_symlink()
+                        && std::fs::canonicalize(&path)? == path,
+                    "Account storage must not be a symlink"
+                );
+                Store::new(path)
+            }),
+            limit,
+        )
+    }
+    pub(crate) fn with_stores(stores: TenantStores, limit: usize) -> Result<Self> {
+        ensure!((1..=1024).contains(&limit), "Invalid tenant-state limit");
         Ok(Self {
-            root,
+            stores,
             limit,
             states: Default::default(),
         })
@@ -280,7 +306,7 @@ impl TenantStates {
     /// Tavi's 21 Oct 2026 any-user GitHub and public browsing request.
     async fn state(&self, identity: RequestIdentity) -> Result<Arc<AppState>> {
         let key = identity.namespace()?;
-        let (states, root, limit) = (self.states.clone(), self.root.clone(), self.limit);
+        let (states, stores, limit) = (self.states.clone(), self.stores.clone(), self.limit);
         crate::store::blocking(move || {
             identity.ensure_current()?;
             let mut states = states.lock().unwrap_or_else(|e| e.into_inner());
@@ -292,24 +318,8 @@ impl TenantStates {
                 states.len() < limit,
                 "Pully is serving its current account limit. Try again later"
             );
-            let path = root.join(&key);
-            match std::fs::create_dir(&path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-                Err(_) => bail!("Could not create account storage"),
-            }
-            let metadata =
-                std::fs::symlink_metadata(&path).context("Could not inspect account storage")?;
-            ensure!(
-                metadata.is_dir()
-                    && !metadata.file_type().is_symlink()
-                    && std::fs::canonicalize(&path)? == path,
-                "Account storage must not be a symlink"
-            );
-            let state = AppState::from_identity_host(
-                ServerHost::new(Store::new(path)?, None, None),
-                identity,
-            )?;
+            let state =
+                AppState::from_identity_host(ServerHost::new(stores(&key)?, None, None), identity)?;
             state.identity.ensure_current()?;
             states.insert(key, state.clone());
             Ok(state)

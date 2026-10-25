@@ -219,8 +219,8 @@ async fn a_symlinked_tenant_cannot_adopt_legacy_or_another_accounts_store() {
     let tenants = TenantStates::new(root.join("tenants"), 2).unwrap();
     let private = Store::new(root.join("private")).unwrap();
     private.set("my-pulls:open", &json!("private")).unwrap();
-    let guest_path = tenants
-        .root
+    let guest_path = std::fs::canonicalize(root.join("tenants"))
+        .unwrap()
         .join(RequestIdentity::Guest.namespace().unwrap());
     std::os::unix::fs::symlink(private.root(), guest_path).unwrap();
     assert!(tenants.guest().await.is_err());
@@ -288,6 +288,8 @@ fn concurrent_subscribe_and_revoke_never_lose_the_retired_authority() {
         if let Ok(observed) = observed {
             assert!(*observed.borrow());
         }
-        assert!(RequestIdentity::Account(credential).ensure_current().is_err());
+        assert!(RequestIdentity::Account(credential)
+            .ensure_current()
+            .is_err());
     }
 }

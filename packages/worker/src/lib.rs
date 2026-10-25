@@ -1,7 +1,9 @@
 //! The hosted Pully server: the Rust server (`backend/`) built for Cloudflare Workers. The
 //! Worker sends every request to one `PullyServer` Durable Object, which answers it with the
 //! server's own router and keeps the server's data and analytics in its SQLite storage.
-//! Published Android builds come from the `PULLY_ANDROID` R2 bucket.
+//! Published Android builds come from the `PULLY_ANDROID` R2 bucket. Public browsing and
+//! personal GitHub sign-in (`/api/public/`, `/api/personal/`) go to the `PersonalServer` object
+//! instead, the Worker's form of the native server's separate public listener.
 
 use axum::body::Body;
 use futures_util::{future::BoxFuture, StreamExt};
@@ -21,6 +23,7 @@ use worker::{
 };
 
 mod agent;
+mod personal;
 
 /// The Worker variables and secrets the server reads, when they are set.
 const SERVER_ENVIRONMENT: &[&str] = &[
@@ -50,10 +53,14 @@ fn start() {
 
 #[event(fetch)]
 async fn fetch(request: Request, env: Env, _: Context) -> Result<Response> {
-    env.durable_object("PULLY_SERVER")?
-        .get_by_name("server")?
-        .fetch_with_request(request)
-        .await
+    let path = request.path();
+    let object = if personal::serves(&path) {
+        env.durable_object("PERSONAL_SERVER")?
+            .get_by_name("personal")?
+    } else {
+        env.durable_object("PULLY_SERVER")?.get_by_name("server")?
+    };
+    object.fetch_with_request(request).await
 }
 
 #[durable_object]
@@ -106,22 +113,7 @@ impl worker::DurableObject for PullyServer {
         if storage.get_alarm().await?.is_none() {
             storage.set_alarm(FIRST_WARM).await?;
         }
-        let head = request.method() == worker::Method::Head;
-        let mut builder = axum::http::Request::builder()
-            .method(request.method().as_ref())
-            .uri(request.url()?.as_str());
-        for (name, value) in request.headers() {
-            builder = builder.header(name, value);
-        }
-        let body = request.bytes().await?;
-        let request = builder
-            .body(Body::from(body))
-            .map_err(|e| worker::Error::RustError(e.to_string()))?;
-        let response = match router(self.http.clone()).call(request).await {
-            Ok(response) => response,
-            Err(never) => match never {},
-        };
-        worker_response(response, head)
+        answer(router(self.http.clone()), &mut request).await
     }
 
     /// Refreshes the open pull requests the way the native server's `warm` loop does, then
@@ -133,6 +125,26 @@ impl worker::DurableObject for PullyServer {
         self.state.storage().set_alarm(WARM_EVERY).await?;
         Response::empty()
     }
+}
+
+/// Answers `request` with `router`.
+async fn answer(mut router: axum::Router, request: &mut Request) -> Result<Response> {
+    let head = request.method() == worker::Method::Head;
+    let mut builder = axum::http::Request::builder()
+        .method(request.method().as_ref())
+        .uri(request.url()?.as_str());
+    for (name, value) in request.headers() {
+        builder = builder.header(name, value);
+    }
+    let body = request.bytes().await?;
+    let request = builder
+        .body(Body::from(body))
+        .map_err(|e| worker::Error::RustError(e.to_string()))?;
+    let response = match router.call(request).await {
+        Ok(response) => response,
+        Err(never) => match never {},
+    };
+    worker_response(response, head)
 }
 
 /// Converts the router's response. The runtime drops `Content-Length` from a streamed body
@@ -179,7 +191,7 @@ struct SqlRecords {
     sql: SqlStorage,
 }
 
-const PART: usize = 1024 * 1024;
+pub(crate) const PART: usize = 1024 * 1024;
 
 impl SqlRecords {
     fn new(sql: SqlStorage) -> Result<Self> {
@@ -192,7 +204,7 @@ impl SqlRecords {
     }
 }
 
-fn failed(error: worker::Error) -> anyhow::Error {
+pub(crate) fn failed(error: worker::Error) -> anyhow::Error {
     anyhow::anyhow!("Durable Object storage failed: {error}")
 }
 

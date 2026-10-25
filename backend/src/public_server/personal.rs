@@ -120,11 +120,9 @@ struct Inner {
     requests: Arc<tokio::sync::Semaphore>,
     review_requests: Arc<tokio::sync::Semaphore>,
 }
-pub(super) async fn router(auth: PersonalAuth, root: PathBuf) -> anyhow::Result<Router> {
-    let tenants = blocking(move || TenantStates::new(root, 256)).await?;
-    let http = reqwest::Client::builder()
+pub(super) fn router(auth: PersonalAuth, tenants: TenantStates) -> anyhow::Result<Router> {
+    let http = crate::net::client()
         .no_proxy()
-        .redirect(reqwest::redirect::Policy::none())
         .connect_timeout(Duration::from_secs(10))
         .timeout(Duration::from_secs(15))
         .build()?;

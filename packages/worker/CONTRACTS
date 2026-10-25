@@ -12,7 +12,21 @@ because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-ac
 staging server's custom domain comes only from the `PULLY_STAGING_HOST` repository variable
 (`scripts/staging-config.mjs`), which the operator sets after its Access application exists;
 `wrangler.jsonc` itself keeps no route. Source for staging: Tavi, 24 Oct 2026 20:46, a staging
-app that updates when we merge to main.
+app that updates when we merge to main. Only `/api/public/` and `/api/personal/` MAY bypass
+Access, as they do in front of production's separate public listener: those routes refuse
+Access credentials and cookies and answer only to their own GitHub sign-in (backend
+`personal-public-read-is-a-typed-capability`, root `phone-api-one-account`).
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-personal-in-its-own-object
+Public browsing and personal GitHub sign-in (`/api/public/`, `/api/personal/`) MUST be answered
+by the server's own `public_server` router in the `PersonalServer` Durable Object, never by
+`PullyServer`, as the native server answers them on a separate listener with separate storage
+(backend `public-host-starts-before-legacy-authority`). Its sign-in store and each personal
+account's store MUST be separate scopes of that object's SQLite, so no store reads another's
+records (backend `tenant-state-does-not-adopt-legacy-data`). Sign-in is the GitHub CLI's device
+flow, and the vault keys come only from the `PULLY_PERSONAL_VAULT_KEYS` secret; without it
+GitHub sign-in is reported as not configured. Source: Tavi, 25 Oct 2026, his server agent's
+finding that Connect GitHub did not work on staging.
 
 @cc [owner:OctavianTocan,label:architecture] hosted-data-in-durable-object-sqlite
 The server's records MUST live in the `PullyServer` Durable Object's SQLite storage through
