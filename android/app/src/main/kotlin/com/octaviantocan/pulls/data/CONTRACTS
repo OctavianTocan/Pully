@@ -135,6 +135,17 @@ server setup MAY return to the preserved ExistingServer compatibility flow.
 Source: Tavi25Oct2026, restore production native services with each GitHub account's
 own data and no legacy credential or preference adoption.
 
+@cc [owner:OctavianTocan,label:product;security] built-in-staging-starts-with-github
+When the staging Android app uses its built-in server,
+startup MUST select the GitHub/Explore entry even if old account-discovery evidence or
+an entry preference selected ExistingServer. The introduction containing Connect GitHub
+MUST be shown once for this entry migration even when the old public welcome was seen;
+after dismissal it MUST NOT reopen on every launch. This migration MUST NOT erase or
+adopt legacy account credentials, server settings or workspace data. An explicit custom
+server MUST retain its compatibility entry. Cold-start regression proof MUST exercise
+NativeEntry and PullsApp, rather than mounting GuestPullsApp after selecting Explore.
+Source: Tavi's 25 Oct 2026 build397 email-sign-in screenshot and sole GitHub-login request.
+
 @cc [owner:OctavianTocan,label:security;architecture] github-analytics-uses-its-own-shared-queue
 GitHub workspace usage MUST use UsageAnalyticsQueue with an immutable-account namespace
 under analytics-workspace, separate from the legacy analytics queue and metadata. Its
