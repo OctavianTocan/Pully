@@ -382,8 +382,7 @@ pub(super) struct OAuthProvider {
 
 impl OAuthProvider {
     pub(super) fn new(config: Arc<OAuthConfig>) -> Result<Self> {
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
+        let client = crate::net::client()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
             .build()
@@ -441,15 +440,15 @@ impl OAuthProvider {
                 .to_string(),
             None => url.to_owned(),
         };
-        let response = self
-            .client
-            .post(url)
-            .header(reqwest::header::ACCEPT, "application/json")
-            .header(reqwest::header::USER_AGENT, "pully")
-            .form(fields)
-            .send()
-            .await
-            .map_err(|_| anyhow::anyhow!("GitHub authorization is unavailable"))?;
+        let response = crate::net::send(
+            self.client
+                .post(url)
+                .header(reqwest::header::ACCEPT, "application/json")
+                .header(reqwest::header::USER_AGENT, "pully")
+                .form(fields),
+        )
+        .await
+        .map_err(|_| anyhow::anyhow!("GitHub authorization is unavailable"))?;
         let status = response.status();
         if status.is_server_error()
             || status == reqwest::StatusCode::TOO_MANY_REQUESTS

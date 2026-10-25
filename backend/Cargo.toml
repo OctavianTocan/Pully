@@ -16,6 +16,7 @@ mermaid-rs-renderer = { version = "=0.3.1", default-features = false }
 anyhow = "1"
 axum = { version = "0.8", default-features = false, features = [
   "json",
+  "original-uri",
   "query"
 ] }
 base64 = "0.22"

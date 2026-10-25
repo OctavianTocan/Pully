@@ -2,11 +2,8 @@ use super::{ErrorCode, PublicError, Result};
 use futures_util::StreamExt;
 use serde::Serialize;
 use serde_json::Value;
-use std::{
-    collections::HashMap,
-    sync::Mutex,
-    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{collections::HashMap, sync::Mutex, time::Duration};
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 const PER_PAGE: u32 = 20;
 const LAST_PAGE: u32 = 10;
@@ -106,8 +103,7 @@ impl PublicGitHub {
     /// errors without upstream bodies, URLs or credentials. Source: Tavi, 21 Oct 2026,
     /// public browsing without GitHub login and isolation-before-public-exposure decision.
     pub(super) fn new() -> anyhow::Result<Self> {
-        let http = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
+        let http = crate::net::client()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(30))
             .user_agent("Pully/public-explore")
@@ -436,15 +432,15 @@ impl PublicGitHub {
             .map_err(|_| invalid())?
             .clear()
             .extend(path);
-        let response = self
-            .http
-            .get(url)
-            .query(query)
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .send()
-            .await
-            .map_err(|_| PublicError::new(ErrorCode::Unavailable))?;
+        let response = crate::net::send(
+            self.http
+                .get(url)
+                .query(query)
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28"),
+        )
+        .await
+        .map_err(|_| PublicError::new(ErrorCode::Unavailable))?;
         let status = response.status();
         if status == reqwest::StatusCode::TOO_MANY_REQUESTS
             || status == reqwest::StatusCode::FORBIDDEN

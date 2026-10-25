@@ -14,8 +14,9 @@ use serde_json::Value;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
-    time::{Duration, Instant},
+    time::Duration,
 };
+use web_time::Instant;
 
 const MAX_BODY: usize = 2 * 1024 * 1024;
 struct Budget {
@@ -150,7 +151,7 @@ impl PersonalGitHub {
             request = request.json(&body);
         }
         check_current()?;
-        let response = request.send().await;
+        let response = crate::net::send(request).await;
         check_current()?;
         let response = response.map_err(|_| ReadError::new(Code::Unavailable))?;
         let status = response.status().as_u16();

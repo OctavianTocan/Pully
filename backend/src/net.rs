@@ -73,6 +73,10 @@ mod wasm {
         pub fn no_proxy(self) -> Self {
             self
         }
+        /// Every request without its own User-Agent is sent as `pully` (see [`send`]).
+        pub fn user_agent(self, _: &str) -> Self {
+            self
+        }
         pub fn build(self) -> reqwest::Result<reqwest::Client> {
             reqwest::Client::builder().build()
         }
@@ -116,7 +120,9 @@ mod wasm {
                 return Ok(None);
             };
             let read = SendWrapper::new(wasm_bindgen_futures::JsFuture::from(reader.read()));
-            let result = read.await.map_err(|e| js_error("Reading the response failed", e))?;
+            let result = read
+                .await
+                .map_err(|e| js_error("Reading the response failed", e))?;
             let done = js_sys::Reflect::get(&result, &"done".into())
                 .ok()
                 .and_then(|v| v.as_bool())
@@ -132,21 +138,26 @@ mod wasm {
         pub fn bytes_stream(
             self,
         ) -> std::pin::Pin<Box<dyn Stream<Item = Result<Bytes, Error>> + Send>> {
-            Box::pin(futures_util::stream::unfold(Some(self), |state| async move {
-                let mut response = state?;
-                match response.chunk().await {
-                    Ok(Some(bytes)) => Some((Ok(bytes), Some(response))),
-                    Ok(None) => None,
-                    Err(error) => Some((Err(error), None)),
-                }
-            }))
+            Box::pin(futures_util::stream::unfold(
+                Some(self),
+                |state| async move {
+                    let mut response = state?;
+                    match response.chunk().await {
+                        Ok(Some(bytes)) => Some((Ok(bytes), Some(response))),
+                        Ok(None) => None,
+                        Err(error) => Some((Err(error), None)),
+                    }
+                },
+            ))
         }
     }
 
     /// Sends `request` through the runtime's `fetch` with `redirect: "manual"`, so a redirect
     /// comes back as its own 3xx response and is never followed. Gives up after the request's
     /// timeout, or one minute.
-    pub fn send(request: reqwest::RequestBuilder) -> impl Future<Output = Result<Response, Error>> + Send {
+    pub fn send(
+        request: reqwest::RequestBuilder,
+    ) -> impl Future<Output = Result<Response, Error>> + Send {
         SendWrapper::new(async move {
             let request = request
                 .build()
@@ -166,6 +177,12 @@ mod wasm {
                 .map_err(|_| Error(format!("Header {name} is not text")))?;
             headers
                 .append(name.as_str(), value)
+                .map_err(|e| js_error("Headers", e))?;
+        }
+        // GitHub refuses API requests without a User-Agent, and the Worker's fetch sends none.
+        if !request.headers().contains_key(reqwest::header::USER_AGENT) {
+            headers
+                .append("user-agent", "pully")
                 .map_err(|e| js_error("Headers", e))?;
         }
         let init = web_sys::RequestInit::new();

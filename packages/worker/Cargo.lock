@@ -1217,6 +1217,7 @@ dependencies = [
  "js-sys",
  "pulls-review-server",
  "send_wrapper",
+ "tokio",
  "tower-service",
  "wasm-bindgen",
  "wasm-bindgen-futures",

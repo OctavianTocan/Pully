@@ -5,8 +5,8 @@
     allow(dead_code, unused_imports, irrefutable_let_patterns, unreachable_code)
 )]
 pub mod account;
-pub mod agent_login;
 pub mod agent_api;
+pub mod agent_login;
 pub mod agent_process;
 pub mod agent_remote;
 #[cfg(not(target_arch = "wasm32"))]
@@ -23,20 +23,17 @@ pub mod jev;
 mod lz;
 mod merge_risk;
 pub mod net;
-#[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod personal_auth;
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) mod personal_provider;
 pub mod posted;
 pub mod presentation;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod public_api;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod public_server;
 pub mod review;
-pub mod rt;
 mod review_experiments;
 mod rpc_validation;
+pub mod rt;
 pub mod scheduler;
 pub mod source;
 pub mod store;
