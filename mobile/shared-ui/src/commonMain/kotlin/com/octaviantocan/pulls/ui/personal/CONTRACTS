@@ -10,7 +10,12 @@ confirmed and atomically promoted session MAY appear as connected. GitHub/provid
 tokens MUST NOT reach this UI. Errors MUST use fixed localized recovery, and an absent
 configured capability MUST remain unavailable without blocking anonymous browsing.
 Personal promotion/sign-out MUST revoke the prior public source and reset the same
-navigation stack to Explore, without adopting legacy private authority. Source: Tavi's
+navigation stack to Explore, without adopting legacy private authority. After fresh
+verification in the new admitted foreground source, a repository-authorized account
+MUST open Your repositories immediately; an older public-only account MUST be offered
+Finish connecting with Continue with GitHub. Neither transition may override an open
+deep link or repeat after the person returns to Explore. This landing replaces the
+public Explore destination by Tavi's 25 Oct 2026 one-login/private-repository instruction. Source: Tavi's
 21 Oct 2026 any-GitHub/public-browsing request, maximum-reuse iOS decision and accepted
 22 Oct native secure-stage/confirm/publish protocol and independent mounted-account
 ownership review.
@@ -18,7 +23,7 @@ ownership review.
 @cc [owner:OctavianTocan,label:security;product;architecture] personal-pages-keep-their-verified-account-and-selection
 Your pull requests and repositories MUST consume only the runtime's verified personal
 read capabilities on the host's existing navigation stack. PublicRead MUST remain
-public-only; private lists MUST use the separately confirmed repository-consent
+public-only; private lists MUST use the confirmed repository-consent
 capability and show each repository's visibility. A route or equal-looking copied
 row MUST NOT mint a capability or replace a selected immutable repository ID/visibility.
 The session MUST admit only its own route instances and current loaded selections.
@@ -45,9 +50,12 @@ independently confirmed 22 Oct 2026 personal-read Compound findings, Tavi's acce
 source-ownership plan and DESIGN.md's single shared navigation/accessibility rules.
 
 @cc [owner:OctavianTocan,label:security;product] personal-private-consent-remains-a-separate-action
-Private repository consent MUST remain an explicit action for the verified account,
+Normal Connect GitHub MUST include explicit GitHub repository consent in one login,
 using the shared system-browser flow and secure pending-save/confirmation protocol.
-It MUST NOT silently replace public sign-in or infer permission from inherited scopes.
+It MUST NOT report success without the repository grant or infer it from an older
+public session. Existing public connections MUST upgrade as their captured verified
+account. This intentionally replaces the separate login/consent actions by Tavi's
+25 Oct 2026 instruction to include private repositories in normal login.
 The UI MUST explain GitHub's broader repository grant and Pully's current read-only
 use, preserve the connected public account on denied/failed consent, and show no
 private-access success before server confirmation. Source: Tavi's explicit 22 Oct
@@ -57,7 +65,9 @@ private repository request and the reviewed separate repository-consent protocol
 Both ordinary app roots MUST mount personal pages through the existing Guest AppPages
 stack and the same source-owned account/read presentation owner. Anonymous startup
 MUST NOT create a verified reader or fetch personal pages; a verified profile alone
-MUST NOT dispatch list work before its account or personal page is opened. Actual
+MUST NOT dispatch list work before its account or personal page is opened. The confirmed
+repository-authorized landing MUST open that personal page through this same owner
+(Tavi, 25 Oct 2026). Actual
 native foreground events MUST synchronously gate both sign-in and page dispatch;
 an unavailable secure-store probe MUST keep new personal actions unavailable.
 Account-wide rejection MUST clear every reader and route before opening a normal
@@ -86,7 +96,8 @@ configuration in the shared account presentation and allow public browsing, neve
 fabricate connection success or start account work. A failed secure-store probe MUST
 instead explain device unavailability without admitting browser, claim or reader
 work. Configured, admitted entry MUST open the existing normal account sheet/runtime,
-never private consent automatically. An explicit Settings action MAY first select
+with repository consent included in the normal explicit login; an older public
+connection requires its explicit Continue with GitHub action (Tavi, 25 Oct 2026). An explicit Settings action MAY first select
 the public workspace, but MUST synchronously retire the old private source before
 carrying only a fixed normal-account intent to the new public generation. Retained,
 inactive or retired-source callbacks MUST NOT open or replay that intent. The same

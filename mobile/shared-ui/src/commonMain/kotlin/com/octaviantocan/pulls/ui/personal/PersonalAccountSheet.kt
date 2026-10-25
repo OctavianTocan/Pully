@@ -44,7 +44,7 @@ fun PersonalAccountSheet(
     val copy = rememberTextCopy()
     val owner = remember(account, repositoryConsent) {
         PersonalAccountSheetOwner(if (repositoryConsent) account.openRepositoryConsent(scope, onOpenBrowser)
-            else account.openSignIn(scope, onOpenBrowser), onClose)
+            else account.openConnect(scope, onOpenBrowser), onClose)
     }
     val signIn = owner.signIn
     DisposableEffect(owner) { onDispose { owner.close() } }
@@ -57,15 +57,16 @@ fun PersonalAccountSheet(
         Column(verticalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
             when {
                 view.account != null && !showFlow -> {
-                    Text(t("personal.signedIn", "login" to view.account!!.login), style = PullsType.xl, color = colors.text)
-                    Text(t(if (view.account!!.authority == PersonalAuthority.PrivateRepositories) "personalBrowse.accountScope" else "personal.publicAccount"), style = PullsType.read, color = colors.muted)
+                    val connected = view.account!!.authority == PersonalAuthority.PrivateRepositories
+                    Text(t(if (connected) "personal.signedIn" else "personal.finishConnecting", "login" to view.account!!.login), style = PullsType.xl, color = colors.text)
+                    Text(t(if (connected) "personalBrowse.accountScope" else "personalBrowse.consentBody"), style = PullsType.read, color = colors.muted)
                     view.problem?.let { Problem(it) }
-                    onYourPulls?.let { SheetRow(t("personalBrowse.pulls"), { owner.dismissThen(it) }, first = true, iconless = true) }
-                    onRepositories?.let { SheetRow(t("personalBrowse.repositories"), { owner.dismissThen(it) }, first = onYourPulls == null, iconless = true) }
-                    if (view.account!!.authority == PersonalAuthority.PublicRead && repositoryCapabilities?.consentAvailable == true) {
-                        Text(t("personalBrowse.consentBody"), style = PullsType.read, color = colors.muted)
-                        CtaButton(t("personalBrowse.enablePrivate"), {
-                            owner.replaceSignIn { account.openRepositoryConsent(scope, onOpenBrowser) }?.controller?.start()
+                    if (connected) {
+                        onYourPulls?.let { SheetRow(t("personalBrowse.pulls"), { owner.dismissThen(it) }, first = true, iconless = true) }
+                        onRepositories?.let { SheetRow(t("personalBrowse.repositories"), { owner.dismissThen(it) }, first = onYourPulls == null, iconless = true) }
+                    } else if (repositoryCapabilities?.consentAvailable == true) {
+                        CtaButton(t("personal.continueGitHub"), {
+                            owner.replaceSignIn { account.openConnect(scope, onOpenBrowser) }?.controller?.start()
                         }, Modifier.fillMaxWidth())
                     }
                     CtaButton(t("personal.signOut"), account::signOut, Modifier.fillMaxWidth())
@@ -101,7 +102,10 @@ fun PersonalAccountSheet(
                 else -> {
                     val problem = (flow as? PersonalSignInState.Failed)?.problem ?: view.problem
                     if (problem != null) Problem(problem)
-                    else Text(t(if (signIn?.repositoryConsent == true) "personalBrowse.consentBody" else "personal.intro"), style = PullsType.read, color = colors.muted)
+                    else {
+                        Text(t("personal.intro"), style = PullsType.read, color = colors.muted)
+                        Text(t("personalBrowse.consentBody"), style = PullsType.read, color = colors.muted)
+                    }
                     CtaButton(t("personal.continueGitHub"), {
                         if (!account.view.value.checking && (signIn?.repositoryConsent == true || !account.view.value.saved)) signIn?.controller?.start()
                     }, Modifier.fillMaxWidth(), enabled = signIn != null)

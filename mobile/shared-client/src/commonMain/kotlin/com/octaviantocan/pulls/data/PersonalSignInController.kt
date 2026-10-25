@@ -24,6 +24,7 @@ sealed interface PersonalSignInState {
 /** Repository consent is minted by the verified runtime, never from route or form input. */
 sealed class PersonalSignInPurpose {
     data object Public : PersonalSignInPurpose()
+    data object Connect : PersonalSignInPurpose()
     internal class Repositories(val session: StoredPersonalSession) : PersonalSignInPurpose()
 }
 
@@ -61,7 +62,7 @@ class PersonalSignInController(
 
     fun start(): Boolean {
         if (!current() || pending != null || provisional != null || startJob?.isActive == true) return false
-        if (purpose is PersonalSignInPurpose.Repositories && !inForeground) return false
+        if (purpose != PersonalSignInPurpose.Public && !inForeground) return false
         val revision = ++operation
         mutableState.value = PersonalSignInState.Starting
         startJob = scope.launch {
@@ -71,6 +72,7 @@ class PersonalSignInController(
                 val proof = PersonalAuthProof.create()
                 val attempt = when (val action = purpose) {
                     PersonalSignInPurpose.Public -> client.start(proof, source)
+                    PersonalSignInPurpose.Connect -> client.connect(proof, source)
                     is PersonalSignInPurpose.Repositories -> client.startRepositoryConsent(proof, action.session, source)
                 }
                 requireCurrent(revision)

@@ -475,7 +475,7 @@ class PersonalBrowseSessionTest {
                     "/v1/github/" in request.url && !request.url.endsWith("/disconnect") -> onRead?.invoke(request) ?: defaultRead(request)
                     request.url.endsWith("/capabilities") -> json("""{"github":{"enabled":true}}""")
                     request.url.endsWith("/start") -> {
-                        upgrade = request.url.endsWith("/repositories/start")
+                        upgrade = request.url.endsWith("/repositories/start") || request.url.endsWith("/connect/start")
                         val authorize = "https://github.com/login/oauth/authorize?client_id=pully-test&redirect_uri=https%3A%2F%2Faccounts.example%2Fapi%2Fpersonal%2Fv1%2Fauth%2Fgithub%2Fcallback&response_type=code&state=$id&code_challenge=$id&code_challenge_method=S256&scope=${if (upgrade) "repo+offline_access" else "offline_access"}&prompt=select_account"
                         val response = json("""{"attemptId":"$id","authorizeUrl":"$authorize","expiresAt":1800,"pollAfterMs":2000}""")
                         onStart?.invoke(response) ?: response

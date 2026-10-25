@@ -29,6 +29,7 @@ pub(crate) fn configured_router(service: PersonalAuth) -> Router {
     Router::new()
         .route(wire::CAPABILITIES_PATH, get(capabilities))
         .route(wire::START_PATH, post(start))
+        .route(wire::CONNECT_PATH, post(connect))
         .route(wire::REPOSITORY_CONSENT_PATH, post(repository_consent))
         .route(wire::STATUS_PATH, post(status))
         .route(wire::CLAIM_PATH, post(claim))
@@ -146,6 +147,13 @@ async fn repository_consent(
         .start_repository_consent(bearer(&headers)?, parse(&headers, body)?)
         .await
         .map(Json)
+}
+async fn connect(
+    State(service): State<PersonalAuth>,
+    headers: HeaderMap,
+    body: std::result::Result<Bytes, BytesRejection>,
+) -> Result<Json<wire::StartReply>, AuthError> {
+    service.connect(parse(&headers, body)?).await.map(Json)
 }
 async fn status(
     State(service): State<PersonalAuth>,

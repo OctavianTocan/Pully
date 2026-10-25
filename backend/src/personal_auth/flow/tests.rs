@@ -105,11 +105,15 @@ impl GitHubProvider for Provider {
                 "flaky" => anyhow::bail!("fixture-secret-network"),
                 "denied" => Err(DeviceDenied.into()),
                 "expired" => Err(ReconnectRequired.into()),
-                _ => Ok(DevicePoll::Tokens(GitHubTokens {
+                approved => Ok(DevicePoll::Tokens(GitHubTokens {
                     access_token: "fixture-gh-cli".into(),
                     expires_at: None,
                     refresh: None,
-                    scopes: std::collections::BTreeSet::from(["repo".into(), "read:org".into()]),
+                    scopes: if approved == "public" {
+                        Default::default()
+                    } else {
+                        std::collections::BTreeSet::from(["repo".into(), "read:org".into()])
+                    },
                 })),
             }
         })
@@ -762,6 +766,47 @@ async fn legacy_link_owner_retired_during_browser_handoff_cannot_install_a_perso
 
 fn steps(h: &Harness, steps: &[&'static str]) {
     h.provider.device_steps.lock().unwrap().extend(steps);
+}
+
+#[tokio::test(start_paused = true)]
+async fn connect_device_login_requests_private_access_once_and_refuses_a_missing_repository_grant()
+{
+    for approval in ["approve", "public", "denied"] {
+        let h = Harness::device();
+        let proof = random_secret().unwrap();
+        let start = h
+            .service
+            .connect(StartRequest {
+                native_challenge: wire::native_challenge(&proof).unwrap(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            h.provider.device_authorities.lock().unwrap().as_slice(),
+            [GitHubAuthority::PrivateRepositories]
+        );
+        steps(&h, &[approval]);
+        if approval == "approve" {
+            assert_eq!(settle(&h, &start.attempt_id).await, "ready");
+            let issued = h.service.claim(request(&start, &proof)).await.unwrap();
+            assert_eq!(
+                issued.status.authority,
+                GitHubAuthority::PrivateRepositories
+            );
+            let confirmed = h.service.session_status(&issued.session).await.unwrap();
+            assert_eq!(confirmed.authority, GitHubAuthority::PrivateRepositories);
+            assert_eq!(confirmed.github_id, 42);
+            assert!(h.service.claim(request(&start, &proof)).await.is_err());
+        } else {
+            assert_eq!(settle(&h, &start.attempt_id).await, "failed");
+            assert!(matches!(
+                h.service.status(request(&start, &proof)).unwrap().failure,
+                Some(FailureKind::Denied)
+            ));
+            assert!(h.service.claim(request(&start, &proof)).await.is_err());
+            assert!(h.store.get("personal-auth-v1:state").unwrap().is_none());
+        }
+    }
 }
 
 /// Device attempts finish on the server's own timer; paused test time lets it run instantly.
