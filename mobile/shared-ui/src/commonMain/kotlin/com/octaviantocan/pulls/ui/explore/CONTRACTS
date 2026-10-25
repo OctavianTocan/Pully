@@ -14,7 +14,12 @@ GitHub request, approved direct-native guest slice and public-boundary review.
 A fresh/reinstalled native app without matching verified existing-connection evidence
 MUST open Explore, even if a restored preference selected the existing-server entry.
 A legitimate returning connection MUST retain its existing workspace unless the user
-chose public browsing. That choice MUST preserve the saved private account. Selecting
+chose public browsing or Android's built-in staging GitHub entry applies. That choice
+MUST preserve the saved private account. The built-in staging app MUST select GitHub's
+public entry before confirmation instead of restoring the legacy email gate, and MUST
+show its GitHub introduction once on migration; explicit custom-server connections
+retain their compatibility entry. Source for this exception: Tavi's 25 Oct 2026 build397
+email-sign-in screenshot and sole GitHub-login request. Selecting
 another entry MUST revoke retained callbacks and pending results before mounting its
 pages; returning to Explore MUST NOT revive a previous guest source. Public startup
 MUST NOT instantiate private Home, account discovery, AI or Stats observers. Source:
