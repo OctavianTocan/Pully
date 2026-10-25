@@ -81,6 +81,10 @@ fun GuestPages(
                         onBack = navigation.nav.back,
                         onOpenGitHub = onOpenGitHub,
                         onPrivateConsent = { personal.openRepositoryConsent(browse) },
+                        onAccount = { personal.openAccount() },
+                        onRepositories = { personal.openRepositories(browse) },
+                        onWorkspace = { browse.runFrom(screen, onExistingAccount) },
+                        onCommands = { browse.runFrom(screen, onCommands) },
                     ) else Column(
                         Modifier.fillMaxSize().padding(top = headerTopPadding()).padding(horizontal = PullsSpace.x4),
                         verticalArrangement = Arrangement.spacedBy(PullsSpace.x3),

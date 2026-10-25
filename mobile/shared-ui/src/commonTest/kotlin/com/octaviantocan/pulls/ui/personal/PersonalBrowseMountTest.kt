@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PersonalBrowseMountTest {
     @Test
-    fun combinedSignInOpensTheConfirmedAccountsRepositoriesImmediatelyAndOnlyOnce() = runTest {
+    fun combinedSignInOpensTheConfirmedAccountsHomeWithRepositoryNavigation() = runTest {
         val h = PersonalBrowseSessionTest.Harness(this)
         val held = CompletableDeferred<Unit>()
         h.onClaim = { response -> held.await(); response }
@@ -29,17 +29,24 @@ class PersonalBrowseMountTest {
             assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
             assertNull(mount.session)
             held.complete(Unit); runCurrent()
-            val route = h.navigation.stack.last() as Screen.PersonalRepositories
+            val route = h.navigation.stack.last() as Screen.PersonalPulls
+            assertTrue(route.home)
+            assertSame(route, h.navigation.stack.single())
             val browse = assertNotNull(mount.session)
             assertTrue(browse.privateEnabled)
             assertNull(mount.presentation)
-            browse.repositories(route).start(); runCurrent()
-            assertTrue(browse.repositories(route).rows.single().private)
+            browse.pulls(route).start(); runCurrent()
+            assertTrue(browse.pulls(route).rows.single().repository.private)
+            mount.openRepositories(browse)
+            val repositories = h.navigation.stack.last() as Screen.PersonalRepositories
+            browse.repositories(repositories).start(); runCurrent()
+            assertTrue(browse.repositories(repositories).rows.single().private)
             assertTrue(h.reads().filterNot { it.url.endsWith("/capabilities") }.all { "/github/account/" in it.url })
             assertEquals(1, h.requests.count { it.url.endsWith("/start") })
             h.navigation.nav.back(); mount.keepRoutes()
             mount.foreground(false); mount.foreground(true); runCurrent()
-            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList(), "Back to Explore must remain usable")
+            assertSame(route, h.navigation.stack.single(), "Repositories return to the same Home")
+            assertEquals(1, h.requests.count { it.url.endsWith("/start") })
         } finally { mount.close(); h.runtime.close() }
     }
 
@@ -56,7 +63,7 @@ class PersonalBrowseMountTest {
                 assertEquals(before, h.navigation.stack.toList())
                 mount.availability(true); runCurrent()
                 if (deepLink) assertEquals(before, h.navigation.stack.toList())
-                else assertTrue(h.navigation.stack.last() is Screen.PersonalRepositories)
+                else assertTrue((h.navigation.stack.last() as Screen.PersonalPulls).home)
             } finally { mount.close(); h.runtime.close() }
         }
     }
@@ -234,7 +241,7 @@ class PersonalBrowseMountTest {
             assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
             mount.availability(true)
             assertNull(mount.presentation)
-            assertTrue(h.navigation.stack.last() is Screen.PersonalRepositories)
+            assertTrue((h.navigation.stack.last() as Screen.PersonalPulls).home)
         } finally { mount.close(); h.runtime.close() }
     }
 

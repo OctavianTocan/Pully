@@ -1119,6 +1119,12 @@
       "Unreachable": "Pully could not reach sign-in. Check your connection and try again."
     }
   },
+  "personalHome": {
+    "home": "Home",
+    "search": "Search pull requests",
+    "workspaceTours": "Your saved tours and AI are in your Pully workspace.",
+    "openWorkspace": "Open Pully workspace"
+  },
   "personalBrowse": {
     "pulls": "Your pull requests",
     "repositories": "Your repositories",

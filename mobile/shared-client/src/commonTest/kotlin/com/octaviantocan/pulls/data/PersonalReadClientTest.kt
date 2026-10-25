@@ -34,6 +34,15 @@ class PersonalReadClientTest {
     }
 
     @Test
+    fun aPersonalPrNumberCannotWrapTheNativeInboxTarget() = runTest {
+        val h = Harness(this)
+        val reader = h.verify()
+        h.respond = { json(h.inbox.replace("\"number\":7", "\"number\":2147483648").replace("/pull/7", "/pull/2147483648")) }
+        assertEquals(PersonalReadProblem.InvalidResponse, assertFailsWith<PersonalReadError> { reader.pulls() }.problem)
+        h.runtime.close()
+    }
+
+    @Test
     fun verifiedReadsUseTheFixedPersonalRoutesAndNeverThePublicGithubTransport() = runTest {
         val h = Harness(this)
         val reader = h.verify()

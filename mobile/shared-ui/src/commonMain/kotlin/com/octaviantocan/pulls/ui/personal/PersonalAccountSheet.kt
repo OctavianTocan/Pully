@@ -38,6 +38,8 @@ fun PersonalAccountSheet(
     onRepositories: (() -> Unit)? = null,
     repositoryCapabilities: PersonalRepositoryCapabilities? = null,
     repositoryConsent: Boolean = false,
+    pullsLabel: String = "personalBrowse.pulls",
+    onBrowsePublic: (() -> Unit)? = null,
 ) {
     val colors = LocalPullsColors.current
     val scope = rememberCoroutineScope()
@@ -62,7 +64,7 @@ fun PersonalAccountSheet(
                     Text(t(if (connected) "personalBrowse.accountScope" else "personalBrowse.consentBody"), style = PullsType.read, color = colors.muted)
                     view.problem?.let { Problem(it) }
                     if (connected) {
-                        onYourPulls?.let { SheetRow(t("personalBrowse.pulls"), { owner.dismissThen(it) }, first = true, iconless = true) }
+                        onYourPulls?.let { SheetRow(t(pullsLabel), { owner.dismissThen(it) }, first = true, iconless = true) }
                         onRepositories?.let { SheetRow(t("personalBrowse.repositories"), { owner.dismissThen(it) }, first = onYourPulls == null, iconless = true) }
                     } else if (repositoryCapabilities?.consentAvailable == true) {
                         CtaButton(t("personal.continueGitHub"), {
@@ -111,7 +113,7 @@ fun PersonalAccountSheet(
                     }, Modifier.fillMaxWidth(), enabled = signIn != null)
                 }
             }
-            PillButton(t("explore.browse"), owner::dismiss)
+            PillButton(t("explore.browse"), { if (onBrowsePublic == null) owner.dismiss() else owner.dismissThen(onBrowsePublic) })
         }
     }
 }

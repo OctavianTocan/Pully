@@ -33,7 +33,7 @@ class PersonalBrowseMount(
     private var pendingRecovery: PersonalAuthProblem? = null
     private var reading: PersonalBrowseSession? = null
     private var readsActive = false
-    private var enteredRepositories = false
+    private var enteredHome = false
     private var offeredCompletion = false
     private var stopSource: (() -> Unit)? = null
     var session by mutableStateOf<PersonalBrowseSession?>(null)
@@ -88,10 +88,10 @@ class PersonalBrowseMount(
     private fun finishConnectionEntry() {
         val opening = session ?: return
         if (!canPresent() || !opening.current || navigation.stack.lastOrNull() !== Screen.Explore) return
-        if (opening.privateEnabled && !enteredRepositories) {
-            enteredRepositories = true
+        if (opening.privateEnabled && !enteredHome) {
+            enteredHome = true
             presentation = null
-            openRepositories(opening)
+            openHome(opening)
         } else if (!opening.privateEnabled && !offeredCompletion && presentation == null) {
             offeredCompletion = true
             presentation = Presentation(false)
@@ -110,6 +110,18 @@ class PersonalBrowseMount(
     fun dismiss(opening: Presentation) {
         if (!current || presentation !== opening) return
         presentation = null
+        updateReads()
+    }
+
+    fun openHome(opening: PersonalBrowseSession) {
+        if (!owns(opening)) return
+        activate(opening)
+        opening.openHome()
+    }
+
+    fun openExplore(opening: PersonalBrowseSession) {
+        if (!owns(opening)) return
+        opening.openExplore()
         updateReads()
     }
 
