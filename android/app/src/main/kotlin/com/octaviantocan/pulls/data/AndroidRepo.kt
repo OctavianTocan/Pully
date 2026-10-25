@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /** Android's existing Repo(Context) entry; the repository and request builders now live in shared-client. */
 fun Repo(context: Context): Repo {
+    NativeWorkspaceBinding.active?.let { return it.repo }
     val app = context.applicationContext
     return Repo(
         configuration = {

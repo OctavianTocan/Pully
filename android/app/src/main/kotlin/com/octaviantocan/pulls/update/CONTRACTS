@@ -6,13 +6,36 @@ installed. Installation goes through Android's own installer and its approval.
 @cc [owner:OctavianTocan,label:security;architecture] updater-asks-only-its-server
 Updates come only from the configured server's `/download/latest.json` (Pully Staging:
 `/download/staging/latest.json`, android `android-staging-channel`) and the APK it names,
-with the same Access headers as every other request. No third-party update
+with saved compatibility Access headers, or path-confined baked staging Access
+headers in the GitHub workspace (Tavi25Oct2026). No third-party update
 service or library is in the path.
 The manifest MUST name a binary APK URL rather than the `/download` HTML page.
 Source: Tavi's 22 Oct 2026 download-page and removed direct-APK decision.
 Anonymous Explore MUST NOT start configured private-server update checks, downloads or
-installation from an old notification. A late check MUST NOT change the guest's state.
+installation from an old notification. The independently scoped built-in staging
+channel MAY update without private-server authority (Tavi25Oct2026). A late check for
+a replaced configured source MUST NOT change its replacement's state.
 Source: Tavi's 21 Oct 2026 signed-out public browsing and separate entry-authority plan.
+
+@cc [owner:OctavianTocan,label:security] updater-baked-access-is-checked-per-hop
+Baked Access headers MUST be recomputed for every manifest, history and APK redirect.
+Only the exact built-in HTTPS staging origin and /download/staging/* paths MAY receive
+them; forbidden same-origin paths, including /api/personal/*, /api/rpc and /workspace/*,
+MUST receive none of that baked credential. Saved ExistingServer credentials retain
+their same-origin compatibility behavior. Source: Tavi's 25 Oct 2026 staging-only
+credential decision and confirmed review finding 6.
+
+@cc [owner:OctavianTocan,label:product;security] updater-source-is-independent-of-workspace-mount
+Application startup, background checks, foreground checks, notification downloads and
+history requests MUST share one effective update configuration. Explore and GitHub
+MUST select built-in staging when its scoped download credential is available, even
+with no mounted workspace and a saved custom server; they MUST NOT read or overwrite
+that saved compatibility configuration or require a personal bearer. Explicit
+ExistingServer MUST select the saved server and saved Access credentials independently
+of any binding. Other anonymous configurations MUST remain unavailable. Saved server
+or Access-token changes MUST resync periodic work; ownership mount/retirement and
+notification preference changes MUST also resync it. Source: Tavi's 25 Oct 2026
+one-login updater decision and confirmed review finding 7.
 
 @cc [owner:OctavianTocan,label:product] updater-remembers-the-offer
 The phone remembers the last offer, so the update screen is there before the server
@@ -34,7 +57,8 @@ or expired installs MUST offer retry, and only the installed package version MAY
 success. Source: Tavi, 21 Oct 2026, updates stuck at installing or downloading; rule 63.
 
 @cc [owner:OctavianTocan,label:security] past-versions-install-beside
-A past version installs only from the configured server's `/download/past/`, only when
+A past version installs only from the configured server's channel-specific history
+(`/download/past/` for stable, `/download/staging/past/` for staging), only when
 its SHA-256 matches `index.json`, and only as its own `com.octaviantocan.pulls.v*`
 package: the installer is told the package name, so a past build can never replace
 this app. Its versionCode is offset so no update is ever offered to it.
@@ -46,3 +70,19 @@ A past version gets the server address and Access token only in the explicit int
 that opens it, and only when its package is signed with this app's key; nothing else
 exposes them to other apps. Its activity is behind a signature permission, so no other
 app can open it and point it at another server.
+
+@cc [owner:OctavianTocan,label:product;security] github-workspace-retains-staging-updates
+The GitHub workspace MUST run the existing foreground/resume check, update gate,
+verified APK download and installer flow without a legacy server login. Staging
+manifest/APK requests MUST use /download/staging/* and only that built-in origin's
+baked Access credential. Background update readiness MUST not depend on ExistingServer
+when that scoped staging configuration is available. Personal login/read transport
+MUST remain separate and receive no Access headers. Source: Tavi25Oct2026, production
+update behavior under one GitHub login and the approved staging-only APK token.
+
+@cc [owner:OctavianTocan,label:product;security] staging-history-does-not-adopt-stable-builds
+Past versions MUST use the installed app's UPDATE_CHANNEL for its index, APK paths and
+local index cache. Staging MUST NOT display or install stable history as staging; an
+empty published staging index MUST show the existing truthful empty state. Historical
+backfill is outside this delivery. Source: Tavi25Oct2026, full Settings/update flow and
+the confirmed staging publisher with no historical APKs.

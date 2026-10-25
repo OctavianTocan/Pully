@@ -821,14 +821,23 @@ pub(super) async fn mcp_for_run(
         return mcp(Some(state), ctx, request).await;
     }
     let id = request["id"].clone();
-    let result = call_for_run(
+    let result = async {
+        state.identity.ensure_current()?;
+        crate::source::workspace_repositories(state, ctx).await?;
+        crate::source::workspace_repositories(state, &request["params"]["arguments"]).await?;
+        let result = call_for_run(
         state,
         run,
         ctx,
         text(&request["params"], "name"),
         &request["params"]["arguments"],
     )
-    .await;
+        .await?;
+        crate::source::workspace_repositories(state, ctx).await?;
+        crate::source::workspace_repositories(state, &request["params"]["arguments"]).await?;
+        state.identity.ensure_current()?;
+        Ok(result)
+    }.await;
     json!({"jsonrpc":"2.0","id":id,"result":tool_result(result)})
 }
 fn tool_result(result: Result<String>) -> Value {

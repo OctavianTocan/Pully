@@ -86,6 +86,7 @@ object Updates {
     private val scope = MainScope()
 
     private var checkedAt = 0L
+    private var checkedConfig: com.octaviantocan.pulls.data.ServerConfig? = null
 
     /** The shortest time between two checks while the app is open. */
     private const val CHECK_GAP_MS = 5 * 60_000L
@@ -111,15 +112,18 @@ object Updates {
      * as often, so a check within a few minutes of the last is [UpdateCheck.Skipped], unless [force]d.
      */
     suspend fun check(context: Context, force: Boolean = false): UpdateCheck {
+        val config = ServerStore.updateConfig(context) ?: return UpdateCheck.Skipped
+        val opening = com.octaviantocan.pulls.data.RepoIdentity.generation
         val now = System.currentTimeMillis()
-        if (!force && now - checkedAt < CHECK_GAP_MS) return UpdateCheck.Skipped
+        if (!force && checkedConfig == config && now - checkedAt < CHECK_GAP_MS) return UpdateCheck.Skipped
+        checkedConfig = config
         checkedAt = now
         val answer = withContext(Dispatchers.IO) {
             runCatching {
-                val config = ServerStore.load(context)
                 AppUpdater(context).check(config.url, config.headers(), AppVersion.code(context))
             }.onFailure { Log.w("pulls", "update check failed", it) }
         }
+        if (config != ServerStore.updateConfig(context) || opening != com.octaviantocan.pulls.data.RepoIdentity.generation) return UpdateCheck.Skipped
         // A check that failed keeps the offer; a server with nothing newer takes it away, as after switching servers.
         val manifest = answer.getOrElse { return UpdateCheck.Failed } ?: return UpdateCheck.UpToDate.also { withdraw(context) }
         if (available?.versionCode != manifest.versionCode) Analytics.track("update.event", "step" to "offered", "version" to manifest.versionName)
@@ -148,8 +152,11 @@ object Updates {
      */
     fun start(context: Context) {
         if (busy) return
-        if (confirmation != null) return openConfirmation(context)
         val app = context.applicationContext
+        val config = ServerStore.updateConfig(app) ?: return
+        val opening = com.octaviantocan.pulls.data.RepoIdentity.generation
+        fun sourceCurrent() = config == ServerStore.updateConfig(app) && opening == com.octaviantocan.pulls.data.RepoIdentity.generation
+        if (confirmation != null) return openConfirmation(context)
         val attemptOperation = ++operation
         UpdatePrefs.install(app)?.let {
             if (AppVersion.code(app) >= it.versionCode) return completeInstall(app)
@@ -172,13 +179,14 @@ object Updates {
             var handingToInstaller = false
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val config = ServerStore.load(app)
                     val updater = AppUpdater(app)
                     val manifest = updater.check(config.url, config.headers(), AppVersion.code(app)) ?: return@runCatching null
+                    check(sourceCurrent()) { "Update source changed." }
                     withContext(Dispatchers.Main) { if (operation == attemptOperation) available = manifest }
                     UpdatePrefs.saveOffer(app, manifest)
                     var shown = -1
                     val apk = updater.download(config.url, manifest, config.headers()) { read, total ->
+                        check(sourceCurrent()) { "Update source changed." }
                         // The ring moves in whole percents, so the main thread is not asked to redraw for every buffer.
                         val percent = if (total > 0) (read * 100 / total).toInt() else -1
                         if (percent != shown) {
@@ -189,12 +197,14 @@ object Updates {
                     Analytics.track("update.event", "step" to "downloaded", "version" to manifest.versionName)
                     handingToInstaller = true
                     withContext(Dispatchers.Main) {
+                        check(sourceCurrent()) { "Update source changed." }
                         check(operation == attemptOperation) { "Update attempt was replaced." }
                         status = UpdateStatus.Installing
                     }
                     updater.install(apk, expectedVersionCode = manifest.versionCode) { sessionId ->
                         // Persist before commit: Android can answer immediately or restart the process for the update.
                         check(operation == attemptOperation) { "Update attempt was replaced." }
+                        check(sourceCurrent()) { "Update source changed." }
                         processSession = sessionId
                         UpdatePrefs.saveInstall(app, UpdateInstall(sessionId, manifest.versionCode, System.currentTimeMillis()))
                         scope.launch { monitorInstall(app) }

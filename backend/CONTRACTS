@@ -441,3 +441,38 @@ this code running in a Worker (`packages/worker`). Code outside the native-only 
 `store::Records` for storage, never tokio's runtime, `std::env` or reqwest's `send` directly. In
 the Worker, files and programs MUST fail closed and outbound HTTP MUST NOT follow redirects (Tavi,
 24 Oct 2026, "Rewrite it as a Worker"; plan 12, Update 24 Oct).
+
+@cc [owner:OctavianTocan,label:product;security;architecture] personal-workspace-is-the-full-native-service-for-its-own-account
+The fixed POST /workspace/api/rpc route MUST require a previously confirmed canonical
+personal-vault session with the explicit privateRepositories grant. It MUST reuse the
+native phone allowlist and services for the full Home, Tours, Profile, Settings and
+private review experience, with account identity and CLI login derived only from the
+vault's immutable account. It MUST NOT mint a legacy session or label that identity
+LegacyPrivate. Access credentials authorize transport only. Account status and display
+MAY use the GitHub login as email for existing clients; email, login and client account
+fields MUST NOT select authority. Source: Tavi25Oct2026, one GitHub login and the full
+production workspace, replacing the limited GitHub Home and second app login.
+
+@cc [owner:OctavianTocan,label:security] personal-workspace-never-spends-operator-ai
+Only an explicitly admitted personal workspace MAY use the native Claude Code and Codex
+services with its own canonical Account login volume. A guest or typed-read context MUST
+remain unable to use those services. Personal work, model lists and follow-ups MUST NOT
+use Pi, TypeSafe, server login homes or operator/default paid credentials. Binding
+revocation MUST retire captured work and prevent further saved-state access. Provider
+subscription login remains separate provider setup, never another app login. Source:
+Tavi25Oct2026 single GitHub app login and own Claude/Codex subscriptions.
+
+@cc [owner:OctavianTocan,label:architecture;security] workspace-durable-mutations-share-account-serialization
+All live workspace bindings of the same stable account store MUST serialize complete
+persistent reads, transformations and writes, including multi-key compare/exchange.
+The record adapter MUST NOT recursively acquire that transaction lock. Binding revocation
+checks and transient cache isolation MUST remain effective, and diff metadata MUST observe
+durable mutations from every binding. Source: Tavi25Oct2026 review-fix batch, finding 9;
+server-settings-newer-wins and rust-store-atomic-mutations.
+
+@cc [owner:OctavianTocan,label:architecture] workspace-stats-reads-only-matching-records
+Workspace Stats MUST use literal encoded-prefix record lookups without enumerating unrelated
+saved records for each UTC day, and MUST tally event lines without buffering a whole day's
+lines. The existing Stats response, event sanitization, opt-out and 365-day retention MUST
+remain unchanged. Native and Worker storage MUST honor the same lookup and legacy key-alias
+semantics. Source: Tavi25Oct2026 review-fix batch, finding 8.

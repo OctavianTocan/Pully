@@ -61,12 +61,12 @@ private-access success before server confirmation. Source: Tavi's explicit 22 Oc
 private repository request and the reviewed separate repository-consent protocol.
 
 @cc [owner:OctavianTocan,label:product;security;architecture] personal-native-mount-owns-readers-and-account-recovery
-Both ordinary app roots MUST mount personal pages through the existing Guest AppPages
+The compatible typed personal-page flow MUST mount through the existing Guest AppPages
 stack and the same source-owned account/read presentation owner. Anonymous startup
 MUST NOT create a verified reader or fetch personal pages; a verified profile alone
-MUST NOT dispatch list work before its account or personal page is opened. The confirmed
-repository-authorized landing MUST open that personal page through this same owner
-(Tavi, 25 Oct 2026). Actual
+MUST NOT dispatch list work before its account or personal page is opened. The iOS compatible typed landing retains that owner. Android MUST instead directly
+mount the full production graph for the captured verified workspace, by Tavi25Oct2026
+(one GitHub login and full Home/Profile/Settings), with no legacy credential adoption. Actual
 native foreground events MUST synchronously gate both sign-in and page dispatch;
 an unavailable secure-store probe MUST keep new personal actions unavailable.
 Account-wide rejection MUST clear every reader and route before opening a normal
@@ -104,14 +104,12 @@ navigation stack and saved legitimate account MUST be preserved. Source: Tavi's
 22 Oct 2026 installed-app missing-login report and accepted visible GitHub entry plan.
 
 @cc [owner:OctavianTocan,label:product;security;architecture] personal-home-reuses-inbox-with-its-own-authority
-A confirmed repository-authorized GitHub login MUST land on the shared Inbox/Tours
-presentation with a visible repositories action and the account's own typed PR reads.
-Repositories MUST return to that same Home and its filters, tab, search and folds.
-The Home renderer MUST reuse the existing Inbox header, list, row actions and side-page
-components, without constructing legacy Repo/Home services or adopting their caches.
-A hidden Inbox tab MUST pause personal PR observation; source/account retirement MUST
-clear every loaded personal row, route and retained action before another owner appears.
-An unavailable personal Tours capability MUST be shown truthfully with an explicit
-existing-workspace entry, never a fabricated empty tour list, automatic legacy login
-or a paid-work control. Source: Tavi, 25 Oct 2026, choosing PRs/Tours as Home after GitHub
-login with repositories reachable from there; existing personal/legacy authority isolation.
+Android's confirmed repository-authorized GitHub login MUST directly mount the complete
+production HomeScreen, ProfileSheet, Settings and native review/Tours renderers under
+its captured personal workspace capability. The production filter pills/counts, Settings
+control, avatar's Profile sheet, menu actions and native PR navigation MUST remain usable;
+there MUST NOT be a replacement read-only Home or an Open Pully workspace step. The
+compatible typed iOS personal flow MAY retain its read-only presentation until its own
+root delivery. Both flows MUST reject retained callbacks and clear private rows on
+source/account retirement. This intentionally replaces the earlier limited typed Home
+requirement by Tavi25Oct2026, full production UI and one GitHub app login.

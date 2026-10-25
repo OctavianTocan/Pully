@@ -63,6 +63,39 @@ class DownloadUpdateTest {
     }
 
     @Test
+    fun apkDownloadDoesNotCarryScopedHeadersToForbiddenSameOriginRedirect() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val seen = mutableListOf<String?>()
+        server.createContext("/download/staging/pulls.apk") { exchange ->
+            seen.add(exchange.requestHeaders.getFirst("CF-Access-Client-Secret"))
+            exchange.responseHeaders.add("Location", "/api/rpc")
+            exchange.sendResponseHeaders(307, -1)
+            exchange.close()
+        }
+        server.createContext("/api/rpc") { exchange ->
+            seen.add(exchange.requestHeaders.getFirst("CF-Access-Client-Secret"))
+            exchange.sendResponseHeaders(200, payload.size.toLong())
+            exchange.responseBody.use { it.write(payload) }
+        }
+        val directory = Files.createTempDirectory("update-redirect-test").toFile()
+        server.start()
+        try {
+            val file = File(directory, "update.apk")
+            val staging = "https://pully-staging.octaviantocan.com"
+            downloadUpdate("http://127.0.0.1:${server.address.port}", "/download/staging/pulls.apk", sha256Hex(payload), emptyMap(), file,
+                headersForUrl = { target ->
+                    com.octaviantocan.pulls.data.stagingAccessHeaders(staging, target.toURI().rawPath, staging, "fixture-id", "fixture-secret")
+                },
+            ) { _, _ -> }
+            assertEquals(listOf("fixture-secret", null), seen)
+            assertContentEquals(payload, file.readBytes())
+        } finally {
+            server.stop(0)
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun truncatedResponseAndInterruptedConsumerLeaveNoPartialFiles() {
         withDownload({ exchange ->
             exchange.sendResponseHeaders(200, payload.size.toLong())

@@ -106,7 +106,15 @@ private fun ColumnScope.AccountPageBody(services: AccountPagesServices) {
  */
 @Composable
 fun ColumnScope.AgentKeysPage(services: AccountPagesServices, open: (SettingsPage) -> Unit) {
-    key(services) { AgentKeysPageBody(services, open) }
+    key(services) {
+        val unavailable = services.agentKeysUnavailableReason
+        if (unavailable != null) AgentKeysUnavailable(unavailable) else AgentKeysPageBody(services, open)
+    }
+}
+
+@Composable
+private fun AgentKeysUnavailable(reason: String) {
+    Text(reason, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = PullsType.read, color = LocalPullsColors.current.muted)
 }
 
 @Composable
@@ -183,7 +191,10 @@ private fun ColumnScope.AgentKeysPageBody(services: AccountPagesServices, open: 
 /** One key: when it was made and last used, and Revoke, which stops it at once. What it posted stays. */
 @Composable
 fun ColumnScope.AgentKeyPage(services: AccountPagesServices, onDone: () -> Unit) {
-    key(services) { AgentKeyPageBody(services, onDone) }
+    key(services) {
+        val unavailable = services.agentKeysUnavailableReason
+        if (unavailable != null) AgentKeysUnavailable(unavailable) else AgentKeyPageBody(services, onDone)
+    }
 }
 
 @Composable

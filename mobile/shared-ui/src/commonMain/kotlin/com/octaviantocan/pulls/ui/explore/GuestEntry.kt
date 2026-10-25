@@ -40,7 +40,7 @@ class NativeEntryState(verifiedExistingConnection: Boolean, savedChoice: NativeE
 
     class GuestSource internal constructor(private val entry: NativeEntryState, private val epoch: Long) {
         val current: Boolean get() = entry.mode == NativeEntryMode.Explore && entry.generation == epoch
-        internal fun onRetired(action: () -> Unit): () -> Unit {
+        fun onRetired(action: () -> Unit): () -> Unit {
             if (!current) { action(); return {} }
             entry.retirements.add(action)
             return { entry.retirements.remove(action) }

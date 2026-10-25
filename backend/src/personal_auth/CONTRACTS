@@ -139,3 +139,18 @@ NOT load environment/HOME defaults, seed legacy accounts or bind a listener. The
 separate listener owner MUST control the storage path and its ancestors during
 startup. Source: Tavi's 22 Oct 2026 requirement to complete concrete configured-host
 composition while preserving the 21 Oct personal/legacy authority boundary.
+
+@cc [owner:OctavianTocan,label:security;architecture] workspace-confirmation-preserves-canonical-refresh
+Workspace admission MUST reject an unconfirmed personal session. Its confirmation
+check MUST retain the authenticated session/account/generation/deadline checks while
+allowing an expired GitHub access token to reach the existing canonical refresh
+resolver. It MUST NOT turn expiry into a forced new app login when the same confirmed
+session can refresh, or confirm an unconfirmed session through workspace admission.
+Source: Tavi25Oct2026 single-login workspace and the controlled-clock expiry regression.
+
+@cc [owner:OctavianTocan,label:security;product] workspace-confirmation-keeps-retryable-failures
+The workspace confirmation gate MUST distinguish a missing, unconfirmed or rejected
+session from temporary storage/verification failure. Only the former MAY become
+Unauthorized or Reconnect; a temporary failure MUST preserve Unavailable and permit
+retry with the same confirmed bearer, including after a recoverable refresh failure.
+Source: confirmed ce-code-review finding 3 and Tavi's 25 Oct 2026 assigned fix batch.

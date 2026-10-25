@@ -18,6 +18,126 @@ pub use grouping::groups;
 pub use local::search as search_local;
 pub use patch::{parse_patch, parse_patch_untruncated};
 
+/// Server-selected context provenance. This is never accepted from a client as authority.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct WorkspaceRepository {
+    pub owner: String,
+    pub repo: String,
+    pub repository_id: u64,
+}
+
+/// Cached AI tools retain the workspace's selected repository authority as well as its
+/// session binding. This is also checked after awaited tool work before publishing it.
+pub(crate) async fn workspace_repositories(state: &AppState, value: &Value) -> Result<()> {
+    workspace_repository_provenance(state, value)
+        .await
+        .map(|_| ())
+}
+
+pub(crate) async fn workspace_repository_provenance(
+    state: &AppState,
+    value: &Value,
+) -> Result<Vec<WorkspaceRepository>> {
+    if !state.personal_workspace {
+        return Ok(Vec::new());
+    }
+    fn collect(
+        value: &Value,
+        out: &mut std::collections::BTreeMap<(String, String), Option<u64>>,
+    ) -> Result<()> {
+        match value {
+            Value::Array(items) => {
+                for value in items {
+                    collect(value, out)?;
+                }
+            }
+            Value::Object(fields) => {
+                if let (Some(owner), Some(repo)) = (
+                    fields.get("owner").and_then(Value::as_str),
+                    fields.get("repo").and_then(Value::as_str),
+                ) {
+                    let expected = value["repositoryId"].as_u64();
+                    let key = (owner.to_ascii_lowercase(), repo.to_ascii_lowercase());
+                    if let Some(previous) = out.get(&key).copied().flatten() {
+                        ensure!(
+                            expected.is_none_or(|id| id == previous),
+                            "Conflicting repository identities"
+                        );
+                    }
+                    let id = out.entry(key).or_insert(expected);
+                    if expected.is_some() {
+                        *id = expected;
+                    }
+                }
+                for value in fields
+                    .values()
+                    .filter(|value| value.is_object() || value.is_array())
+                {
+                    collect(value, out)?;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+    let mut repositories = std::collections::BTreeMap::new();
+    collect(value, &mut repositories)?;
+    use futures_util::{stream, StreamExt, TryStreamExt};
+    let captured = stream::iter(repositories.into_iter().map(
+        |((owner, repo), captured_id)| async move {
+            ensure!(
+                crate::public_api::github::valid_segment(&owner, 39)
+                    && crate::public_api::github::valid_segment(&repo, 100),
+                "Choose a valid GitHub repository"
+            );
+            let key = format!("workspace-repository:{owner}/{repo}");
+            let expected = state.host.storage.get_async(&key).await?;
+            let repository = github_request(
+                state,
+                reqwest::Method::GET,
+                &format!("/repos/{owner}/{repo}"),
+                None,
+            )
+            .await?;
+            let id = repository["id"]
+                .as_u64()
+                .filter(|id| *id > 0)
+                .context("GitHub returned an invalid repository")?;
+            ensure!(
+                repository["name"]
+                    .as_str()
+                    .is_some_and(|name| name.eq_ignore_ascii_case(&repo))
+                    && repository["owner"]["login"]
+                        .as_str()
+                        .is_some_and(|login| login.eq_ignore_ascii_case(&owner)),
+                "GitHub returned a different repository"
+            );
+            ensure!(
+                captured_id.is_none_or(|expected| expected == id),
+                "This repository's captured identity changed"
+            );
+            ensure!(
+                expected.as_ref().is_none_or(|old| old.as_u64() == Some(id)),
+                "This repository's identity changed"
+            );
+            if expected.is_none() {
+                state.host.storage.set_async(&key, &json!(id)).await?;
+            }
+            Ok::<_, anyhow::Error>(WorkspaceRepository {
+                owner,
+                repo,
+                repository_id: id,
+            })
+        },
+    ))
+    .buffer_unordered(3)
+    .try_collect::<Vec<_>>()
+    .await?;
+    state.identity.ensure_current()?;
+    Ok(captured)
+}
+
 pub fn serialize_ref(r: &Value) -> Result<String> {
     Ok(match s(r, "kind") {
         "github-pr" => format!(

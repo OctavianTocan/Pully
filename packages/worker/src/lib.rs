@@ -136,7 +136,33 @@ async fn answer(mut router: axum::Router, request: &mut Request) -> Result<Respo
     for (name, value) in request.headers() {
         builder = builder.header(name, value);
     }
-    let body = request.bytes().await?;
+    // Bound the new personal workspace before materializing the Worker's request body;
+    // the backend applies the same limits after adapting it into axum.
+    let body = if request.path().starts_with("/workspace/") {
+        let limit = if request.path() == "/workspace/api/events" {
+            2
+        } else {
+            4
+        } * 1024
+            * 1024;
+        let mut body = Vec::new();
+        if let Ok(mut stream) = request.stream() {
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                if body.len().saturating_add(chunk.len()) > limit {
+                    return Response::from_json(&std::collections::BTreeMap::from([(
+                        "error",
+                        "Workspace request is too large.",
+                    )]))
+                    .map(|response| response.with_status(413));
+                }
+                body.extend_from_slice(&chunk);
+            }
+        }
+        body
+    } else {
+        request.bytes().await?
+    };
     let request = builder
         .body(Body::from(body))
         .map_err(|e| worker::Error::RustError(e.to_string()))?;
@@ -261,9 +287,16 @@ impl Records for SqlRecords {
         Ok(cursor.rows_written() > 0)
     }
     fn ids(&self) -> anyhow::Result<Vec<String>> {
+        self.ids_with_prefix("")
+    }
+    fn ids_with_prefix(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        let end = format!("{prefix}\u{7f}");
         let cursor = self
             .sql
-            .exec("SELECT DISTINCT id FROM records", None)
+            .exec(
+                "SELECT DISTINCT id FROM records WHERE id >= ? AND id < ? ORDER BY id",
+                vec![prefix.into(), end.as_str().into()],
+            )
             .map_err(failed)?;
         let mut ids = Vec::new();
         for row in cursor.raw() {
@@ -309,6 +342,11 @@ impl DayFiles for SqlDays {
         Ok(())
     }
     fn read(&self, day: &str) -> anyhow::Result<Vec<String>> {
+        let mut lines = Vec::new();
+        self.visit(day, &mut |line| lines.push(line.to_owned()))?;
+        Ok(lines)
+    }
+    fn visit(&self, day: &str, line: &mut dyn FnMut(&str)) -> anyhow::Result<()> {
         let cursor = self
             .sql
             .exec(
@@ -316,14 +354,13 @@ impl DayFiles for SqlDays {
                 vec![day.into()],
             )
             .map_err(failed)?;
-        let mut lines = Vec::new();
         for row in cursor.raw() {
             match row.map_err(failed)?.into_iter().next() {
-                Some(worker::SqlStorageValue::String(line)) => lines.push(line),
+                Some(worker::SqlStorageValue::String(stored)) => line(&stored),
                 _ => anyhow::bail!("Invalid stored analytics line"),
             }
         }
-        Ok(lines)
+        Ok(())
     }
     fn days(&self) -> anyhow::Result<Vec<String>> {
         let cursor = self

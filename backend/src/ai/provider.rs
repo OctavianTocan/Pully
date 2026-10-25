@@ -61,10 +61,7 @@ pub async fn catalog_refresh(
     refresh: bool,
     login: &crate::agent_login::AgentLogin,
 ) -> Result<Value> {
-    anyhow::ensure!(
-        state.identity.is_legacy(),
-        "Connect a personal AI provider to list its models"
-    );
+    state.authorize_subscription(login, engine)?;
     let engine = if engine == "claude" {
         "claude-code"
     } else {
@@ -221,6 +218,8 @@ pub(super) async fn run_prepared(
     let safe_req = super::sanitize_value(req);
     let req = &safe_req;
     let engine = text(req, "engine");
+    state.authorize_subscription(&run.login, engine)?;
+    crate::source::workspace_repositories(state, &req["context"]).await?;
     if engine != "pi" {
         let mut request = req.clone();
         let mut guard = None;
@@ -245,6 +244,7 @@ pub(super) async fn run_prepared(
         )
         .await;
         drop(guard);
+        crate::source::workspace_repositories(state, &req["context"]).await?;
         return result;
     }
     // One monotonic watchdog covers all requests and source tools, not each turn.

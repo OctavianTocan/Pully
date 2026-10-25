@@ -351,7 +351,7 @@ fn service(app: &AppState) -> Arc<Service> {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .entry(app.host.storage.root().to_path_buf())
-        .or_insert_with(|| Arc::new(Service::new(client())))
+        .or_insert_with(|| Arc::new(Service::new(if app.identity.is_legacy() { client() } else { Arc::new(Client::new(None)) })))
         .clone()
 }
 pub fn enabled() -> bool {

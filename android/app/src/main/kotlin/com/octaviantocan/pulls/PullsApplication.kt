@@ -30,8 +30,8 @@ class PullsApplication : Application() {
         // First, so the start time is the process's and a crash anywhere after this is kept for the next launch.
         Analytics.install(this, AppSettings.get(this).usageStats, NativeEntry.privateConnection(this))
         clearInterruptedUpdateDownloads(cacheDir)
-        Sounds.install(this, AppSettings.get(this))
-        Haptics.install(this, AppSettings.get(this))
+        Sounds.install(this) { AppSettings.get(this) }
+        Haptics.install(this) { AppSettings.get(this) }
         UpdateChecks.sync(this)
         com.octaviantocan.pulls.notifications.DeviceNotifications.sync(this)
     }

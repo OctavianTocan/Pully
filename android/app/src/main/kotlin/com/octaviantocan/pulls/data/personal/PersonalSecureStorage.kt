@@ -22,7 +22,9 @@ internal class PersonalSecureStorage(context: Context) : PersonalSessionBlobStor
     private val alias = "${context.packageName}.personal-account-v1"
     private val associatedData = "Pully personal sessions v1".toByteArray(Charsets.UTF_8)
 
-    override fun read(): ByteArray? {
+    override fun read(): ByteArray? = synchronized(storageLock) { readStored() }
+
+    private fun readStored(): ByteArray? {
         if (!file.baseFile.exists() && !File(file.baseFile.path + ".bak").exists()) return null
         try {
             val bytes = file.openRead().use { input ->
@@ -45,7 +47,9 @@ internal class PersonalSecureStorage(context: Context) : PersonalSessionBlobStor
         } catch (_: Exception) { throw PersonalAuthError(PersonalAuthProblem.Unavailable) }
     }
 
-    override fun write(contents: ByteArray) {
+    override fun write(contents: ByteArray) = synchronized(storageLock) { writeStored(contents) }
+
+    private fun writeStored(contents: ByteArray) {
         require(contents.size <= PersonalSessionVault.MAX_BYTES)
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -90,4 +94,6 @@ internal class PersonalSecureStorage(context: Context) : PersonalSessionBlobStor
             generateKey()
         }
     }
+    companion object { private val storageLock = Any() }
+
 }

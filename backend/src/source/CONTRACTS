@@ -6,3 +6,11 @@ new source while loading. The legacy state wrappers MUST preserve their establis
 policy and the canonical DTOs, complete inventories and captured revision checks.
 Source: Tavi's 22 Oct personal-tenant Review adapter completion instruction and
 21 Oct tenant credential/source-isolation requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] workspace-context-captures-repository-identity
+Personal workspace AI context assembly MUST capture every selected repository's
+current immutable ID with the captured credential before provider publication. It
+MUST reject a changed saved/captured ID, conflicting IDs for one repository name or
+a metadata response naming a different repository. Case aliases MUST be deduplicated
+within each bounded validation phase. Source: confirmed ce-code-review findings 4
+and 5 and Tavi's 25 Oct 2026 assigned fix batch.

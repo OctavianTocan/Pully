@@ -67,7 +67,10 @@ object PastVersions {
 
     private val scope = MainScope()
 
-    private fun prefs(context: Context) = context.getSharedPreferences("pulls-past", Context.MODE_PRIVATE)
+    private fun prefs(context: Context): android.content.SharedPreferences {
+        val channel = com.octaviantocan.pulls.BuildConfig.UPDATE_CHANNEL.trimEnd('/')
+        return context.getSharedPreferences(if (channel.isEmpty()) "pulls-past" else "pulls-past-$channel", Context.MODE_PRIVATE)
+    }
 
     /** The list as the server last gave it, so the page shows at once (rule 128). */
     fun cached(context: Context): List<PastVersion> =
@@ -75,9 +78,9 @@ object PastVersions {
 
     /** Asks the server for its list and keeps it; null when the server could not be asked. */
     suspend fun refresh(context: Context): List<PastVersion>? = withContext(Dispatchers.IO) {
+        val config = ServerStore.updateConfig(context) ?: return@withContext null
         runCatching {
-            val config = ServerStore.load(context)
-            val text = AppUpdater(context).get(config.url, "download/past/index.json", config.headers())
+            val text = AppUpdater(context).get(config.url, "download/${com.octaviantocan.pulls.BuildConfig.UPDATE_CHANNEL}past/index.json", config.headers())
             parsePastVersions(text, AppVersion.code(context)).also { prefs(context).edit().putString("index", text).apply() }
         }.onFailure { Log.w("pulls", "past versions list failed", it) }.getOrNull()
     }
@@ -99,7 +102,7 @@ object PastVersions {
         if (context.packageManager.checkSignatures(context.packageName, version.packageName) != PackageManager.SIGNATURE_MATCH) return false
         val find = Intent(Intent.ACTION_MAIN).addCategory(CATEGORY).setPackage(version.packageName)
         val activity = context.packageManager.queryIntentActivities(find, 0).firstOrNull()?.activityInfo ?: return false
-        val config = ServerStore.load(context)
+        val config = ServerStore.updateConfig(context) ?: return false
         val intent = Intent(Intent.ACTION_MAIN).addCategory(CATEGORY).setClassName(activity.packageName, activity.name)
             .putExtra(EXTRA_URL, config.url)
             .putExtra(EXTRA_ACCESS_ID, config.accessId)
@@ -118,6 +121,7 @@ object PastVersions {
      */
     fun get(context: Context, version: PastVersion) {
         if (busy) return
+        val config = ServerStore.updateConfig(context) ?: return
         val app = context.applicationContext
         if (Build.VERSION.SDK_INT >= 26 && !app.packageManager.canRequestPackageInstalls()) {
             status = PastStatus.NeedsPermission(version)
@@ -130,9 +134,8 @@ object PastVersions {
         scope.launch {
             val outcome = withContext(Dispatchers.IO) {
                 runCatching {
-                    val config = ServerStore.load(app)
                     val updater = AppUpdater(app)
-                    val url = "${config.url.trimEnd('/')}/download/past/${version.versionName}.apk"
+                    val url = "${config.url.trimEnd('/')}/download/${com.octaviantocan.pulls.BuildConfig.UPDATE_CHANNEL}past/${version.versionName}.apk"
                     var shown = -1
                     val apk = updater.download(config.url, url, version.sha256, config.headers(), File(app.cacheDir, "pulls-past.apk")) { read, total ->
                         val percent = if (total > 0) (read * 100 / total).toInt() else -1

@@ -40,6 +40,27 @@ updates from its `/download/staging/` channel. It never touches the stable serve
 APK or `latest.json` (android/CONTRACTS, `android-staging-channel`). Until the operator sets
 `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `PULLY_STAGING_HOST`, each run skips. A
 stable server that sets `PULLS_REVIEW_STAGING_URL` links to the staging download page.
+
+The staging app uses one GitHub login for the full Inbox/Tours, Profile, Settings and
+review workspace (Tavi, 25 Oct 2026). Its confirmed personal session authorizes the
+account-owned `/workspace/api/rpc` and `/workspace/api/events`; it does not create a
+second legacy Pully session or adopt the operator's data. Claude Code and Codex setup
+connect each person's own provider account in Settings, AI.
+
+External agents posting diffs with Agent keys remain available through the existing
+server connection. The GitHub workspace explains that limitation in Settings and
+refuses key creation; its phone RPC does not expose a new key-authenticated agent API.
+
+CI also needs `PULLY_STAGING_ACCESS_CLIENT_ID` and
+`PULLY_STAGING_ACCESS_CLIENT_SECRET`. These are a dedicated Access service token for
+the staging workspace and `/download/staging/*` paths, supplied to the Android build
+only through its environment. Tavi explicitly accepts that the staging APK contains
+this credential so the phone needs no Access browser login. It grants no workspace
+account authority and has no policy for production or legacy RPC. Never use the
+Cloudflare API token or a production/shared Access credential here. Missing build
+credentials fail publication; stable APKs contain empty fields. Staging history uses
+`/download/staging/past/` and reports no archived versions until any are published.
+
 Historical publication refuses shallow or unavailable version history before rewriting
 the existing index; fetch complete release history first. Its immutable source remains
 available until the background history worker finishes.

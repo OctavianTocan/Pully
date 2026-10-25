@@ -57,3 +57,45 @@ impl Drop for HeldLock {
         }
     }
 }
+
+/// An indexed record fixture that counts only the ids and bodies actually visited.
+#[derive(Clone, Default)]
+pub(crate) struct CountedRecords {
+    pub(crate) records:
+        std::sync::Arc<std::sync::Mutex<std::collections::BTreeMap<String, Vec<u8>>>>,
+    pub(crate) visits: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    pub(crate) reads: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    pub(crate) full_scans: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+}
+impl super::Records for CountedRecords {
+    fn get(&self, id: &str) -> anyhow::Result<Option<Vec<u8>>> {
+        self.reads.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(self.records.lock().unwrap().get(id).cloned())
+    }
+    fn put(&self, id: &str, bytes: &[u8]) -> anyhow::Result<()> {
+        self.records
+            .lock()
+            .unwrap()
+            .insert(id.into(), bytes.to_vec());
+        Ok(())
+    }
+    fn delete(&self, id: &str) -> anyhow::Result<bool> {
+        Ok(self.records.lock().unwrap().remove(id).is_some())
+    }
+    fn ids(&self) -> anyhow::Result<Vec<String>> {
+        self.full_scans
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(self.records.lock().unwrap().keys().cloned().collect())
+    }
+    fn ids_with_prefix(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        let records = self.records.lock().unwrap();
+        let ids: Vec<_> = records
+            .range(prefix.to_owned()..)
+            .take_while(|(id, _)| id.starts_with(prefix))
+            .map(|(id, _)| id.clone())
+            .collect();
+        self.visits
+            .fetch_add(ids.len(), std::sync::atomic::Ordering::SeqCst);
+        Ok(ids)
+    }
+}

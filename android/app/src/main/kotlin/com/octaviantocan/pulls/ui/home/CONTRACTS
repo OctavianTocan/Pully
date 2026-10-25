@@ -245,3 +245,12 @@ hold MUST open the Stack sheet listing its layers, each opening its pull request
 them into one row, and make the stack the row, and when you tap it can show you which PRs
 are in there": Tavi, 17 Oct 17:40; rule 202). A stack with one layer in the section keeps
 that pull request's own row.
+
+@cc [owner:OctavianTocan,label:product;security] android-home-reads-follow-workspace-admission
+Retained GitHub Home services MUST pause HomeObservations synchronously when their
+foreground workspace transport retires. Fresh admitted resume MUST advance the read
+generation and restart current mounted reads, including an interrupted initial Inbox
+load with no cached list or fetchedAt. Late old replies MUST remain rejected. The
+pause/resume MUST retain the Home query/filter, source identity and presentation
+owner; actual source retirement MUST still close the read gate permanently. Source:
+Tavi's 25 Oct 2026 implementation followup, android-verification.json finding 1.

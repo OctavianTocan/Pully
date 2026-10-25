@@ -14,6 +14,64 @@ import kotlin.test.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeScreenDataTest {
     @Test
+    fun verifiedGitHubWorkspaceRunsProductionHomeProfileAndNativeReviewStores() = runTest {
+        val h = com.octaviantocan.pulls.ui.personal.PersonalBrowseSessionTest.Harness(this)
+        h.verify(private = true)
+        val workspace = assertNotNull(h.runtime.workspace())
+        val calls = mutableListOf<String>()
+        h.onWorkspace = { request ->
+            val name = Json.parseToJsonElement(request.body).jsonObject.getValue("name").jsonPrimitive.content
+            calls += name
+            val result = when (name) {
+                "my-pulls-cached" -> """{"fetchedAt":$PAGE_TIME,"pulls":[{"owner":"acme","repo":"editor","number":7,"title":"Own private PR","author":"reader","role":"author","state":"open"}]}"""
+                "github-stats" -> """{"login":"reader","firstDay":"2026-10-24","days":[1,2],"total":3}"""
+                "repo-pulls" -> page(7).toString()
+                else -> error("Unexpected native Home RPC $name")
+            }
+            RpcResponse(200, """{"result":$result}""")
+        }
+        val current = { workspace.current }
+        val memory = ScreenMemory(current)
+        val repo = workspace.repo
+        val sizes = PullSizes.source("verified-workspace-home")
+        val effects = object : HomeScreenEffects {
+            override fun track(name: String, vararg props: Pair<String, Any?>) = Unit
+            override fun error(name: String, message: String?) = Unit
+            override fun size(owner: String, repo: String, number: Int, additions: Int?, deletions: Int?, files: Int?) = Unit
+        }
+        val data = HomeScreenData(repo, FirstPages(ScreenPages(), current), PostedDiffsStore(repo, memory, { true }, current),
+            GithubStatsStore(repo, memory, current), current, effects, sizes)
+        val sync = MyPullsSync({ repo.myPullsCached(it)?.asSnapshot() }, { repo.myPulls(it) }, memory, currentSource = current)
+        val stop = workspace.onRetired { sync.invalidate(); data.invalidate() }
+        val ui = HomeUi("waiting").also { it.bindSource(data) }
+        sync.select("open")
+        assertEquals(listOf(7), sync.pulls!!.map { it.number })
+        assertTrue(data.stats.refresh())
+        assertEquals("reader", data.stats.last!!.login)
+        val repository = data.repository("acme", "editor")
+        repository.load()
+        assertEquals(7, repository.items.single().number)
+        val nav = com.octaviantocan.pulls.ui.AppNavigation()
+        ui.filter = "all"; ui.tab = 1; ui.search = "Own private"
+        nav.nav.openTour(com.octaviantocan.pulls.core.OpenTarget.Pull("acme", "editor", 7))
+        assertTrue((nav.stack.last() as com.octaviantocan.pulls.ui.Screen.Review).tour)
+        nav.nav.back(); nav.nav.settings()
+        assertEquals(com.octaviantocan.pulls.ui.Screen.Settings, nav.stack.last())
+        nav.nav.back()
+        assertEquals("all", ui.filter)
+        assertEquals(1, ui.tab)
+        assertEquals("Own private", ui.search)
+        assertTrue(calls.containsAll(listOf("my-pulls-cached", "github-stats", "repo-pulls")))
+        assertTrue(h.requests.filter { "/workspace/" in it.url }.all { it.url.endsWith("/workspace/api/rpc") && "Authorization" in it.headers && "X-Pully-Session" !in it.headers })
+        h.runtime.foreground(false)
+        assertNull(sync.pulls)
+        assertNull(data.stats.last)
+        assertTrue(repository.items.isEmpty())
+        assertFalse(data.current)
+        stop(); data.invalidate(); h.runtime.close()
+    }
+
+    @Test
     fun pausingARepositoryReadRejectsItsUncooperativeReplyWithoutWritingTheDeviceCopy() = runTest {
         val h = DataHarness()
         val reads = HomeObservations()

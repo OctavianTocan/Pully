@@ -42,6 +42,25 @@ server-owned authorization flow (GitHub CLI device sign-in since Tavi's 23 Oct 1
 isolated credential/state. Existing Google accounts MUST remain compatible; email
 matching alone MUST NOT link a personal GitHub identity to an existing account.
 
+@cc [owner:OctavianTocan,label:product;security;architecture] github-one-login-full-workspace
+The staging Android app MUST open the full production Inbox/Tours, Profile and Settings
+experience after one confirmed repository-authorized GitHub login, without another
+Cloudflare or Pully account sign-in. Its workspace RPC MUST resolve the canonical
+personal bearer and immutable account identity, use only that account's GitHub authority,
+persisted workspace and Claude Code/Codex container, and reject a missing, revoked or
+public-only session. It MUST NOT adopt legacy owner data or credentials. Anonymous and
+existing-server compatibility flows retain their own authority. Source: Tavi, 25 Oct
+2026, rejecting the replacement tabs/profile/menu and requesting GitHub as the sole login.
+
+@cc [owner:OctavianTocan,label:security;product] staging-access-credential-is-app-transport-only
+The staging APK MAY embed a dedicated Access service credential supplied only through
+the build environment; Tavi explicitly accepts extraction on 25 Oct 2026. Its policy
+MUST authorize only the staging workspace and staging download paths, never production
+or the legacy private RPC. Native requests MUST confine it to the exact built-in HTTPS
+staging origin and those paths; personal sign-in/read requests MUST remain independent.
+The credential alone MUST NOT grant workspace account authority. Values MUST NOT be
+committed or exposed in logs, errors or analytics, and stable builds MUST contain none.
+
 @cc [owner:OctavianTocan,label:security;product] google-sign-in-same-account
 Google sign-in makes the email's account the first time and signs in to it after, with no
 step to create it, and MUST be refused, with no account made, for every email but

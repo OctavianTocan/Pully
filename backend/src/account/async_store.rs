@@ -1,6 +1,18 @@
 use super::*;
 
 impl Accounts {
+    /// A display projection of a canonical personal owner. No password, email index or
+    /// legacy session is created; the personal vault remains the sole login authority.
+    pub(crate) async fn personal_owner(&self, account: Account) -> Result<()> {
+        self.transaction(move |accounts| {
+            let key = format!("account:{}", account.id);
+            accounts.store.update(&key, |old| Ok(json!({
+                "id": account.id, "email": account.email,
+                "createdAt": old.and_then(|v| v["createdAt"].as_str().map(str::to_owned)).unwrap_or_else(|| iso_ms(now_ms()))
+            })))?;
+            Ok(())
+        }).await
+    }
     /// @cc [owner:OctavianTocan,label:architecture] rust-account-transactions-off-runtime
     /// Async account endpoints MUST run complete account/storage operations, including
     /// mutex acquisition and credential-use writes, on the blocking pool (Rust parity

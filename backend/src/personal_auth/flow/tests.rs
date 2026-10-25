@@ -7,6 +7,7 @@ use crate::{
     store::test_support::HeldLock,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
+use serde_json::json;
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -34,6 +35,9 @@ struct Provider {
     device_authorities: Mutex<Vec<GitHubAuthority>>,
     device_polls: AtomicUsize,
     github_id: AtomicU64,
+    allow_refresh: AtomicBool,
+    fail_refresh: AtomicBool,
+    refresh_calls: AtomicUsize,
 }
 impl GitHubProvider for Provider {
     fn exchange<'a>(
@@ -66,8 +70,28 @@ impl GitHubProvider for Provider {
             })
         })
     }
-    fn refresh<'a>(&'a self, _: &'a str, _: u64) -> ProviderFuture<'a, GitHubTokens> {
-        Box::pin(async { anyhow::bail!("Unexpected refresh") })
+    fn refresh<'a>(&'a self, token: &'a str, now: u64) -> ProviderFuture<'a, GitHubTokens> {
+        Box::pin(async move {
+            self.refresh_calls.fetch_add(1, Ordering::SeqCst);
+            anyhow::ensure!(
+                !self.fail_refresh.load(Ordering::SeqCst),
+                "Temporary fixture refresh failure"
+            );
+            anyhow::ensure!(
+                self.allow_refresh.load(Ordering::SeqCst),
+                "Unexpected refresh"
+            );
+            assert_eq!(token, "fixture-refresh");
+            Ok(GitHubTokens {
+                access_token: "fixture-rotated-access".into(),
+                expires_at: Some(now + 28800),
+                refresh: Some(RefreshToken {
+                    token: "fixture-rotated-refresh".into(),
+                    expires_at: now + 15897600,
+                }),
+                scopes: std::collections::BTreeSet::from(["repo".into()]),
+            })
+        })
     }
     fn verify<'a>(&'a self, token: String) -> ProviderFuture<'a, VerifiedGitHubIdentity> {
         Box::pin(async move {
@@ -224,6 +248,85 @@ async fn wait_phase(service: &PersonalAuth, id: &str, predicate: impl Fn(&Phase)
     })
     .await
     .expect("accepted work did not reach its terminal phase");
+}
+
+#[tokio::test]
+async fn workspace_confirmation_storage_failure_is_retryable_and_refresh_keeps_the_session() {
+    let h = Harness::new();
+    let proof = random_secret().unwrap();
+    let start = h
+        .service
+        .connect(StartRequest {
+            native_challenge: wire::native_challenge(&proof).unwrap(),
+        })
+        .await
+        .unwrap();
+    h.service
+        .callback(state(&start), Some("fixture-code".into()), false)
+        .await
+        .unwrap();
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    let confirmed = h.service.session_status(&claimed.session).await.unwrap();
+    let saved = h.store.get("personal-auth-v1:state").unwrap().unwrap();
+    h.store
+        .set(
+            "personal-auth-v1:state",
+            &json!({"temporarily":"unreadable"}),
+        )
+        .unwrap();
+    assert!(matches!(
+        h.service.workspace_session(&claimed.session).await,
+        Err(AuthError::Unavailable)
+    ));
+    h.store.set("personal-auth-v1:state", &saved).unwrap();
+    h.provider.allow_refresh.store(true, Ordering::SeqCst);
+    h.provider.fail_refresh.store(true, Ordering::SeqCst);
+    h.clock.0.store(100 + 28801, Ordering::SeqCst);
+    assert!(matches!(
+        h.service.workspace_session(&claimed.session).await,
+        Err(AuthError::Unavailable)
+    ));
+    h.provider.fail_refresh.store(false, Ordering::SeqCst);
+    let renewed = h.service.workspace_session(&claimed.session).await.unwrap();
+    assert_eq!(renewed.status().unwrap().account_id, confirmed.account_id);
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn workspace_confirmed_session_refreshes_expired_access_but_unconfirmed_session_is_denied() {
+    let h = Harness::new();
+    let proof = random_secret().unwrap();
+    let start = h
+        .service
+        .connect(StartRequest {
+            native_challenge: wire::native_challenge(&proof).unwrap(),
+        })
+        .await
+        .unwrap();
+    h.service
+        .callback(state(&start), Some("fixture-code".into()), false)
+        .await
+        .unwrap();
+    let claimed = h.service.claim(request(&start, &proof)).await.unwrap();
+    assert!(matches!(
+        h.service.workspace_session(&claimed.session).await,
+        Err(AuthError::Unauthorized)
+    ));
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 0);
+    let confirmed = h.service.session_status(&claimed.session).await.unwrap();
+    assert_eq!(confirmed.authority, GitHubAuthority::PrivateRepositories);
+    h.provider.allow_refresh.store(true, Ordering::SeqCst);
+    h.clock.0.store(100 + 28801, Ordering::SeqCst);
+    let renewed = h.service.workspace_session(&claimed.session).await.expect(
+        "a confirmed workspace session must enter canonical refresh after access-token expiry",
+    );
+    assert_eq!(renewed.status().unwrap().account_id, confirmed.account_id);
+    assert_eq!(renewed.status().unwrap().github_id, confirmed.github_id);
+    assert_eq!(
+        renewed.status().unwrap().authority,
+        GitHubAuthority::PrivateRepositories
+    );
+    assert_eq!(h.provider.refresh_calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

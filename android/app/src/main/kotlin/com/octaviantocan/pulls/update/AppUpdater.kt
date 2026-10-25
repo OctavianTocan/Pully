@@ -13,6 +13,8 @@ import com.octaviantocan.pulls.core.isNewerThan
 import com.octaviantocan.pulls.core.withUpdateConnection
 import com.octaviantocan.pulls.core.parseUpdateManifest
 import java.io.File
+import java.net.URI
+import java.net.URL
 
 /**
  * Checks `{server}/download/latest.json` (the staging app: `download/staging/latest.json`), downloads the APK, checks the SHA-256, and
@@ -28,7 +30,9 @@ class AppUpdater(private val context: Context) {
         download(server, manifest.apkUrl, manifest.sha256, headers, File(context.cacheDir, "pulls-update.apk"), onProgress)
 
     fun download(server: String, url: String, sha256: String, headers: Map<String, String>, file: File, onProgress: (Long, Long) -> Unit): File =
-        downloadUpdate(server, url, sha256, headers, file, onProgress = onProgress)
+        downloadUpdate(server, url, sha256, headers, file,
+            headersForUrl = { target -> updateHeadersForUrl(server, target, headers, com.octaviantocan.pulls.data.ServerStore::bakedHeaders) },
+            onProgress = onProgress)
 
     /**
      * Hands [apk] to the system installer. With [packageName] the installer refuses an APK of any other package, which
@@ -73,8 +77,24 @@ class AppUpdater(private val context: Context) {
     }
 
     fun get(server: String, location: String, headers: Map<String, String>): String {
-        return withUpdateConnection(server, location, headers, UpdateTimeouts(totalMs = 90_000)) { connection ->
+        return withUpdateConnection(server, location, headers, UpdateTimeouts(totalMs = 90_000),
+            headersForUrl = { target -> updateHeadersForUrl(server, target, headers, com.octaviantocan.pulls.data.ServerStore::bakedHeaders) },
+        ) { connection ->
             connection.inputStream.bufferedReader().use { it.readText() }
         }
     }
+}
+
+/** Core has already checked the configured origin. Baked updater authority has a narrower exact origin/path. */
+internal fun updateHeadersForUrl(
+    server: String,
+    target: URL,
+    saved: Map<String, String>,
+    bakedHeaders: (String, String) -> Map<String, String>,
+): Map<String, String> {
+    val resolved = target.toURI()
+    val sameOrigin = resolved.scheme == "https" && resolved.rawAuthority == URI(server).rawAuthority
+    val path = resolved.rawPath.orEmpty()
+    val baked = if (sameOrigin && path.startsWith("/download/staging/")) bakedHeaders(server, path) else emptyMap()
+    return saved + baked
 }

@@ -2,6 +2,7 @@ package com.octaviantocan.pulls.core
 
 import java.io.File
 import java.io.IOException
+import java.net.URL
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
@@ -21,12 +22,13 @@ fun downloadUpdate(
     headers: Map<String, String>,
     file: File,
     timeouts: UpdateTimeouts = UpdateTimeouts(),
+    headersForUrl: (URL) -> Map<String, String> = { headers },
     onProgress: (Long, Long) -> Unit,
 ): File {
     require(sha256.matches(Regex("[a-fA-F0-9]{64}"))) { "Invalid update digest." }
     val partial = File.createTempFile("pulls-update-", ".part", file.absoluteFile.parentFile)
     try {
-        withUpdateConnection(server, url, headers, timeouts) { connection ->
+        withUpdateConnection(server, url, headers, timeouts, headersForUrl) { connection ->
             val digest = MessageDigest.getInstance("SHA-256")
             val total = connection.contentLengthLong
             var downloaded = 0L

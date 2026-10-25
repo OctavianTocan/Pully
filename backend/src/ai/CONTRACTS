@@ -1,0 +1,10 @@
+@cc [owner:OctavianTocan,label:security;architecture] workspace-ai-output-retains-server-context-provenance
+Personal workspace task state MUST retain the complete server-assembled repository
+provenance, including immutable IDs, through completion and wait/list publication.
+Provider citations, snapshot cursors, missing diff records and caller-supplied hints
+MUST NOT reduce or replace it. This internal metadata MUST NOT appear in client task
+snapshots. Saved Inbox answers used as later context MUST retain and reauthorize
+their complete provenance; failed and stopped turns MUST retain the same trusted
+run provenance alongside saved activities, including a captured empty set before
+repository context is consumed. An old turn without provenance MUST fail closed.
+Source: confirmed ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.

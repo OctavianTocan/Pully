@@ -18,7 +18,7 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoIdentity
 import com.octaviantocan.pulls.data.ServerStore
-import com.octaviantocan.pulls.data.sourceStorageNamespace
+import com.octaviantocan.pulls.data.nativeStorageNamespace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,8 +34,7 @@ internal object StatsKeep {
         val epoch = RepoIdentity.generation
         val config = ServerStore.load(app)
         Account.load(app)
-        val namespace = sourceStorageNamespace(config.url, Account.email,
-            Account.serverHasAccount != false && Account.headers(app).isNotEmpty(), config.headers())
+        val namespace = nativeStorageNamespace(app)
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return SourceStatsServices(
             repo, AndroidStatsPreferences(prefs, config.url, namespace),

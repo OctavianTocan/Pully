@@ -17,9 +17,9 @@ import com.octaviantocan.pulls.data.AppSettings
  */
 object Haptics {
     private var vibrator: Vibrator? = null
-    private var settings: AppSettings? = null
+    private var settings: (() -> AppSettings)? = null
 
-    fun install(context: Context, settings: AppSettings) {
+    fun install(context: Context, settings: () -> AppSettings) {
         if (this.settings != null) return
         this.settings = settings
         val app = context.applicationContext
@@ -69,8 +69,10 @@ object Haptics {
         Heavy(VibrationEffect.EFFECT_HEAVY_CLICK),
     }
 
+    internal fun enabled(): Boolean = settings?.invoke()?.haptics == true
+
     private fun feel(feel: Feel) {
-        if (settings?.haptics != true) return
+        if (!enabled()) return
         val buzz = vibrator ?: return
         try {
             val effect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

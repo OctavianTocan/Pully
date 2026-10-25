@@ -9,7 +9,7 @@ Source: Tavi's 21 Oct 2026 public/personal isolation plan and 22 Oct executable-
 completion instruction.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-public-read-is-a-typed-capability
-The personal GitHub surface MUST expose only the fixed GET repositories, selected
+The typed personal GitHub read surface MUST expose only the fixed GET repositories, selected
 repository pulls and own-pulls routes under api/personal/v1/github, its separate
 account family and typed account capabilities, plus its fixed Account-only review
 opening, overview, diff, file-pair and review-data GET routes. A handler
@@ -65,7 +65,65 @@ GitHub authentication MUST govern only GitHub/account capabilities, not whether 
 person may configure or use AI. A verified non-GitHub AI/local principal or explicitly
 labelled service-default allowance MUST remain a separate capability with its own
 credential and budget boundaries. Public mode MUST NOT silently adopt private owner
-GitHub credentials, CLI homes or a paid provider after a personal failure. This slice
-MUST NOT claim paid AI execution or provider-subscription connectivity. Source: Tavi's
+GitHub credentials, CLI homes or a paid provider after a personal failure. The typed-read slice
+MUST NOT claim paid AI execution or provider-subscription connectivity. The separate
+trusted workspace MAY connect the account's own Claude/Codex subscription as specified
+by Tavi25Oct2026, without changing typed-read or guest authority. Source: Tavi's
 22 Oct 2026 clarification that AI does not require GitHub and the approved provider
 connection plan.
+
+@cc [owner:OctavianTocan,label:product;security;architecture] workspace-rpc-is-separate-from-typed-personal-reads
+The separate /workspace/api/rpc route MUST admit only the fixed native phone methods and
+canonical account/provider-login operations, bounded in method, body, concurrency and
+request lifetime. It MUST return the existing result/error-string envelope and no-store
+responses, and MUST NOT accept arbitrary browser storage, raw prompts, GitHub proxy,
+provider URLs, legacy sessions or cookies. Cloudflare Access headers MAY accompany this
+route but MUST NOT authenticate an account or become GitHub headers. The older typed
+personal/public paths MUST retain their existing authority and header rules. Source:
+Tavi25Oct2026, one GitHub login opening the full production native workspace.
+
+@cc [owner:OctavianTocan,label:security] workspace-cached-private-content-rechecks-current-repository
+Before publishing cached diffs, full files, saved reviews/tours, list entries or task
+results, workspace requests MUST revalidate the selected repository with the captured
+personal GitHub credential and immutable repository ID. Denial, name replacement or
+captured-session revocation MUST prevent the cached content from reaching the client.
+Source: Tavi25Oct2026 own-account workspace and existing source-isolation requirements.
+
+@cc [owner:OctavianTocan,label:security;architecture] workspace-task-publication-keeps-complete-provenance
+Completed and running task wait/list responses MUST reauthorize every server-selected
+context repository against its captured immutable ID, including Inbox tasks without a
+diff record and repositories absent from answer citations. Caller hints and answer text
+MUST NOT supply that provenance. Missing provenance MUST fail closed. Source: confirmed
+ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.
+
+@cc [owner:OctavianTocan,label:product;architecture] workspace-repository-checks-share-bounded-concurrency
+Workspace publication MUST deduplicate case-insensitive repository names within each
+validation phase and validate distinct repositories concurrently within the existing
+three-request GitHub permit budget. It MUST retain current access, immutable-ID checks
+and a final check of every captured repository lease after all awaited validation.
+Source: confirmed ce-code-review finding 5 and Tavi's 25 Oct 2026 assigned fix batch.
+
+@cc [owner:OctavianTocan,label:product;security] workspace-transient-admission-does-not-reject-session
+Workspace RPC and event admission MUST reserve 401 for rejected, unconfirmed or
+reconnect-required personal sessions, use 403 for insufficient authority, and preserve
+temporary provider, vault storage, context and capacity failures as retryable 503 or
+429 responses. The native error-string envelope and any known Retry-After MUST remain
+intact. Source: confirmed ce-code-review finding 3 and Tavi's 25 Oct 2026 assigned fix batch.
+
+@cc [owner:OctavianTocan,label:product;security;architecture] workspace-events-are-sanitized-and-owned
+The fixed POST /workspace/api/events route MUST require the same previously confirmed
+canonical privateRepositories personal-vault session and captured source as workspace
+RPC. It MUST ingest only through the existing Analytics sanitizer and batch policy,
+retain the 2 MiB request bound, and answer 204 on success. Its events MUST live only in
+the immutable personal account's durable analytics scope, respecting the existing
+opt-out and retention policy; Access-only, missing, revoked, public-only, cookie and
+legacy-session authority MUST NOT write events or use the legacy analytics queue.
+Source: Tavi25Oct2026 full owned Stats/usage integration refinement.
+
+@cc [owner:OctavianTocan,label:product;security] workspace-does-not-issue-unusable-agent-keys
+Workspace RPC MUST refuse agent-key-create while personal agent-key ingress is absent.
+Existing key list/revoke MAY remain for cleanup. ExistingServer key creation and its
+/api/v1 behavior MUST remain unchanged. This phone-workspace restoration MUST NOT add
+an agent ingress, key-owner locator, new key lifetime or public transport interface.
+Source: Tavi25Oct2026 integration decision to keep personal Settings truthful about
+unavailable agent submissions after inspecting the existing full Settings workflow.

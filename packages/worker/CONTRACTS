@@ -18,7 +18,8 @@ Access credentials and cookies and answer only to their own GitHub sign-in (back
 `personal-public-read-is-a-typed-capability`, root `phone-api-one-account`).
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-personal-in-its-own-object
-Public browsing and personal GitHub sign-in (`/api/public/`, `/api/personal/`) MUST be answered
+Public browsing and personal GitHub sign-in and the personal workspace (`/api/public/`, `/api/personal/`,
+`/workspace/`) MUST be answered
 by the server's own `public_server` router in the `PersonalServer` Durable Object, never by
 `PullyServer`, as the native server answers them on a separate listener with separate storage
 (backend `public-host-starts-before-legacy-authority`). Its sign-in store and each personal
@@ -77,3 +78,21 @@ The staging publisher MUST verify the actual APK package, version and pinned sig
 uploading anything. Multiple installed SDK build-tools versions MUST NOT change those checks;
 missing required tools MUST fail before the build or upload. Source: Tavi, 24 Oct 2026, complete
 staging after the first publication exposed the hosted runner's multiple SDK versions.
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-personal-workspace-keeps-stable-owned-state-and-agent-remote
+The PersonalServer object MUST route /workspace/* through the backend's canonical
+personal-session workspace router, and MUST install the own-login AgentHome remote even
+when PullyServer has never started in the isolate. Each immutable personal account's
+saved tours, settings, reviews and analytics MUST survive object restart in its own
+SQLite scope. Live jobs and private caches MUST remain captured-binding state; a new
+binding MUST NOT adopt them. Workspace state and analytics MUST use records, never
+wasm filesystem calls. No account MAY select another's store, job registry or CLI home.
+Source: Tavi25Oct2026, full production workspace through one own GitHub app login.
+
+@cc [owner:OctavianTocan,label:architecture;security] hosted-workspace-record-prefixes-use-scoped-ranges
+ScopedRecords prefix lookups MUST constrain both the account scope and the literal encoded
+id range before enumerating rows; SqlRecords MUST constrain the same literal id range.
+Percent and underscore characters in encoded ids MUST NOT act as wildcards. Analytics
+summary iteration MUST consume record batches or SQLite rows incrementally, with the
+existing cleaner, Stats response and retention unchanged. Source: Tavi25Oct2026 review-fix
+batch, finding 8; backend workspace-stats-reads-only-matching-records.

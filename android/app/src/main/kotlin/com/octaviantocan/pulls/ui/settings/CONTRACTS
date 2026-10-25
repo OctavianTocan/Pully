@@ -139,6 +139,13 @@ Settings has an Account section with the signed-in email and an Agent keys page.
 lists each key by its name and first letters, makes a key from a name and shows the new key
 once with Copy, and revokes one from its own page, which says what revoking does first
 ("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).
+This key flow applies to existing-server connections. Personal GitHub workspaces MUST
+keep the Agent keys destination but explain that external-agent posting is unavailable,
+without offering creation, loading or exporting keys, or claiming legacy /api/v1 access.
+Account, Profile, menus and the rest of the native workspace MUST keep their existing
+presentation. Source: Tavi25Oct2026, bounded integration decision that external-agent
+ingress is outside the fixed phone workspace wire; no new ingress or baked credential
+export is authorized.
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-consent
 Settings, Experimental MUST offer Browser helper as a page, with the helper off until
@@ -182,3 +189,10 @@ to 01:33). The token MUST be dropped when the server address changes, MUST NOT b
 or logged, and an Access service token, when set, still wins. The page MUST say to use
 the emailed code, since Google does not sign in inside an app's page.
 
+
+@cc [owner:OctavianTocan,label:product;security] android-provider-signin-keeps-its-session-on-browser-return
+The native Settings provider services MUST retain their opening account/session across
+an ordinary browser pause while denying new paused requests. Their foreground readiness
+MUST restart Codex waiting on resume without replacing its pending code or Claude's
+pending paste descriptor/input. Actual source retirement MUST synchronously clear
+provider state and revoke retained callbacks. Source: Tavi's 25 Oct 2026 review-fix #2.

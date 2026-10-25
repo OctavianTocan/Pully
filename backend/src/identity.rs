@@ -9,7 +9,7 @@ use std::{
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc, Mutex, Weak,
     },
 };
 
@@ -186,6 +186,16 @@ impl GitHubCredential {
 }
 
 impl RequestIdentity {
+    pub(crate) async fn retired(&self) {
+        match self {
+            Self::Account(credential) => {
+                if let Ok(mut receiver) = credential.subscribe_revocation() {
+                    let _ = receiver.wait_for(|retired| *retired).await;
+                }
+            }
+            _ => std::future::pending().await,
+        }
+    }
     pub(crate) fn kind(&self) -> PrincipalKind {
         match self {
             Self::LegacyPrivate => PrincipalKind::LegacyPrivate,
@@ -254,6 +264,7 @@ pub(crate) struct TenantStates {
     stores: TenantStores,
     limit: usize,
     states: Arc<Mutex<HashMap<String, Arc<AppState>>>>,
+    workspace_stores: Arc<Mutex<HashMap<String, Weak<Store>>>>,
 }
 
 impl TenantStates {
@@ -288,6 +299,7 @@ impl TenantStates {
             stores,
             limit,
             states: Default::default(),
+            workspace_stores: Default::default(),
         })
     }
 
@@ -296,6 +308,65 @@ impl TenantStates {
     }
     pub(crate) async fn account(&self, credential: GitHubCredential) -> Result<Arc<AppState>> {
         self.state(RequestIdentity::Account(credential)).await
+    }
+
+    /// Durable saved data is keyed by the immutable account, while live state and caches
+    /// are keyed by the captured credential revision. The typed-read constructor stays separate.
+    pub(crate) async fn workspace(
+        &self,
+        credential: GitHubCredential,
+        origin: url::Url,
+    ) -> Result<Arc<AppState>> {
+        let identity = RequestIdentity::Account(credential);
+        let key = format!("workspace:{}", identity.namespace()?);
+        let account = identity.account_id()?;
+        let stable = hex::encode(Sha256::digest(
+            format!("workspace-account-v1:{account}").as_bytes(),
+        ));
+        let (states, stores, limit) = (self.states.clone(), self.stores.clone(), self.limit);
+        let workspace_stores = self.workspace_stores.clone();
+        crate::store::blocking(move || {
+            identity.ensure_current()?;
+            let mut states = states.lock().unwrap_or_else(|e| e.into_inner());
+            states.retain(|_, state| state.identity.ensure_current().is_ok());
+            if let Some(state) = states.get(&key) {
+                return Ok(state.clone());
+            }
+            ensure!(
+                states.len() < limit,
+                "Pully is serving its current account limit. Try again later"
+            );
+            // Record factories (notably the Worker) may return a fresh Store on every
+            // call. Reuse one coordinator per immutable account, while every binding
+            // below still gets its own overlay. Weak entries keep revoked states from
+            // retaining storage forever, but reuse their coordinator while it is live.
+            let mut workspace_stores = workspace_stores.lock().unwrap_or_else(|e| e.into_inner());
+            workspace_stores.retain(|_, store| store.strong_count() > 0);
+            let durable = match workspace_stores.get(&stable).and_then(Weak::upgrade) {
+                Some(store) => store,
+                None => {
+                    ensure!(
+                        workspace_stores.len() < limit,
+                        "Pully is serving its current account limit. Try again later"
+                    );
+                    let store = Arc::new(stores(&stable)?);
+                    workspace_stores.insert(stable, Arc::downgrade(&store));
+                    store
+                }
+            };
+            drop(workspace_stores);
+            let analytics = crate::analytics::Analytics::in_records(durable.as_ref().clone());
+            let store = Store::workspace(durable, identity.clone(), &key);
+            let mut state =
+                AppState::build(ServerHost::new(store, None, None), identity, analytics)?;
+            let inner = Arc::get_mut(&mut state).expect("new workspace state");
+            inner.personal_workspace = true;
+            inner.github_origin = origin;
+            inner.identity.ensure_current()?;
+            states.insert(key, state.clone());
+            Ok(state)
+        })
+        .await
     }
 
     /// @cc [owner:OctavianTocan,label:security;architecture] tenant-state-does-not-adopt-legacy-data

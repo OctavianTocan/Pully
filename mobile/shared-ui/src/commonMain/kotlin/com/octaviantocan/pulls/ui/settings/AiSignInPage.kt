@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +41,9 @@ import kotlinx.coroutines.launch
  * provider's page and passes Claude Code's code back; there is no API key anywhere.
  */
 interface AiSignInServices {
+    val dispatchReady: Boolean get() = current()
     fun current(): Boolean
+    fun onRetired(clear: () -> Unit): () -> Unit = {}
     suspend fun status(): AiSignIns
     suspend fun start(cli: AiCli): AiSignInStart
     suspend fun finish(cli: AiCli, code: String?): Boolean
@@ -55,17 +58,24 @@ class SourceAiSignInServices(
     private val owner: () -> Boolean,
     private val open: (String) -> Unit,
     private val copyText: (String) -> Unit,
+    private val foreground: () -> Boolean = { true },
+    private val retirement: ((() -> Unit) -> () -> Unit) = { {} },
 ) : AiSignInServices {
     private val opening = runCatching { repo.source() }
     override fun current(): Boolean = owner() && opening.fold(onSuccess = repo::isCurrent, onFailure = { false })
-    private fun requireCurrent() { if (!current()) throw CancellationException("The account or server changed.") }
+    override val dispatchReady: Boolean get() = current() && foreground()
+    override fun onRetired(clear: () -> Unit): () -> Unit {
+        if (!current()) { clear(); return {} }
+        return retirement(clear)
+    }
+    private fun requireCurrent() { if (!dispatchReady) throw CancellationException("The account or server changed.") }
     override suspend fun status(): AiSignIns { requireCurrent(); return repo.aiSignIns() }
     override suspend fun start(cli: AiCli): AiSignInStart { requireCurrent(); return repo.startAiSignIn(cli) }
     override suspend fun finish(cli: AiCli, code: String?): Boolean { requireCurrent(); return repo.finishAiSignIn(cli, code) }
     override suspend fun cancel(cli: AiCli) { requireCurrent(); repo.cancelAiSignIn(cli) }
     override suspend fun signOut(cli: AiCli) { requireCurrent(); repo.signOutAi(cli) }
-    override fun openPage(url: String) { if (current()) open(url) }
-    override fun copy(text: String) { if (current()) copyText(text) }
+    override fun openPage(url: String) { if (dispatchReady) open(url) }
+    override fun copy(text: String) { if (dispatchReady) copyText(text) }
 }
 
 /** The Settings page for a sign-in row. */
@@ -91,6 +101,7 @@ internal class AiSignInState {
     var code by mutableStateOf("")
     var busy by mutableStateOf(false)
     var problem by mutableStateOf<String?>(null)
+    fun clear() { signIns = null; started = null; code = ""; busy = false; problem = null }
 }
 
 @Composable
@@ -99,11 +110,16 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
     val toaster = LocalToaster.current
     val scope = rememberCoroutineScope()
     val state = remember(services, cli) { AiSignInState() }
+    val dispatchReady = services.dispatchReady
+    DisposableEffect(services, state) {
+        val stop = services.onRetired(state::clear)
+        onDispose { stop(); state.clear() }
+    }
     suspend fun refresh() {
         state.signIns = services.status()
     }
     fun run(work: suspend () -> Unit) {
-        if (state.busy || !services.current()) return
+        if (state.busy || !services.dispatchReady) return
         state.busy = true
         state.problem = null
         scope.launch {
@@ -113,8 +129,7 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
                 throw e
             } catch (e: Exception) {
                 if (services.current()) state.problem = e.message ?: "Something went wrong. Try again."
-            }
-            state.busy = false
+            } finally { state.busy = false }
         }
     }
     fun signedIn() {
@@ -122,14 +137,15 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
         state.code = ""
         toaster.show("${cli.title} is signed in", cue = Cue.Success)
     }
-    LaunchedEffect(services, cli) {
+    LaunchedEffect(services, cli, dispatchReady) {
+        if (!dispatchReady) return@LaunchedEffect
         try { refresh() } catch (e: CancellationException) { throw e } catch (e: Exception) { state.problem = e.message }
     }
     // Codex finishes by itself once its code is entered on OpenAI's page; the server waits up to 25 seconds a call.
     val waiting = state.started?.takeIf { !it.paste }
-    LaunchedEffect(waiting) {
-        if (waiting == null) return@LaunchedEffect
-        while (services.current()) {
+    LaunchedEffect(waiting, dispatchReady) {
+        if (waiting == null || !dispatchReady) return@LaunchedEffect
+        while (services.dispatchReady) {
             val done = try {
                 services.finish(cli, null)
             } catch (e: CancellationException) {

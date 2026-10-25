@@ -71,6 +71,9 @@ jobs:
           packages: ''
       - name: Publish Pully Staging
         if: steps.setup.outputs.ready == 'true'
+        env:
+          PULLY_STAGING_ACCESS_CLIENT_ID: ${{ secrets.PULLY_STAGING_ACCESS_CLIENT_ID }}
+          PULLY_STAGING_ACCESS_CLIENT_SECRET: ${{ secrets.PULLY_STAGING_ACCESS_CLIENT_SECRET }}
         run: |
           sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
           packages/worker/scripts/publish-staging-android.sh "https://$STAGING_HOST"

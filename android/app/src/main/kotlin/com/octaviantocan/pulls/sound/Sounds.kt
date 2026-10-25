@@ -32,13 +32,13 @@ object Sounds {
 
     @Volatile
     private var engine: Cuelume? = null
-    private var settings: AppSettings? = null
+    private var settings: (() -> AppSettings)? = null
 
     /** The phone's ringer is on silent or vibrate, so nothing plays. Kept current by a broadcast. */
     @Volatile
     private var silent = false
 
-    fun install(context: Context, settings: AppSettings) {
+    fun install(context: Context, settings: () -> AppSettings) {
         ControlFeedback.install(object : NativeControlFeedback {
             override fun play(cue: Cue, emphasis: Emphasis, direction: Direction?, input: Input?) =
                 Sounds.play(cue, emphasis, direction, input)
@@ -83,7 +83,7 @@ object Sounds {
     }
 
     /** Sound is on in Settings and the phone is not on silent or vibrate. */
-    private fun allowed() = settings?.sounds == true && !silent
+    internal fun allowed() = settings?.invoke()?.sounds == true && !silent
 
     /**
      * Brings the engine in step with Settings and the ringer. Turning sound off here, not only refusing the
@@ -95,7 +95,7 @@ object Sounds {
 
     /** The engine when a cue may sound, set to the material Settings chose. */
     private fun ready(): Cuelume? {
-        val current = settings ?: return null
+        val current = settings?.invoke() ?: return null
         val sounds = engine ?: return null
         refresh()
         if (!allowed()) return null

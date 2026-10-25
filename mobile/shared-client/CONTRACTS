@@ -194,7 +194,7 @@ A personal read client MUST be issued only from a currently verified personal pr
 and its matching accepted secure-vault session. Pending or merely saved credentials
 MUST NOT issue it. Every request and result MUST retain the captured origin, session,
 account/GitHub subject and current native entry; a changed vault or retired entry MUST
-reject late data and errors. Only fixed personal GET routes MAY carry that Pully bearer,
+reject late data and errors. Typed personal readers MUST carry that Pully bearer only on their fixed personal GET routes,
 with no legacy/Access/cookie authority or GitHub API fallback. Every successful envelope
 MUST match the captured immutable account/GitHub identity and the route's explicit
 application authority. Public-only reads MUST retain publicRead envelopes and exclude
@@ -236,3 +236,33 @@ Personal inventory PR numbers MUST be positive integers within the native target
 signed 32-bit range before publication to shared Inbox rows. An out-of-range number
 MUST produce the fixed invalid-response category rather than wrap into another PR.
 Source: the shared OpenTarget/PullRow number types and Tavi's 25 Oct 2026 personal Home request.
+
+@cc [owner:OctavianTocan,label:security;architecture;product] github-workspace-is-a-captured-vault-capability
+PersonalAccountRuntime MUST issue a full native workspace only after fresh verification
+of its accepted vault session with privateRepositories authority. Every workspace RPC
+MUST use POST <personal-origin>/workspace/api/rpc with that captured Pully bearer and
+the existing name/args and result/error envelope. Sanitized usage batches MUST use
+POST <personal-origin>/workspace/api/events with the same captured authority. It MUST NOT copy or mint a legacy
+session, use legacy Account preferences or inherit a configured server's credentials.
+Source/account replacement, sign-out and actual background admission loss MUST revoke
+captured workspace dispatch and late results before another owner appears. A retired
+capability MUST NOT revive. HTML/Access failures MUST NOT be treated as account rejection.
+Source: Tavi25Oct2026, full production Home and one GitHub app login, and the settled
+workspace wire/secure-vault plan.
+
+@cc [owner:OctavianTocan,label:security;product] workspace-presentation-outlives-foreground-transport
+A verified private session's presentation owner MUST retain the same account, source and
+repository identity across an ordinary foreground pause. It MUST NOT itself authorize
+dispatch. Each new request MUST acquire that owner's current foreground workspace;
+pausing MUST irrevocably retire the captured transport and reject its late replies,
+including after resume. The presentation MUST NOT change bearer or immutable account.
+Sign-out, account/session replacement or native source retirement MUST synchronously
+retire its registered owners. Source: Tavi's 25 Oct 2026 review-fix batch #2, preserving
+same-view forms and provider browser roundtrips without weakening workspace admission.
+
+@cc [owner:OctavianTocan,label:security;product] workspace-retryable-errors-preserve-session
+Workspace JSON error responses with HTTP 503 or 429 MUST preserve the accepted secure
+session for a same-bearer retry. HTTP 403 scope denial MUST NOT impersonate sign-out.
+An actual current workspace JSON 401 rejection MUST revoke the accepted account; HTML
+and Access responses MUST remain connection failures. Source: Tavi's 25 Oct 2026
+review-fix batch #3 and the route-to-client retry regression requested by its owner.

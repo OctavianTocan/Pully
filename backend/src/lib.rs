@@ -45,6 +45,9 @@ use std::{path::PathBuf, sync::Arc};
 #[derive(Clone)]
 pub struct AppState {
     pub(crate) identity: identity::RequestIdentity,
+    /// Granted only by the canonical private personal-session workspace router.
+    pub(crate) personal_workspace: bool,
+    pub(crate) github_origin: url::Url,
     pub accounts: account::Accounts,
     pub google_sign_in: Arc<google_sign_in::GoogleSignIn>,
     pub host: host::ServerHost,
@@ -90,11 +93,11 @@ impl AppState {
         let analytics = if identity.is_legacy() {
             analytics::Analytics::new()
         } else {
-            analytics::Analytics::for_tenant(host.storage.root().join("analytics"))
+            analytics::Analytics::in_records(host.storage.clone())
         };
         Self::build(host, identity, analytics)
     }
-    fn build(
+    pub(crate) fn build(
         host: host::ServerHost,
         identity: identity::RequestIdentity,
         analytics: analytics::Analytics,
@@ -102,6 +105,8 @@ impl AppState {
         let store = host.storage.clone();
         Ok(Arc::new(Self {
             identity,
+            personal_workspace: false,
+            github_origin: url::Url::parse("https://api.github.com/")?,
             host,
             accounts: account::Accounts::new(store.clone()),
             google_sign_in: Arc::new(google_sign_in::GoogleSignIn::new()?),
@@ -117,6 +122,24 @@ impl AppState {
             analytics,
             diff_cache: Arc::new(std::sync::Mutex::new(review::DiffCache::default())),
         }))
+    }
+
+    pub(crate) fn authorize_subscription(
+        &self,
+        login: &agent_login::AgentLogin,
+        engine: &str,
+    ) -> Result<()> {
+        self.identity.ensure_current()?;
+        if self.identity.is_legacy() {
+            return Ok(());
+        }
+        anyhow::ensure!(self.personal_workspace, "Connect a personal AI provider before starting work");
+        anyhow::ensure!(
+            matches!(login, agent_login::AgentLogin::Account(id) if self.identity.account_id().ok() == Some(id.as_str()))
+                && matches!(engine, "claude" | "claude-code" | "codex"),
+            "This workspace uses only your own Claude Code or Codex sign-in"
+        );
+        Ok(())
     }
 }
 pub fn encode_component(s: &str) -> String {

@@ -9,6 +9,18 @@ const MAX_LIST_READ_BYTES: usize = 8 * 1024 * 1024;
 const MAX_LIST_BYTES: usize = 1024 * 1024;
 const MAX_ENTRIES: usize = 1024;
 
+// The Worker cannot read the curated directory. Bundle the same shipped skills rather
+// than silently offering an empty catalog or reading an account's CLI home.
+#[cfg(any(target_arch = "wasm32", test))]
+const SHIPPED: &[(&str, &str)] = &[
+    ("android-compose", include_str!("../../../docker/agents/skills/android-compose/SKILL.md")),
+    ("api-and-contracts", include_str!("../../../docker/agents/skills/api-and-contracts/SKILL.md")),
+    ("correctness", include_str!("../../../docker/agents/skills/correctness/SKILL.md")),
+    ("performance", include_str!("../../../docker/agents/skills/performance/SKILL.md")),
+    ("security", include_str!("../../../docker/agents/skills/security/SKILL.md")),
+    ("tests", include_str!("../../../docker/agents/skills/tests/SKILL.md")),
+];
+
 fn valid_name(name: &str) -> bool {
     let word = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b == b'-';
     name.as_bytes().first().is_some_and(|b| word(*b)) && name.bytes().all(|b| word(b) || b == b'.')
@@ -164,6 +176,7 @@ fn instructions(body: &str) -> Option<String> {
 /// be stripped with the original plain-field parser; overlong bodies MUST retain
 /// the newline and [truncated] marker at a valid Unicode boundary within 30,000
 /// UTF-16 units (packages/cli/src/lenses.ts; Tavi's 16 Oct 2026 parity request).
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn get(root: &Path, name: &str) -> Result<Option<String>> {
     if !valid_name(name) {
         return Ok(None);
@@ -174,11 +187,17 @@ pub(super) fn get(root: &Path, name: &str) -> Result<Option<String>> {
     Ok(read_skill(&root, name)?.and_then(|text| instructions(parse_skill(&text).1)))
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(super) fn get(_: &Path, name: &str) -> Result<Option<String>> {
+    Ok(SHIPPED.iter().find(|(key, _)| *key == name).and_then(|(_, text)| instructions(parse_skill(text).1)))
+}
+
 /// @cc [owner:OctavianTocan,label:architecture] rust-lens-catalog-preserves-metadata
 /// Within the read/output limits, each skill MUST retain its top-level title (or folder-name
 /// fallback) and nonempty description, even when its body is empty. The current
 /// curated titles MUST sort in the original display order; enumeration and output
 /// MUST be bounded (packages/cli/src/lenses.ts; Tavi's 16 Oct 2026 parity request).
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) fn list(root: &Path) -> Result<Value> {
     let Ok(root) = root.canonicalize() else {
         return Ok(json!([]));
@@ -219,6 +238,24 @@ pub(super) fn list(root: &Path) -> Result<Value> {
         }
         out.push(lens);
     }
+    finish_catalog(out)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(super) fn list(_: &Path) -> Result<Value> {
+    let mut out = Vec::new();
+    for (name, text) in SHIPPED {
+        let (fields, _) = parse_skill(text);
+        let mut lens = json!({"name":name,"title":fields.get("title").filter(|v| !v.is_empty()).map(String::as_str).unwrap_or(name)});
+        if let Some(description) = fields.get("description").filter(|v| !v.is_empty()) {
+            lens["description"] = json!(description);
+        }
+        out.push(lens);
+    }
+    finish_catalog(out)
+}
+
+fn finish_catalog(mut out: Vec<Value>) -> Result<Value> {
     // The shipped ASCII titles match localeCompare's order. Arbitrary Unicode
     // locale collation needs an ICU dependency; use deterministic case-folded
     // ordering here, with lowercase before uppercase and folder name for ties.

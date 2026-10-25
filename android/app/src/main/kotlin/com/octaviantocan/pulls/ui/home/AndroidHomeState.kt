@@ -13,8 +13,7 @@ import com.octaviantocan.pulls.data.Account
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoIdentity
-import com.octaviantocan.pulls.data.ServerStore
-import com.octaviantocan.pulls.data.sourceStorageNamespace
+import com.octaviantocan.pulls.data.nativeStorageNamespace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -22,11 +21,7 @@ import kotlinx.coroutines.launch
 internal fun deviceStore(context: Context, name: String = "pulls-home"): KeyValueStore {
     val app = context.applicationContext
     Account.load(app)
-    val config = ServerStore.load(app)
-    val namespace = sourceStorageNamespace(
-        config.url, Account.email,
-        Account.serverHasAccount != false && Account.headers(app).isNotEmpty(), config.headers(),
-    )
+    val namespace = nativeStorageNamespace(app)
     val epoch = RepoIdentity.generation
     val prefs = app.getSharedPreferences("$name-source-v2-${namespace ?: "invalid"}", Context.MODE_PRIVATE)
     val store = object : KeyValueStore {

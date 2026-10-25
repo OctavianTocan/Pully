@@ -91,7 +91,7 @@ import kotlinx.serialization.json.contentOrNull
 
 /** Per-engine model memory, so switching engines back restores the model (the web keeps `claudeCodeModel` and `codexModel`). */
 internal class EngineModels(context: Context) {
-    private val prefs = context.getSharedPreferences("pulls-settings-ui", Context.MODE_PRIVATE)
+    private val prefs = context.getSharedPreferences(com.octaviantocan.pulls.data.NativeWorkspaceBinding.active?.let { "pulls-settings-ui-workspace-${it.namespace}" } ?: "pulls-settings-ui", Context.MODE_PRIVATE)
     fun model(engine: String): String? = prefs.getString("model:$engine", null)
     fun setModel(engine: String, id: String) = prefs.edit().putString("model:$engine", id).apply()
 }

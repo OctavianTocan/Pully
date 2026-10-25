@@ -119,24 +119,39 @@ fun PullsApp(initialTarget: String?, initialAIResult: String? = null) {
 }
 
 @Composable
-private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.GuestSource, initialTarget: String?, accountRequest: GitHubAccountRequest, onExistingAccount: () -> Unit) {
+internal fun GuestPullsApp(
+    navigation: AppNavigation,
+    source: NativeEntryState.GuestSource,
+    initialTarget: String?,
+    accountRequest: GitHubAccountRequest,
+    onExistingAccount: () -> Unit,
+    runtime: (Context, kotlinx.coroutines.CoroutineScope, () -> Boolean, () -> Unit) -> com.octaviantocan.pulls.data.PersonalAccountRuntime =
+        com.octaviantocan.pulls.data.personal.PersonalAccounts::runtime,
+    onPrivateResume: (Context, kotlinx.coroutines.CoroutineScope) -> Unit = ::resumePrivateServices,
+    publicTransport: com.octaviantocan.pulls.data.RpcTransport = JvmRpcTransport(),
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val session = remember { GuestBrowseSession(JvmRpcTransport(), scope, source, navigation) }
+    val session = remember { GuestBrowseSession(publicTransport, scope, source, navigation) }
     val personal = remember {
-        com.octaviantocan.pulls.data.personal.PersonalAccounts.runtime(context, scope, { source.current }) {
+        runtime(context, scope, { source.current }) {
             Commands.close()
             accountRequest.clear()
             NativeEntry.get(context).renewExplore()
             navigation.reset(Screen.Explore)
         }
     }
+    // Source retirement clears private owners synchronously, before Compose can publish a replacement.
+    DisposableEffect(personal, source) {
+        val stop = source.onRetired(personal::close)
+        onDispose { stop() }
+    }
     val personalBrowse = remember { PersonalBrowseMount(personal, scope, source, navigation) }
     val homeActions = com.octaviantocan.pulls.ui.home.rememberAndroidNativeHomeActions()
     val publicReview = remember(homeActions) {
         com.octaviantocan.pulls.ui.review.PublicReviewFrame(
-            JvmRpcTransport(), scope, com.octaviantocan.pulls.data.AppSettings.get(context), homeActions,
+            publicTransport, scope, com.octaviantocan.pulls.data.AppSettings.get(context), homeActions,
             com.octaviantocan.pulls.ui.review.AndroidReviewFrameBack, current = { session.current }, nowMillis = System::currentTimeMillis,
         )
     }
@@ -155,6 +170,7 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         val available = personal.verifyStorage()
         personalBrowse.foreground(true, available)
+        com.octaviantocan.pulls.data.NativeWorkspaceBinding.active?.syncForeground()
         session.foreground()
         if (available) personal.restore()
         accountRequest.deliver(githubAccountEntry)
@@ -162,6 +178,33 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) { personalBrowse.foreground(false) }
     LaunchedEffect(accountRequest.hasPending, githubAccountEntry) { accountRequest.deliver(githubAccountEntry) }
     val personalView by personal.view.collectAsState()
+    var exploring by remember(personal) { mutableStateOf(false) }
+    val workspace = personalView.account?.let { personal.workspaceOwner() }
+    if (workspace != null && !exploring) {
+        key(workspace) {
+            val binding = remember(workspace) {
+                com.octaviantocan.pulls.data.NativeWorkspaceBinding.mount(context, workspace) {
+                    personal.signOut()
+                    if (personal.view.value.account != null) throw com.octaviantocan.pulls.data.PersonalAuthError(com.octaviantocan.pulls.data.PersonalAuthProblem.Unavailable)
+                }.also {
+                    Commands.close()
+                    val pending = navigation.stack.filter { it is Screen.Review || it is Screen.Repo || it == Screen.Settings }
+                    navigation.reset(Screen.Home)
+                    navigation.stack.addAll(pending)
+                }
+            }
+            val stopRoutes = remember(workspace) {
+                workspace.onRetired {
+                    Commands.close()
+                    navigation.reset(Screen.Explore)
+                }
+            }
+            DisposableEffect(binding) { onDispose { stopRoutes(); binding.close() } }
+            PrivatePullsApp(navigation, initialTarget, onExplore = { exploring = true; navigation.reset(Screen.Explore) },
+                onGitHubAccount = { personalBrowse.openAccount() }, workspace = personal, onResume = onPrivateResume)
+        }
+        return
+    }
     val toaster = remember { Toaster() }
     val motion = remember { PageMotion() }
     var leaving by remember { mutableStateOf(false) }
@@ -211,7 +254,7 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
         val openGitHub = rememberOpenOnGithub()
         Box(Modifier.fillMaxSize().themeWipe().background(LocalPullsColors.current.base)) {
             GuestPages(navigation, motion, session, onExistingAccount, openGitHub,
-                onGitHubSignIn = { githubAccountEntry.open() },
+                onGitHubSignIn = { if (workspace != null) exploring = false else githubAccountEntry.open() },
                 onCommands = { Commands.open() }, githubAccount = personalView.account?.login, personal = personalBrowse,
                 publicReview = publicReview,
                 links = { com.octaviantocan.pulls.ui.settings.GithubLinksPrompt() },
@@ -231,8 +274,15 @@ private fun GuestPullsApp(navigation: AppNavigation, source: NativeEntryState.Gu
     }
 }
 
+private fun resumePrivateServices(context: Context, scope: kotlinx.coroutines.CoroutineScope) {
+    Updates.restore(context)
+    Updates.resume(context)
+    scope.launch { Updates.check(context) }
+    com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
+}
+
 @Composable
-private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit, onGitHubAccount: () -> Unit) {
+private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, onExplore: () -> Unit, onGitHubAccount: () -> Unit, workspace: com.octaviantocan.pulls.data.PersonalAccountRuntime? = null, onResume: (Context, kotlinx.coroutines.CoroutineScope) -> Unit = ::resumePrivateServices) {
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val githubSource = com.octaviantocan.pulls.data.RepoIdentity.generation
@@ -242,14 +292,14 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
     // waiting on "Install unknown apps" carries on once that is allowed.
     val scope = rememberCoroutineScope()
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        Updates.restore(context)
-        Updates.resume(context)
-        scope.launch { Updates.check(context) }
-        com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
+        onResume(context, scope)
     }
     // Whether the server has an account and this phone's session still works, on start and on every return.
     remember { com.octaviantocan.pulls.data.Account.load(context) }
-    LifecycleEventEffect(Lifecycle.Event.ON_START) { com.octaviantocan.pulls.data.AiWork.foreground(context) }
+    LifecycleEventEffect(Lifecycle.Event.ON_START) {
+        // GitHub observation starts at NativeWorkspaceBinding's admitted transport boundary.
+        if (workspace == null) com.octaviantocan.pulls.data.AiWork.foreground(context)
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { com.octaviantocan.pulls.data.AiWork.background() }
     val appLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(com.octaviantocan.pulls.data.Account.email, com.octaviantocan.pulls.data.Account.mustSignIn) {
@@ -257,9 +307,10 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             com.octaviantocan.pulls.data.AiWork.clear(context)
             com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         }
-        else if (appLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) com.octaviantocan.pulls.data.AiWork.foreground(context)
+        else if (workspace == null && appLifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) com.octaviantocan.pulls.data.AiWork.foreground(context)
     }
-    AccountCheck()
+    if (workspace == null) AccountCheck()
+    else LaunchedEffect(workspace) { com.octaviantocan.pulls.data.SettingsSync.sync(context) }
     // After an update, what changed opens once, over whatever page Pully opened on.
     var whatsNew by remember { mutableStateOf(WhatsNew.pending(context)) }
     LaunchedEffect(Unit) { if (whatsNew.isNotEmpty()) Analytics.track("update.event", "step" to "whatsnew", "version" to AppVersion.name(context)) }
@@ -382,10 +433,10 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
                 }
             }
             FootBarLayer(footBars, Modifier.align(Alignment.BottomCenter))
-            if (stack.last() == Screen.Settings) SettingsScreen(nav, onGitHubAccount = {
+            if (stack.last() == Screen.Settings) SettingsScreen(nav, onGitHubAccount = if (workspace != null) null else ({
                 if (githubSource == com.octaviantocan.pulls.data.RepoIdentity.generation &&
                     lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) && stack.lastOrNull() == Screen.Settings) onGitHubAccount()
-            })
+            }))
             themePicker?.let { picker -> ColorThemeSheet(picker) { if (themePicker === picker) themePicker = null } }
             if (feedback) com.octaviantocan.pulls.ui.settings.FeedbackSheet(onClose = { feedback = false })
             if (whatsNew.isNotEmpty()) WhatsNewSheet(whatsNew, onClose = { WhatsNew.markSeen(context); whatsNew = emptyList() })
@@ -398,7 +449,7 @@ private fun PrivatePullsApp(navigation: AppNavigation, initialTarget: String?, o
             // A newer build is not optional: while the server offers one, its screen covers the app. Back leaves Pully.
             UpdateGate(onLeave = { context.findActivity()?.moveTaskToBack(true) })
             // On a server with an account, a phone not signed in to it signs in first; once signed in it stays (plan 13).
-            if (Updates.available == null) {
+            if (Updates.available == null && workspace == null) {
                 ConnectionSetupGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
                 SignInGate(onLeave = { context.findActivity()?.moveTaskToBack(true) }, onExplore = onExplore)
             }

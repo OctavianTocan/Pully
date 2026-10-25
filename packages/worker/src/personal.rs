@@ -3,11 +3,12 @@
 //! read a personal account's sign-in or data, and each personal account's records are a scope of
 //! their own.
 
-use crate::{answer, failed, PART};
+use crate::{agent, answer, failed, PART};
 use pulls_review_server::{
     public_server::{hosted_router, HostedPersonal},
     store::{Records, Store},
 };
+use send_wrapper::SendWrapper;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::OnceCell;
 use worker::{durable_object, Env, Request, Response, Result, SqlStorage, SqlStorageValue, State};
@@ -15,7 +16,9 @@ use worker::{durable_object, Env, Request, Response, Result, SqlStorage, SqlStor
 /// Whether the public/personal object answers `path`. The native public listener serves only
 /// these two families; everything else is the legacy server's.
 pub(crate) fn serves(path: &str) -> bool {
-    path.starts_with("/api/public/") || path.starts_with("/api/personal/")
+    path.starts_with("/api/public/")
+        || path.starts_with("/api/personal/")
+        || path.starts_with("/workspace/")
 }
 
 /// The GitHub sign-in Pully uses: the GitHub CLI's device flow (Tavi, 23 Oct 2026 13:36,
@@ -33,6 +36,17 @@ pub struct PersonalServer {
 
 impl worker::DurableObject for PersonalServer {
     fn new(state: State, env: Env) -> Self {
+        // PersonalServer may be the first object in this isolate. Its workspace uses
+        // exactly the same own-login container remote, never a local wasm process.
+        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
+            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
+        }));
+        let mut variables: std::collections::BTreeMap<_, _> =
+            pulls_review_server::rt::env::vars().into_iter().collect();
+        if let Ok(value) = env.var("PULLS_REVIEW_ANALYTICS") {
+            variables.insert("PULLS_REVIEW_ANALYTICS".into(), value.to_string());
+        }
+        pulls_review_server::rt::env::set(variables);
         let vault_keys = env
             .secret("PULLY_PERSONAL_VAULT_KEYS")
             .ok()
@@ -164,11 +178,17 @@ impl Records for ScopedRecords {
         Ok(cursor.rows_written() > 0)
     }
     fn ids(&self) -> anyhow::Result<Vec<String>> {
+        self.ids_with_prefix("")
+    }
+    fn ids_with_prefix(&self, prefix: &str) -> anyhow::Result<Vec<String>> {
+        // Store ids are ASCII-encoded. A bound above every encoded suffix keeps the
+        // primary-key range literal, including '%' and '_', without a LIKE table scan.
+        let end = format!("{prefix}\u{7f}");
         let cursor = self
             .sql
             .exec(
-                "SELECT DISTINCT id FROM scoped_records WHERE scope = ?",
-                vec![self.scope.as_str().into()],
+                "SELECT DISTINCT id FROM scoped_records WHERE scope = ? AND id >= ? AND id < ? ORDER BY id",
+                vec![self.scope.as_str().into(), prefix.into(), end.as_str().into()],
             )
             .map_err(failed)?;
         let mut ids = Vec::new();

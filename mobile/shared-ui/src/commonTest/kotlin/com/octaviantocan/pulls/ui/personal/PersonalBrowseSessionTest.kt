@@ -589,6 +589,7 @@ class PersonalBrowseSessionTest {
         var onRecovery: ((PersonalAuthProblem) -> Unit)? = null
         val recoveries = mutableListOf<PersonalAuthProblem>()
         var onRead: (suspend (RpcRequest) -> RpcResponse)? = null
+        var onWorkspace: (suspend (RpcRequest) -> RpcResponse)? = null
         private val storage = object : PersonalSessionBlobStorage {
             private var bytes: ByteArray? = null
             override fun read(): ByteArray? = bytes?.copyOf()
@@ -623,6 +624,7 @@ class PersonalBrowseSessionTest {
             { 1200 + scope.testScheduler.currentTime / 1000 }, { true }, {}, RpcTransport { request ->
                 requests += request
                 when {
+                    "/workspace/" in request.url -> requireNotNull(onWorkspace).invoke(request)
                     "/v1/github/" in request.url && !request.url.endsWith("/disconnect") -> onRead?.invoke(request) ?: defaultRead(request)
                     request.url.endsWith("/capabilities") -> json("""{"github":{"enabled":true}}""")
                     request.url.endsWith("/start") -> {

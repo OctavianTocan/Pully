@@ -15,9 +15,20 @@ object PersonalAccounts {
     private var vault: PersonalSessionVault? = null
     private val cleanup = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    fun runtime(context: Context, scope: CoroutineScope, isCurrent: () -> Boolean, onIdentityChanged: () -> Unit): PersonalAccountRuntime {
-        val store = vault ?: PersonalSessionVault(PersonalSecureStorage(context.applicationContext)).also { vault = it }
+    private fun store(context: Context): PersonalSessionVault = vault ?:
+        PersonalSessionVault(PersonalSecureStorage(context.applicationContext)).also { vault = it }
+
+    /** Local preferences only: a saved record never verifies a profile or authorizes a request. */
+    fun settingsNamespace(context: Context): String? = try {
         val origin = BuildConfig.PERSONAL_AUTH_ORIGIN.takeIf { it.isNotEmpty() }?.let { PersonalAuthOrigin.parse(it) }
-        return PersonalAccountRuntime(origin, store, scope, cleanup, { Instant.now().epochSecond }, isCurrent, onIdentityChanged)
+        // Workers must not share the UI-confined mutable runtime vault. Read one independent local snapshot.
+        origin?.let { savedAccountSettingsNamespace(it, PersonalSessionVault(PersonalSecureStorage(context.applicationContext))) }
+    } catch (_: Exception) { null }
+
+    fun runtime(context: Context, scope: CoroutineScope, isCurrent: () -> Boolean, onIdentityChanged: () -> Unit): PersonalAccountRuntime {
+        val store = store(context)
+        val origin = BuildConfig.PERSONAL_AUTH_ORIGIN.takeIf { it.isNotEmpty() }?.let { PersonalAuthOrigin.parse(it) }
+        return PersonalAccountRuntime(origin, store, scope, cleanup, { Instant.now().epochSecond }, isCurrent, onIdentityChanged,
+            workspaceHeaders = { server -> com.octaviantocan.pulls.data.ServerStore.bakedHeaders(server, "/workspace/api/rpc") })
     }
 }

@@ -37,6 +37,7 @@ fun <T> withUpdateConnection(
     location: String,
     headers: Map<String, String>,
     timeouts: UpdateTimeouts = UpdateTimeouts(),
+    headersForUrl: (URL) -> Map<String, String> = { headers },
     read: (HttpURLConnection) -> T,
 ): T {
     val current = AtomicReference<HttpURLConnection?>()
@@ -46,7 +47,7 @@ fun <T> withUpdateConnection(
         current.get()?.disconnect()
     }, timeouts.totalMs, TimeUnit.MILLISECONDS)
     try {
-        val connection = openUpdateConnection(server, location, headers, timeouts) {
+        val connection = openUpdateConnection(server, location, headers, timeouts, headersForUrl) {
             current.set(it)
             if (timedOut.get()) throw SocketTimeoutException("Update request timed out.")
         }
@@ -62,16 +63,25 @@ fun <T> withUpdateConnection(
     }
 }
 
-private fun openUpdateConnection(server: String, location: String, headers: Map<String, String>, timeouts: UpdateTimeouts, opened: (HttpURLConnection) -> Unit): HttpURLConnection {
+private fun openUpdateConnection(
+    server: String,
+    location: String,
+    headers: Map<String, String>,
+    timeouts: UpdateTimeouts,
+    headersForUrl: (URL) -> Map<String, String> = { headers },
+    opened: (HttpURLConnection) -> Unit,
+): HttpURLConnection {
     var url = updateUrl(server, location)
     repeat(6) { attempt ->
+        // Resolve credentials afresh before opening each hop; never reuse a previous hop's baked headers.
+        val requestHeaders = headersForUrl(url)
         val connection = (url.openConnection() as HttpURLConnection).apply {
             connectTimeout = timeouts.connectMs
             readTimeout = timeouts.readMs
             useCaches = false
             setRequestProperty("Cache-Control", "no-cache")
             instanceFollowRedirects = false
-            headers.forEach { (name, value) -> setRequestProperty(name, value) }
+            requestHeaders.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         var handedOff = false
         try {
