@@ -10,7 +10,7 @@ sealed interface Screen {
     data object Home : Screen
     data object Explore : Screen
     data class PublicRepo(val repository: ExploreRepository) : Screen
-    data class PersonalPulls(val relation: PersonalPullRelation = PersonalPullRelation.ReviewRequested) : Screen
+    data class PersonalPulls(val relation: PersonalPullRelation = PersonalPullRelation.ReviewRequested, val home: Boolean = false) : Screen
     class PersonalRepositories : Screen
     data class PersonalRepo(val repository: PersonalRepository) : Screen
     data class Repo(val owner: String, val repo: String, val tours: Boolean = false) : Screen

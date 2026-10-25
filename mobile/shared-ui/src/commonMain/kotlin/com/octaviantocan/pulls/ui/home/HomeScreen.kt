@@ -481,13 +481,14 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
 
 /** `.hdr`: settings, the Inbox/Tours capsule, and the profile avatar, floating over the page. */
 @Composable
-fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit, position: (() -> Float)? = null) {
+fun InboxHeader(tab: Int, onTab: (Int) -> Unit, viewer: String?, onSettings: () -> Unit, onProfile: () -> Unit, position: (() -> Float)? = null, onRepositories: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FloatIcon(Lu.cog, "Settings", onSettings)
+        if (onRepositories == null) FloatIcon(Lu.cog, "Settings", onSettings)
+        else FloatIcon(Lu.list, t("personalBrowse.repositories"), onRepositories)
         CapsuleTabs(listOf("Inbox", "Tours"), tab, onTab, Modifier.weight(1f), position = position)
         Box(
             Modifier.size(44.dp).clip(CircleShape).cueClickable(role = Role.Button, onClickLabel = "Profile", onClick = onProfile),
@@ -601,6 +602,7 @@ fun InboxList(
     /** A stack's row was tapped or held: its layers, bottom first, for the Stack sheet (rule 202). */
     onStack: (List<PullRow>) -> Unit = {},
     onSettings: (() -> Unit)? = null,
+    footer: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 100.dp
@@ -730,6 +732,7 @@ fun InboxList(
                     }
                 }
             }
+            footer?.let { content -> item(key = "footer") { content() } }
         }
         }
     }

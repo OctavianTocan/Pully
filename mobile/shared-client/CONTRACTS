@@ -230,3 +230,9 @@ probe MUST retain the existing vault format/cache and check its current source b
 and after native reading; its host MUST supply actual foreground admission before
 new account actions. Source: Tavi's 22 Oct 2026 visible native GitHub-entry request
 and accepted fixed-intent/secure-admission boundary.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-pr-numbers-fit-native-targets
+Personal inventory PR numbers MUST be positive integers within the native target's
+signed 32-bit range before publication to shared Inbox rows. An out-of-range number
+MUST produce the fixed invalid-response category rather than wrap into another PR.
+Source: the shared OpenTarget/PullRow number types and Tavi's 25 Oct 2026 personal Home request.

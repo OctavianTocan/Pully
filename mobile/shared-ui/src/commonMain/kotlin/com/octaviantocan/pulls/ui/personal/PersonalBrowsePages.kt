@@ -40,7 +40,8 @@ import com.octaviantocan.pulls.ui.design.t
 /** A renderer for the host's existing AppPages, with no separate route stack or private workspace. */
 @Composable
 fun PersonalBrowsePages(session: PersonalBrowseSession, screen: Screen, onBack: () -> Unit,
-    onOpenGitHub: (String) -> Unit, onPrivateConsent: (() -> Unit)?) {
+    onOpenGitHub: (String) -> Unit, onPrivateConsent: (() -> Unit)?,
+    onAccount: () -> Unit = {}, onRepositories: () -> Unit = {}, onWorkspace: () -> Unit = {}, onCommands: () -> Unit = {}) {
     SideEffect { session.keepRoutes() }
     if (!session.admits(screen)) return
     DisposableEffect(session, screen) {
@@ -49,7 +50,9 @@ fun PersonalBrowsePages(session: PersonalBrowseSession, screen: Screen, onBack: 
     }
     when (screen) {
         is Screen.PersonalRepositories -> Repositories(session, screen, onBack, onPrivateConsent)
-        is Screen.PersonalPulls, is Screen.PersonalRepo -> Pulls(session, screen, onBack, onOpenGitHub, onPrivateConsent)
+        is Screen.PersonalPulls -> if (screen.home) PersonalHomeScreen(session, screen, onAccount, onRepositories, onWorkspace, onCommands, onOpenGitHub)
+            else Pulls(session, screen, onBack, onOpenGitHub, onPrivateConsent)
+        is Screen.PersonalRepo -> Pulls(session, screen, onBack, onOpenGitHub, onPrivateConsent)
         else -> Unit
     }
 }
@@ -121,7 +124,7 @@ private fun PersonalHeading(session: PersonalBrowseSession, screen: Screen, titl
 }
 
 @Composable
-private fun <T> PersonalStatus(state: PersonalListState<T>, emptyKey: String) {
+internal fun <T> PersonalStatus(state: PersonalListState<T>, emptyKey: String) {
     val colors = LocalPullsColors.current
     Column(Modifier.padding(PullsSpace.x4), verticalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
         when {

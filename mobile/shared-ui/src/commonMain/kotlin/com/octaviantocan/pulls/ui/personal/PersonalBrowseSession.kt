@@ -63,7 +63,8 @@ class PersonalListState<T> internal constructor(
     fun retry() { if (!loading) load(attemptedPage, quiet = hasLoaded && attemptedPage == 1) }
     fun loadMore() { if (!loading) nextPage?.let { load(it) } }
     fun runIfCurrent(action: () -> Unit) { if (valid && eligible()) action() }
-    fun open(row: T, action: (T) -> Unit) { if (valid && eligible() && rows.any { it === row }) action(row) }
+    internal fun ownsRow(row: T): Boolean = valid && eligible() && rows.any { it === row }
+    fun open(row: T, action: (T) -> Unit) { if (ownsRow(row)) action(row) }
 
     private fun load(page: Int, quiet: Boolean = false) {
         if (!valid || !eligible()) return
@@ -124,6 +125,7 @@ class PersonalBrowseSession(
     private var inForeground = false
     private val lifetime = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + lifetime)
+    val login = account.view.value.account?.login
     private val public = account.personalReads()
     private val personal = account.accountReads()
     private val access = public?.let { PersonalBrowseAccess(it, personal) }
@@ -158,7 +160,13 @@ class PersonalBrowseSession(
         var retired = false
             private set
         private fun owns() = !retired && admits(screen) && navigation.stack.any { it === screen }
-        private fun eligible() = owns() && inForeground && navigation.stack.lastOrNull() === screen
+        var homeTab by mutableStateOf(0)
+        var homeQuery by mutableStateOf("")
+            private set
+        var homeFolded by mutableStateOf(emptySet<String>())
+            private set
+        private fun eligible() = owns() && inForeground && navigation.stack.lastOrNull() === screen &&
+            (!(screen is Screen.PersonalPulls && screen.home) || homeTab == 0)
         var leases = 0
         var relation by mutableStateOf((screen as? Screen.PersonalPulls)?.relation ?: PersonalPullRelation.ReviewRequested)
             private set
@@ -181,9 +189,19 @@ class PersonalBrowseSession(
             pulls?.pause()
             relation = next
         }
+        fun updateHomeQuery(query: String) {
+            if (screen is Screen.PersonalPulls && screen.home && eligible()) homeQuery = query
+        }
+        fun toggleHomeFold(key: String) {
+            if (screen is Screen.PersonalPulls && screen.home && eligible())
+                homeFolded = if (key in homeFolded) homeFolded - key else homeFolded + key
+        }
         fun foreground() { repositories?.foreground(); pulls?.foreground() }
         fun pause() { repositories?.pause(); repositoryPulls?.pause(); relationPages.values.forEach { it.pause() } }
-        fun close() { retired = true; repositories?.close(); repositoryPulls?.close(); relationPages.values.forEach { it.close() }; relationPages.clear() }
+        fun close() {
+            retired = true; homeQuery = ""; homeFolded = emptySet()
+            repositories?.close(); repositoryPulls?.close(); relationPages.values.forEach { it.close() }; relationPages.clear()
+        }
     }
 
     /** The native owner invokes this synchronously, including inactive/pause before deferred UI writes. */
@@ -213,6 +231,19 @@ class PersonalBrowseSession(
                     capabilityProblem = (error as? PersonalReadError)?.problem ?: PersonalReadProblem.Unavailable
             } finally { if (capabilityRevision == attempt) capabilityRequest = null }
         }
+    }
+
+    fun openHome() {
+        if (!current || !inForeground || !privateEnabled) return
+        val existing = routes.filterIsInstance<Screen.PersonalPulls>().firstOrNull { it.home && admits(it) }
+        val home = existing ?: Screen.PersonalPulls(PersonalPullRelation.Involved, home = true).also(routes::add)
+        navigation.reset(home)
+        keepRoutes()
+    }
+    fun openExplore() {
+        if (!current || !inForeground) return
+        navigation.reset(Screen.Explore)
+        keepRoutes()
     }
 
     fun openPulls(relation: PersonalPullRelation = PersonalPullRelation.ReviewRequested) {
@@ -245,6 +276,19 @@ class PersonalBrowseSession(
     }
 
     fun repositories(screen: Screen.PersonalRepositories): PersonalListState<PersonalRepository> = requireNotNull(page(screen).repositories)
+    fun homeQuery(screen: Screen.PersonalPulls): String = page(screen).homeQuery
+    fun setHomeQuery(screen: Screen.PersonalPulls, query: String) { page(screen).updateHomeQuery(query) }
+    fun homeFolded(screen: Screen.PersonalPulls): Set<String> = page(screen).homeFolded
+    fun toggleHomeFold(screen: Screen.PersonalPulls, key: String) { page(screen).toggleHomeFold(key) }
+    fun homeTab(screen: Screen.PersonalPulls): Int = page(screen).homeTab
+    fun selectHomeTab(screen: Screen.PersonalPulls, tab: Int) {
+        if (!screen.home || tab !in 0..1 || !admits(screen) || !inForeground || navigation.stack.lastOrNull() !== screen) return
+        val page = page(screen)
+        if (page.homeTab == tab) return
+        page.pause()
+        page.homeTab = tab
+        if (tab == 0) page.foreground()
+    }
     fun relation(screen: Screen.PersonalPulls): PersonalPullRelation = page(screen).relation
     fun selectRelation(screen: Screen.PersonalPulls, relation: PersonalPullRelation) {
         if (admits(screen) && inForeground && navigation.stack.lastOrNull() === screen) page(screen).selectRelation(relation)
@@ -277,6 +321,7 @@ class PersonalBrowseSession(
         pages.forEach { it.close() }; pages.clear()
         navigation.stack.removeAll { screen -> routes.any { it === screen } }
         routes.clear()
+        if (navigation.stack.isEmpty()) navigation.reset(Screen.Explore)
         scope.cancel()
     }
 }

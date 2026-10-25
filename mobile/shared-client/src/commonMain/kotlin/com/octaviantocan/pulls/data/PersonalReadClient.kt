@@ -262,7 +262,7 @@ private fun accountPull(value: JsonObject, repository: PersonalRepository): Pers
 }
 
 private fun pull(value: JsonObject, repository: ExploreRepository): PersonalPull {
-    val number = value.number("number", positive = true)
+    val number = value.number("number", positive = true).takeIf { it <= Int.MAX_VALUE } ?: invalidRead()
     if (value.string("url") != "${repository.url}/pull/$number") invalidRead()
     return PersonalPull(repository, number, value.string("title").bounded(512), value.optionalString("author")?.bounded(128),
         value.bool("draft"), value.string("createdAt").bounded(64), value.string("updatedAt").bounded(64))

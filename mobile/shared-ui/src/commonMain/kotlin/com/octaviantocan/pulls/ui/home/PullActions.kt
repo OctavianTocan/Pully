@@ -44,13 +44,14 @@ fun PullActionsSheet(
     onRepo: () -> Unit,
     onArchive: (() -> Unit)?,
     onClose: () -> Unit,
+    current: () -> Boolean = { true },
 ) {
     val c = LocalPullsColors.current
-    val github = LocalHomeScreenServices.current.native::openOnGithub
-    val native = LocalHomeScreenServices.current.native
+    val github = LocalNativeHomeActions.current::openOnGithub
+    val native = LocalNativeHomeActions.current
     val toaster = LocalToaster.current
     val link = pull.url.ifBlank { "https://github.com/${pull.owner}/${pull.repo}/pull/${pull.number}" }
-    fun then(action: () -> Unit): () -> Unit = { action(); onClose() }
+    fun then(action: () -> Unit): () -> Unit = { if (current()) { action(); onClose() } }
     PullsSheet(onClose, "#${pull.number}") {
         PullSummary(pull)
         SheetHeading("Pully")
@@ -103,7 +104,7 @@ fun TourActionsSheet(
     onClose: () -> Unit,
 ) {
     val c = LocalPullsColors.current
-    val native = LocalHomeScreenServices.current.native
+    val native = LocalNativeHomeActions.current
     val toaster = LocalToaster.current
     fun then(action: () -> Unit): () -> Unit = { action(); onClose() }
     PullsSheet(onClose, "#${entry.number}") {

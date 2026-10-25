@@ -30,6 +30,157 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PersonalBrowseSessionTest {
     @Test
+    fun homeSearchAndFoldsSurviveRendererDisposalAndTheRepositoryRoundTrip() = runTest {
+        val h = Harness(this)
+        h.verify(private = true)
+        val browse = h.browse()
+        try {
+            browse.foreground(true); browse.openHome()
+            val home = h.navigation.stack.single() as Screen.PersonalPulls
+            assertEquals("", browse.homeQuery(home))
+            assertTrue(browse.homeFolded(home).isEmpty())
+            browse.retain(home)
+            browse.setHomeQuery(home, "acme/editor")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            browse.selectRelation(home, PersonalPullRelation.Authored)
+
+            browse.openRepositories()
+            browse.release(home)
+            val repositories = h.navigation.stack.last() as Screen.PersonalRepositories
+            browse.repositories(repositories).start(); runCurrent()
+            assertTrue(browse.repositories(repositories).hasLoaded)
+            browse.setHomeQuery(home, "covered callback")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+
+            h.navigation.nav.back(); browse.keepRoutes()
+            assertSame(home, h.navigation.stack.single())
+            assertEquals(PersonalPullRelation.Authored, browse.relation(home))
+            assertEquals("acme/editor", browse.homeQuery(home))
+            assertEquals(setOf("repo:acme/editor"), browse.homeFolded(home))
+
+            browse.foreground(false)
+            browse.setHomeQuery(home, "background callback")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            browse.foreground(true)
+            assertEquals("acme/editor", browse.homeQuery(home))
+            assertEquals(setOf("repo:acme/editor"), browse.homeFolded(home))
+            browse.selectHomeTab(home, 1)
+            browse.setHomeQuery(home, "hidden Inbox callback")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            browse.selectHomeTab(home, 0)
+            assertEquals("acme/editor", browse.homeQuery(home))
+            assertEquals(setOf("repo:acme/editor"), browse.homeFolded(home))
+            browse.setHomeQuery(home, "Review 7")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            assertEquals("Review 7", browse.homeQuery(home))
+            assertTrue(browse.homeFolded(home).isEmpty())
+        } finally { browse.close(); h.runtime.close() }
+    }
+
+    @Test
+    fun retiringHomeClearsSearchAndFoldsBeforeItsRendererLeaseEnds() = runTest {
+        val h = Harness(this)
+        h.verify(private = true)
+        val browse = h.browse()
+        try {
+            browse.foreground(true); browse.openHome()
+            val home = h.navigation.stack.single() as Screen.PersonalPulls
+            browse.setHomeQuery(home, "private query")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            browse.retain(home)
+            browse.openExplore()
+            assertEquals("", browse.homeQuery(home))
+            assertTrue(browse.homeFolded(home).isEmpty())
+
+            h.navigation.stack.add(home)
+            browse.setHomeQuery(home, "retired callback")
+            browse.toggleHomeFold(home, "repo:acme/editor")
+            assertFalse(browse.admits(home))
+            assertEquals("", browse.homeQuery(home))
+            assertTrue(browse.homeFolded(home).isEmpty())
+            browse.release(home)
+
+            browse.openHome()
+            val fresh = h.navigation.stack.single() as Screen.PersonalPulls
+            val copied = fresh.copy()
+            browse.setHomeQuery(fresh, "fresh query")
+            browse.setHomeQuery(copied, "copied route callback")
+            browse.toggleHomeFold(copied, "repo:acme/editor")
+            assertEquals("fresh query", browse.homeQuery(fresh))
+            assertEquals("", browse.homeQuery(copied))
+            assertTrue(browse.homeFolded(fresh).isEmpty())
+            assertTrue(browse.homeFolded(copied).isEmpty())
+        } finally { browse.close(); h.runtime.close() }
+    }
+
+    @Test
+    fun signOutAndSourceRetirementClearHomeInputsAndRejectRetainedMutations() = runTest {
+        val retirements: List<(Harness) -> Unit> = listOf(
+            { it.runtime.signOut() },
+            { it.entry.renewExplore() },
+        )
+        for (retire in retirements) {
+            val h = Harness(this)
+            h.verify(private = true)
+            val browse = h.browse()
+            try {
+                browse.foreground(true); browse.openHome()
+                val home = h.navigation.stack.single() as Screen.PersonalPulls
+                browse.setHomeQuery(home, "private query")
+                browse.toggleHomeFold(home, "repo:acme/editor")
+                browse.retain(home)
+
+                retire(h)
+                assertFalse(browse.current)
+                assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
+                assertEquals("", browse.homeQuery(home))
+                assertTrue(browse.homeFolded(home).isEmpty())
+                browse.foreground(true)
+                browse.setHomeQuery(home, "retired callback")
+                browse.toggleHomeFold(home, "repo:acme/editor")
+                assertEquals("", browse.homeQuery(home))
+                assertTrue(browse.homeFolded(home).isEmpty())
+                browse.release(home)
+            } finally { browse.close(); h.runtime.close() }
+        }
+    }
+
+    @Test
+    fun homeOwnsItsRootAndPausesInboxReadsWhileToursIsVisible() = runTest {
+        val h = Harness(this)
+        h.verify(private = true)
+        val browse = h.browse()
+        try {
+            browse.foreground(true); browse.openHome()
+            val home = h.navigation.stack.single() as Screen.PersonalPulls
+            assertTrue(home.home)
+            assertEquals(PersonalPullRelation.Involved, browse.relation(home))
+            val rows = browse.pulls(home)
+            rows.start(); runCurrent()
+            assertTrue(rows.rows.single().repository.private)
+            browse.selectHomeTab(home, 1)
+            val before = h.reads().count { !it.url.endsWith("/capabilities") }
+            rows.retry(); rows.loadMore(); rows.start()
+            browse.foreground(false); browse.foreground(true); runCurrent()
+            assertEquals(before, h.reads().count { !it.url.endsWith("/capabilities") })
+            browse.openRepositories()
+            h.navigation.nav.back(); browse.keepRoutes()
+            assertSame(home, h.navigation.stack.single())
+            assertEquals(1, browse.homeTab(home))
+            browse.selectHomeTab(home, 0); runCurrent()
+            assertTrue(h.reads().count { !it.url.endsWith("/capabilities") } > before)
+            assertFalse(browse.admits(home.copy()))
+            val old = rows.rows.single()
+            h.runtime.signOut()
+            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
+            assertTrue(rows.rows.isEmpty())
+            rows.open(old) { error("Signed-out Home retained a selection") }
+            h.navigation.nav.home()
+            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
+        } finally { browse.close(); h.runtime.close() }
+    }
+
+    @Test
     fun aGuestCannotMintAnAccountPageOrStartPersonalRequests() = runTest {
         val h = Harness(this)
         val browse = h.browse()
