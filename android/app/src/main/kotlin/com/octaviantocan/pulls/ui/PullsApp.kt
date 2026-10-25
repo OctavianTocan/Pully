@@ -237,7 +237,9 @@ internal fun GuestPullsApp(
         val group = messages.t("palette.group.general")
         listOf(
             Command("home", messages.t("explore.browse"), group) { navigation.nav.home() },
-            Command("account", messages.t("explore.existingAccount"), group, run = onExistingAccount),
+            Command("account", personalView.account?.let { messages.t("personal.account", "login" to it.login) } ?: messages.t("personal.connectGitHub"), group) {
+                if (workspace != null) exploring = false else githubAccountEntry.open()
+            },
             Command("theme", messages.t("keys.theme"), group) {
                 scope.launch { com.octaviantocan.pulls.ui.design.ThemeWipe.run(fromRight = !dark, motion = moving, changes = colorTheme.colors(dark) != colorTheme.colors(!dark)) { settings.updateTheme(if (dark) "light" else "dark") } }
             },

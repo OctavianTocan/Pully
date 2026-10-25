@@ -55,7 +55,7 @@ import com.octaviantocan.pulls.sound.cueClickable
 
 /**
  * Explore is the repositories: a title with the account button where Home has its profile, the list, and the search
- * pill. The ways in (Connect GitHub, an existing Pully account, GitHub links) live on [GuestWelcomeSheet], which the
+ * pill. Connect GitHub and GitHub links live on [GuestWelcomeSheet], which the
  * account button opens ("this layout here is garbage ... we would open a bottom sheet with these things and then you
  * can have these repositories as the page", recording 23 Oct 12:12, 00:21 to 00:33).
  */
@@ -116,7 +116,7 @@ fun ExploreScreen(
 }
 
 /**
- * The ways into Pully from Explore, on one sheet: Connect GitHub, an existing Pully account, and on Android the
+ * The way into Pully from Explore, on one sheet: Connect GitHub, and on Android the
  * GitHub links prompt [links], since a github.com link otherwise opens the GitHub app ("you actually need to prompt
  * people to allow Pully to set itself as your thing to open things", recording 23 Oct 12:12, 00:59 to 01:07).
  */
@@ -124,7 +124,6 @@ fun ExploreScreen(
 fun GuestWelcomeSheet(
     onClose: () -> Unit,
     onGitHubSignIn: (() -> Unit)?,
-    onExistingAccount: (() -> Unit)?,
     githubAccount: String? = null,
     links: (@Composable () -> Unit)? = null,
 ) {
@@ -137,7 +136,6 @@ fun GuestWelcomeSheet(
                 { onGitHubSignIn?.invoke() }, Modifier.fillMaxWidth(), enabled = onGitHubSignIn != null,
             )
             if (onGitHubSignIn == null) Text(t("explore.signInUnavailable"), style = PullsType.sm, color = colors.muted)
-            if (onExistingAccount != null) CtaButton(t("explore.existingAccount"), onExistingAccount, Modifier.fillMaxWidth(), container = colors.paper2, contentColor = colors.text)
         }
         links?.invoke()
         PillButton(t("explore.browse"), onClose, Modifier.padding(horizontal = PullsSpace.x4).padding(top = PullsSpace.x3, bottom = PullsSpace.x4))

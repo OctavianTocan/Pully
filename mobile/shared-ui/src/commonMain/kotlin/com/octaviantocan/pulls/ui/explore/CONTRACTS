@@ -64,11 +64,16 @@ android-refresh-is-silent and the 22 Oct 2026 guest contract review.
 
 @cc [owner:OctavianTocan,label:product;design] explore-is-the-repositories
 The Explore page is its title, an account button and the repositories: Popular or the
-search results, then the search field. The intro, Connect GitHub and Use an existing
-Pully account MUST live in a bottom sheet the account button opens, shown by itself
+search results, then the search field. The intro and Connect GitHub MUST live in a
+bottom sheet the account button opens, shown by itself
 once on a fresh install and then only on request ("we would open a bottom sheet with
 these things", recording 23 Oct 12:12, 00:26 to 00:30). The sheet MUST say so when
 GitHub sign-in is not set up on the server rather than offer a button that fails.
+The welcome sheet MUST offer GitHub as its only account sign-in, for both new and
+returning users, and MUST NOT offer a separate existing-Pully-account action.
+Source for this change: Tavi, 25 Oct 2026, "Get rid of the option that says to use an
+existing Pully account ... You only connect with GitHub. If there's already an
+account, they log into it."
 
 @cc [owner:OctavianTocan,label:product;security;architecture] public-pull-requests-open-in-pully
 Tapping a public PR in Explore, or a github.com PR link in guest mode, MUST open Pully's

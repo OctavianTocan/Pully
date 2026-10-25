@@ -69,6 +69,7 @@ class NativeEntryStartupTest {
     private fun expectGitHub() {
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Connect GitHub").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("Connect GitHub").assertIsDisplayed()
+        compose.onNodeWithText("Use an existing Pully account").assertDoesNotExist()
         compose.onNodeWithText("Email").assertDoesNotExist()
     }
 
