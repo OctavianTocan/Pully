@@ -19,6 +19,7 @@ data class PersonalAccountView(
     val problem: PersonalAuthProblem? = null,
     val checking: Boolean = false,
     val saved: Boolean = false,
+    val workspaceRevision: Long = 0,
 )
 
 /** One public-entry lifetime. Native hosts call all methods and storage on their UI dispatcher. */
@@ -31,6 +32,7 @@ class PersonalAccountRuntime(
     private val isCurrent: () -> Boolean,
     private val onIdentityChanged: () -> Unit,
     private val transport: RpcTransport = personalAuthTransport(),
+    private val workspaceHeaders: (String) -> Map<String, String> = { emptyMap() },
 ) {
     private val lifetime = SupervisorJob(parentScope.coroutineContext[Job])
     private val scope = CoroutineScope(parentScope.coroutineContext + lifetime)
@@ -43,6 +45,9 @@ class PersonalAccountRuntime(
     private var reader: PersonalReadClient? = null
     private var accountReader: PersonalAccountReadClient? = null
     private var verified: StoredPersonalSession? = null
+    private var workspace: PersonalWorkspace? = null
+    private var presentation: PersonalWorkspaceOwner? = null
+    private var workspaceRevision = 0L
     private class ReadRetirement(val retire: () -> Unit, val recover: ((PersonalAuthProblem) -> Unit)?)
     private val readRetirements = mutableListOf<ReadRetirement>()
     private val readRequests = Semaphore(3)
@@ -50,6 +55,44 @@ class PersonalAccountRuntime(
     private val mutableView = MutableStateFlow(PersonalAccountView())
     val view: StateFlow<PersonalAccountView> = mutableView.asStateFlow()
     val configured: Boolean get() = client != null
+
+    /** A saved profile or public-only grant can never mount native private services. */
+    fun workspace(): PersonalWorkspace? {
+        if (!inForeground) return null
+        workspace?.takeIf { it.current }?.let { return it }
+        val client = client ?: return null
+        val (record, status) = verifiedRecord() ?: return null
+        if (status.authority != PersonalAuthority.PrivateRepositories) return null
+        val openingRevision = revision
+        val openingWorkspace = ++workspaceRevision
+        val server = "${client.origin.base}/workspace"
+        return PersonalWorkspace(status.accountId, status.githubId, status.login, server, openingWorkspace,
+            workspaceHeaders(client.origin.base) + ("Authorization" to "Bearer ${record.token}"), transport,
+            owns = {
+                current() && inForeground && revision == openingRevision && workspaceRevision == openingWorkspace &&
+                    verifiedRecord()?.let { (saved, account) -> saved.same(record) && account.authority == PersonalAuthority.PrivateRepositories } == true
+            }, rejected = { if (current() && revision == openingRevision) rejectAccount(record, PersonalAuthProblem.Unauthorized) },
+        ).also { workspace = it }
+    }
+
+    /** Stable presentation identity, never a foreground dispatch grant or a mutable account selector. */
+    fun workspaceOwner(): PersonalWorkspaceOwner? {
+        presentation?.takeIf { it.current }?.let { return it }
+        val first = workspace() ?: return null
+        val (record, _) = verifiedRecord() ?: return null
+        val openingRevision = revision
+        return PersonalWorkspaceOwner(first, owns = {
+            current() && revision == openingRevision && verifiedRecord()?.let { (saved, account) ->
+                saved.same(record) && account.authority == PersonalAuthority.PrivateRepositories
+            } == true
+        }, acquire = { workspace() }).also { presentation = it }
+    }
+
+    private fun retireWorkspace() {
+        workspace?.retire()
+        workspace = null
+        workspaceRevision++
+    }
 
     /** Native admission probes storage without restoring a profile, writing a session or making a request. */
     fun verifyStorage(): Boolean {
@@ -97,6 +140,9 @@ class PersonalAccountRuntime(
     }
 
     private fun retireReads(): List<(PersonalAuthProblem) -> Unit> {
+        presentation?.retire()
+        presentation = null
+        retireWorkspace()
         reader = null
         accountReader = null
         val owners = readRetirements.toList()
@@ -192,7 +238,11 @@ class PersonalAccountRuntime(
     /** Native lifecycle callbacks deliver this before publishing any deferred UI state. */
     fun foreground(active: Boolean) {
         if (!current()) return
-        inForeground = active
+        if (inForeground != active) {
+            inForeground = active
+            if (!active) retireWorkspace() else workspaceRevision++
+            mutableView.value = mutableView.value.copy(workspaceRevision = workspaceRevision)
+        }
         signIn?.controller?.foreground(active)
     }
 

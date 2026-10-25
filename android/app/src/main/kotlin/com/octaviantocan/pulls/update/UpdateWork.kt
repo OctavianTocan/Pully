@@ -21,7 +21,6 @@ import com.octaviantocan.pulls.core.changesSince
 import com.octaviantocan.pulls.core.plainChangelogText
 import com.octaviantocan.pulls.data.Analytics
 import com.octaviantocan.pulls.data.AppSettings
-import com.octaviantocan.pulls.data.NativeEntry
 import com.octaviantocan.pulls.data.ServerStore
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +38,7 @@ object UpdateChecks {
     fun sync(context: Context) {
         runCatching {
             val work = WorkManager.getInstance(context)
-            if (!NativeEntry.privateConnection(context) || !AppSettings.get(context).updateNotifications) {
+            if (!ServerStore.updatesReady(context) || !AppSettings.get(context).updateNotifications) {
                 work.cancelUniqueWork(WORK)
                 return
             }
@@ -56,15 +55,16 @@ object UpdateChecks {
 class UpdateCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val context = applicationContext
-        if (!NativeEntry.privateConnection(context) || !AppSettings.get(context).updateNotifications || !UpdateNotice.allowed(context)) return Result.success()
+        val config = ServerStore.updateConfig(context) ?: return Result.success()
+        if (!AppSettings.get(context).updateNotifications || !UpdateNotice.allowed(context)) return Result.success()
         val opening = com.octaviantocan.pulls.data.RepoIdentity.generation
         val manifest = withContext(Dispatchers.IO) {
             runCatching {
-                val config = ServerStore.load(context)
                 AppUpdater(context).check(config.url, config.headers(), AppVersion.code(context))
             }.onFailure { Log.w("pulls", "background update check failed", it) }.getOrNull()
         } ?: return Result.success()
-        if (!NativeEntry.privateConnection(context) || opening != com.octaviantocan.pulls.data.RepoIdentity.generation) return Result.success()
+        if (config != ServerStore.updateConfig(context) || !AppSettings.get(context).updateNotifications ||
+            !UpdateNotice.allowed(context) || opening != com.octaviantocan.pulls.data.RepoIdentity.generation) return Result.success()
         // The next start of the app asks for this build from its first frame.
         UpdatePrefs.saveOffer(context, manifest)
         if (manifest.versionCode <= UpdatePrefs.notifiedCode(context)) return Result.success()
@@ -136,7 +136,7 @@ object UpdateNotice {
         // Handled once: the same intent comes back if the activity is recreated.
         intent.removeExtra(EXTRA)
         clear(context)
-        if (what == UPDATE && NativeEntry.privateConnection(context)) Updates.start(context)
+        if (what == UPDATE && ServerStore.updatesReady(context)) Updates.start(context)
         return true
     }
 

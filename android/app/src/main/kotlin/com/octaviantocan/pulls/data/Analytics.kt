@@ -98,6 +98,7 @@ object Analytics {
      * and on or off values belong here, never what was read or typed (analytics-what-not-how-much).
      */
     fun track(name: String, props: Map<String, Any?> = emptyMap()) {
+        NativeWorkspaceBinding.active?.let { it.analytics?.track(name, props); return }
         if (!enabled || !privateConnection || app == null) return
         val line = event(name, props).encode()
         val dropped: Int
@@ -112,7 +113,10 @@ object Analytics {
     fun track(name: String, vararg props: Pair<String, Any?>) = track(name, mapOf(*props))
 
     /** A caught failure the reader was told about (a page that did not load), as `error.client`. */
-    fun error(kind: String, message: String?) = track("error.client", "kind" to kind, "message" to message.orEmpty().take(120), "screen" to screen)
+    fun error(kind: String, message: String?) {
+        if (NativeWorkspaceBinding.active != null) track("error.client", "kind" to kind, "screen" to screen)
+        else track("error.client", "kind" to kind, "message" to message.orEmpty().take(120), "screen" to screen)
+    }
 
     /** A server call, for `rpc.call`: the RPC's name only, never its arguments. */
     fun rpc(method: String, ms: Long, ok: Boolean, status: Int?) =
@@ -123,6 +127,7 @@ object Analytics {
     /** [name] is the screen on top now: one of a fixed set of lowercase words, never a title or a repository. */
     fun showScreen(name: String) {
         screen = name
+        NativeWorkspaceBinding.active?.let { it.analytics?.showScreen(name); return }
         emit(clock.show(name, SystemClock.elapsedRealtime()))
     }
 
@@ -143,6 +148,7 @@ object Analytics {
 
     /** `MainActivity.onStart`: a new session after 30 minutes away, the screen's time running again, and sending every 30 seconds. */
     fun foreground() {
+        NativeWorkspaceBinding.active?.let { it.analytics?.foreground(); return }
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
         clock.foreground(now)
@@ -160,6 +166,7 @@ object Analytics {
 
     /** `MainActivity.onStop` (not for a rotation): `app.background`, the screen's time, a send now and a job for what is left. */
     fun background() {
+        NativeWorkspaceBinding.active?.let { it.analytics?.background(); return }
         val context = app ?: return
         val now = SystemClock.elapsedRealtime()
         emit(clock.background(now))
@@ -175,6 +182,7 @@ object Analytics {
 
     /** Turns tracking on or off. Off drops the queue, in memory and on disk, and sends nothing more (analytics-can-be-turned-off). */
     fun setEnabled(on: Boolean) {
+        NativeWorkspaceBinding.active?.let { it.analytics?.setEnabled(on); return }
         val context = app ?: return
         enabled = on
         if (on) {
@@ -209,6 +217,7 @@ object Analytics {
      * same Access headers as `/api/rpc`. True when nothing is left to send.
      */
     suspend fun flush(): Boolean {
+        NativeWorkspaceBinding.active?.let { return it.analytics?.flush() ?: true }
         val context = app ?: return true
         if (!enabled || !privateConnection) return true
         val opening = connectionRevision

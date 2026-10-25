@@ -39,10 +39,19 @@ private object AndroidAccountSettings {
         val source = runCatching { repo.source() }.getOrNull()
         val current = { generation == RepoIdentity.generation && source != null && repo.isCurrent(source) }
         return SourceAccountPagesServices(repo, { Account.email }, current, {
+            com.octaviantocan.pulls.data.NativeWorkspaceBinding.active?.let { binding ->
+                if (!current()) throw CancellationException("The account source changed.")
+                binding.signOut()
+                return@SourceAccountPagesServices
+            }
             try { repo.signOut() } catch (cancelled: CancellationException) { throw cancelled } catch (_: Exception) {}
             if (!current()) throw CancellationException("The account source changed.")
             Account.signedOut(app)
-        }, { copyText(app, it) }, AccountUi).also {
+        }, { copyText(app, it) }, AccountUi,
+            agentKeysUnavailableReason = if (com.octaviantocan.pulls.data.NativeWorkspaceBinding.active != null)
+                "Agent keys are unavailable for GitHub workspaces. This connection does not support external agents posting diffs."
+            else null,
+        ).also {
             epoch = generation
             services = it
         }

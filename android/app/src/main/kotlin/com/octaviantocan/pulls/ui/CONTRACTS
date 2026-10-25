@@ -41,13 +41,14 @@ not after it rests, so a command can be typed at once, and it opens without a de
 recording 15 Oct 13:54, 00:56 to 01:05; K5; rule 77).
 
 @cc [owner:OctavianTocan,label:product] nav-commands-reach-everywhere
-Within the existing-server workspace, Commands holds Home, Settings, the theme, Update Pully, What's new and Send feedback on
+Within the existing-server or verified GitHub workspace, Commands holds Home, Settings, the theme, Update Pully, What's new and Send feedback on
 every page, and a page adds its own commands while it is open. Commands is the one palette: there is no
 second command menu and no Commands row in the ⋯ or profile sheets (rules 61 and 104;
 J30, H22; recording 15 Oct 13:54, 12:33).
 In anonymous Explore, the same palette MUST expose public Home, the existing-account
 entry and local appearance actions without mounting private Settings, feedback or
-updater clients. Source: Tavi's 21 Oct 2026 signed-out public-browsing decision.
+updater clients. The staging APK MAY use its separately scoped staging updater
+without private app authority (Tavi25Oct2026, one GitHub login/update flow). Source: Tavi's 21 Oct 2026 signed-out public-browsing decision.
 
 @cc [owner:OctavianTocan,label:product] nav-commands-themes
 Commands offers Themes, which opens the same theme sheet as Settings (recording 15 Oct
@@ -104,3 +105,19 @@ Notification taps MUST validate the current device source before routing on a co
 warm launch. Check alerts MUST open the indicated PR/checks; AI tour alerts MUST open the
 tour, review alerts the findings, and analysis/brief alerts the Overview. Opening a result
 MUST NOT start AI work or replay permission requests (Tavi, 21 Oct 2026, notification expansion).
+
+@cc [owner:OctavianTocan,label:product;security] native-entry-keeps-same-account-forms-on-pause
+Ordinary ON_PAUSE/ON_RESUME, including a provider browser roundtrip, MUST retain the
+same account's production composition, Home filter/query, review draft, Settings
+subpage/form and UI Book route. The root MUST NOT use a short-lived foreground
+workspace as their presentation key. New paused dispatch and late transport replies
+MUST remain denied. Sign-out or account/source replacement MUST synchronously retire
+private owners and routes before another identity mounts. Source: Tavi's 25 Oct 2026
+review-fix batch #2 and the existing same-view form retention requirements.
+
+@cc [owner:OctavianTocan,label:architecture;product] android-entry-proof-exercises-real-mount
+A confirmed-session Android entry regression MUST render GuestPullsApp's real production
+Home path, exercise Repo(Context) through NativeWorkspaceBinding and assert binding and
+private-route retirement on sign-out. Shared Home data tests alone MUST NOT be claimed
+as that Android integration proof. Fixture transports and native storage/browser ports
+MAY isolate the host from external services. Source: Tavi's 25 Oct 2026 review-fix #10.

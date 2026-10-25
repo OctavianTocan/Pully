@@ -8,7 +8,9 @@ full. The account's password is sent once, to sign in, and never stored (Tavi, 1
 and session MUST NOT go over plain HTTP except to this phone or the emulator's host
 (Devin Review on PR 58).
 Tavi's 21 Oct 2026 personal GitHub decision adds a separate app-owned HTTPS account
-origin. A personal Pully bearer MUST use only that origin's fixed personal routes and
+origin. A personal Pully bearer MUST use only that origin's fixed personal routes or
+the captured /workspace/api/rpc and /workspace/api/events routes (Tavi25Oct2026,
+one GitHub login) and
 MUST NOT become a legacy session, Access credential or GitHub REST credential. Android
 MUST encrypt pending and accepted personal bearers with a non-exportable Keystore key
 in storage excluded from backup; native errors MUST NOT expose its contents. GitHub
@@ -121,3 +123,55 @@ set of lowercase words and a server call is its RPC name only, never its argumen
 crash or a failed load carries only the error's class, its own message cut short, the top
 frames of its stack and the screen (plan "Pulls analytics on our own server",
 Guardrails; message 15 Oct 20:58).
+
+@cc [owner:OctavianTocan,label:security;architecture] github-native-adapter-never-adopts-legacy-state
+Repo(Context), Account display, model settings, Home caches, tours and synced settings
+MUST use the mounted workspace's immutable accountId namespace in GitHub mode. They
+MUST NOT read the saved legacy account session, server credentials or owner preferences
+as that workspace's identity or data. Personal bearer custody MUST remain in the secure
+personal vault/runtime; the adapter MUST NOT persist it. Native source retirement MUST
+invalidate private services, callbacks and cached rows synchronously. Explicit custom
+server setup MAY return to the preserved ExistingServer compatibility flow.
+Source: Tavi25Oct2026, restore production native services with each GitHub account's
+own data and no legacy credential or preference adoption.
+
+@cc [owner:OctavianTocan,label:security;architecture] github-analytics-uses-its-own-shared-queue
+GitHub workspace usage MUST use UsageAnalyticsQueue with an immutable-account namespace
+under analytics-workspace, separate from the legacy analytics queue and metadata. Its
+sanitized events MUST use only the captured /workspace/api/events transport; switching
+accounts or losing native foreground authority MUST cancel uploads and retire the old
+queue before another account appears. Old durable events MAY retry only after that
+same account is freshly verified. Usage stats off MUST clear that account's queue and
+cancel its uploads. No legacy events or guest intervals MAY be adopted.
+Source: Tavi25Oct2026, full production Stats under the owned single-login workspace and
+the settled authenticated workspace events route.
+
+@cc [owner:OctavianTocan,label:security;product] active-account-settings-reach-root-consumers
+The Activity's palette, light/dark choice, language, app/code fonts, sounds and haptics
+MUST resolve the currently selected account's settings when native ownership changes.
+GitHub consumers MUST NOT retain a legacy settings object captured before login.
+Without a mounted workspace, Explore/GitHub local preferences MAY use only the accepted
+private vault record's immutable-account namespace; that lookup MUST NOT verify a
+profile or grant request authority. Missing/unavailable accepted storage MUST select
+isolated Explore defaults. ExistingServer MUST select its preserved compatibility
+preferences. This includes the update notification choice on cold worker startup.
+Source: Tavi's 25 Oct 2026 review-fix batch #1 and the parent's #1/#7 cold updater
+preference integration observation.
+
+@cc [owner:OctavianTocan,label:security;architecture] native-workspace-pause-retains-presentation
+A same-session foreground pause MUST retire the workspace transport and usage uploader
+without invalidating the native repository epoch, account settings or private view
+caches. Resume MUST bind new dispatch to fresh foreground admission for that same
+captured session. Actual account/source retirement MUST still close private services,
+invalidate their epoch and resynchronize existing update scheduling before replacement.
+Source: Tavi's 25 Oct 2026 coupled review-fix batch #1/#2 and updater coordination.
+
+@cc [owner:OctavianTocan,label:product;security] github-workspace-admission-resumes-existing-observers
+A GitHub workspace transport retirement MUST synchronously revoke registered native
+read admission and clear the global AI-work follower/notice. After installing the
+same session's fresh foreground transport, the binding MUST replay read admission and
+reattach the real AiWork observer to already-running server tasks. ON_START or unchanged
+account fields MUST NOT substitute for this post-admission restart. Observation MUST
+NOT start or replay an AI task, revive a retired transport or replace presentation
+identity. ExistingServer retains its separate lifecycle behavior. Source: Tavi's
+25 Oct 2026 implementation followup to android-verification.json findings 1 and 2.

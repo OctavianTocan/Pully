@@ -14,15 +14,18 @@ object SettingsSync {
     val SYNCED = AccountSettingsSync.SYNCED
     private val scope by lazy { CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate) }
     private var shared: AccountSettingsSync? = null
+    private var epoch = -1L
 
     @Synchronized
     private fun engine(context: Context): AccountSettingsSync {
-        shared?.let { return it }
+        if (epoch == RepoIdentity.generation) shared?.let { return it }
+        shared?.cancelPending()
+        epoch = RepoIdentity.generation
         val app = context.applicationContext
         return AccountSettingsSync(
             AppSettings.get(app), Repo(app),
-            AndroidSettingsSyncStore(app.getSharedPreferences("pully-settings-sync", Context.MODE_PRIVATE)),
-            { Account.email }, scope, System::currentTimeMillis,
+            AndroidSettingsSyncStore(app.getSharedPreferences(NativeWorkspaceBinding.active?.let { "pully-settings-sync-workspace-${it.namespace}" } ?: "pully-settings-sync", Context.MODE_PRIVATE)),
+            { NativeWorkspaceBinding.active?.let { it.namespace.takeIf { _ -> it.owner.current } } ?: Account.email.takeIf { NativeWorkspaceBinding.active == null } }, scope, System::currentTimeMillis,
         ).also { shared = it }
     }
 

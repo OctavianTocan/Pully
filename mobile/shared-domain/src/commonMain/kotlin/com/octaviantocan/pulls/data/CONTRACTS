@@ -63,3 +63,12 @@ cache failure MUST NOT hide the current server result, and revoked source handle
 MUST NOT read, remember, write or delete another source's data. Source: existing
 Android TourStore, data-tours-are-kept (CHANGELOG 0.28.0) and Tavi's accepted
 21 Oct 2026 maximum-reuse and private-cache ownership plan.
+
+@cc [owner:OctavianTocan,label:security;product] baked-access-is-only-staging-workspace-and-downloads
+The approved extractable APK Access service credential MUST be usable only when the
+request server is the exact built-in HTTPS pully-staging.octaviantocan.com DEFAULT_SERVER,
+and only for /workspace/* or /download/staging/* requests. Custom origins, production,
+legacy /api/rpc and /health, and personal login/read routes MUST NOT receive it.
+Empty stable-build fields MUST produce no baked authorization. Existing user-saved
+Access credentials MAY retain their legacy compatibility behavior.
+Source: Tavi25Oct2026, explicit staging-only APK trade-off and path-scoped Access plan.

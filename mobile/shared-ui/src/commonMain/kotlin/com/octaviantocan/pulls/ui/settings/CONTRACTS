@@ -89,7 +89,13 @@ client-invalidates-old-sources and Tavi's 21 Oct 2026 maximum-reuse iOS plan.
 
 @cc [owner:OctavianTocan,label:security;product] shared-account-key-pages-retire-their-private-state
 Account/key pages MUST use the real shared Repo and retain the original create/list,
-copy-once and revoke flows. Their forms, focus and effects MUST belong to the current
+copy-once and revoke flows when the source supports external-agent keys. A GitHub
+workspace without that ingress MUST instead show a clear unavailable explanation on
+both key pages, with no key controls, key RPC dispatch or clipboard export. It MUST NOT
+claim those keys can post to the legacy agent API or export baked Access credentials.
+This intentionally scopes the original key flow to the existing-server capability by
+Tavi25Oct2026, bounded workspace integration: external-agent ingress is outside the
+settled phone workspace wire. Their forms, focus and effects MUST belong to the current
 services owner. A dismissed/replaced account MUST NOT copy an old secret, perform a
 new key request or accept a late key response into another owner. The host MUST clear
 the old one-time key, selected key and list synchronously before publishing replacement
@@ -216,3 +222,12 @@ Codex shows its one-time code and finishes by itself. It MUST NOT have an API ke
 Without a Pully account a page MUST ask for the Pully sign-in first. Source: Tavi,
 23 Oct 2026 13:39: "Claude Code and Codex SUBSCRIPTION login. Not any other kind of
 thing."
+
+@cc [owner:OctavianTocan,label:product;security] subscription-signin-presentation-survives-transport-pause
+A provider page's pending Claude paste descriptor/input and Codex code/wait status MUST
+remain owned by the same installed services across foreground transport loss. Pending
+Codex polling MUST restart when those services regain dispatch readiness. A cancelled
+local request MUST release its busy state, without discarding a pending login solely
+because of the pause. Retirement or disposal MUST clear the page's private state and
+prevent retained actions from dispatching through another owner. Source: Tavi's
+25 Oct 2026 review-fix batch #2, preserving the original provider browser journey.

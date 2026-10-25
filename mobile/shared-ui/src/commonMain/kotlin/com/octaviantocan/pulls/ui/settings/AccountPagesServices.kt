@@ -20,6 +20,8 @@ open class AccountPageState {
 interface AccountPagesServices {
     val email: String?
     val ui: AccountPageState
+    /** Null retains the existing-server key flow; otherwise both key pages explain this capability limit. */
+    val agentKeysUnavailableReason: String? get() = null
     fun current(): Boolean
     suspend fun keys(): List<AgentKey>
     suspend fun create(name: String): Pair<String, AgentKey>
@@ -38,6 +40,7 @@ class SourceAccountPagesServices(
     private val signOutAccount: suspend () -> Unit,
     private val clipboard: (String) -> Unit,
     override val ui: AccountPageState = AccountPageState(),
+    override val agentKeysUnavailableReason: String? = null,
 ) : AccountPagesServices {
     private val opening = runCatching { repo.source() }
     private var closed = false
@@ -45,12 +48,13 @@ class SourceAccountPagesServices(
     override val email: String? get() = if (current()) readEmail() else null
     private fun requireCurrent() { if (!current()) throw CancellationException("The account settings source changed.") }
     private suspend fun check() { currentCoroutineContext().ensureActive(); requireCurrent() }
-    override suspend fun keys(): List<AgentKey> { check(); return repo.agentKeys().also { check() } }
-    override suspend fun create(name: String): Pair<String, AgentKey> { check(); return repo.createAgentKey(name).also { check() } }
-    override suspend fun revoke(id: String) { check(); repo.revokeAgentKey(id); check() }
+    private suspend fun checkKeys() { check(); agentKeysUnavailableReason?.let { throw IllegalStateException(it) } }
+    override suspend fun keys(): List<AgentKey> { checkKeys(); return repo.agentKeys().also { checkKeys() } }
+    override suspend fun create(name: String): Pair<String, AgentKey> { checkKeys(); return repo.createAgentKey(name).also { checkKeys() } }
+    override suspend fun revoke(id: String) { checkKeys(); repo.revokeAgentKey(id); checkKeys() }
     override suspend fun signOut() { check(); signOutAccount() } // Successful sign-out deliberately invalidates this owner.
     override fun copy(key: String): Boolean {
-        if (!current()) return false
+        if (!current() || agentKeysUnavailableReason != null) return false
         clipboard(key)
         return true
     }

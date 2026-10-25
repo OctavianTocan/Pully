@@ -12,7 +12,21 @@ MUST NOT roll back the already committed file. Source: Tavi's 21 Oct 2026 any-ac
 Personal sign-in MUST use the app-owned HTTPS origin selected at build configuration,
 independent of legacy Settings/Access. An unconfigured build MUST keep public browsing
 available and MUST NOT invent a successful connection or probe a legacy server. A
-verified personal profile MUST remain on public Explore until a separately implemented
-personal repository capability exists. It MUST NOT instantiate legacy Home, AI, Stats
-or account workers, or send its bearer to GitHub REST. Source: Tavi's 21 Oct 2026 public
+verified public-only profile MUST remain in the personal/Explore flow. A freshly verified
+privateRepositories session MUST directly mount the complete production native Home,
+Profile, Settings and review services through its own captured workspace capability,
+without any legacy credentials/preferences or second Pully/Access sign-in. Its bearer
+MUST NOT go to GitHub REST. This intentionally replaces the limited personal Home by
+Tavi25Oct2026, one GitHub login and the full production UI. Source: Tavi's 21 Oct 2026 public
 browsing/personal-account decision and approved 22 Oct native connection implementation.
+
+@cc [owner:OctavianTocan,label:security;product] saved-personal-settings-are-local-preferences-only
+Cold local preference selection MAY read only a securely accepted private account's
+opaque namespace for the configured personal origin. A pending/public-only record,
+different origin, failed secure-store probe or successful local sign-out MUST yield
+no private preference owner. This lookup MUST NOT restore a visible account, create a
+workspace, send a bearer or authorize any request. Source: Tavi's 25 Oct 2026 #1/#7
+cold update-notification integration requirement.
+The local-only background preference reader MUST use an independent vault snapshot,
+rather than the UI-confined mutable runtime vault. Native secure blob reads and writes
+MUST serialize across storage instances so AtomicFile recovery cannot race a writer.

@@ -20,14 +20,18 @@ import kotlinx.coroutines.CancellationException
 internal object ModelCatalogs {
     private val cache = HashMap<String, CliCatalog>()
     private var prefs: android.content.SharedPreferences? = null
+    private var owner: String? = null
     fun get(engine: String): CliCatalog? = synchronized(cache) { cache[engine] }
     fun put(engine: String, catalog: CliCatalog) { synchronized(cache) { cache[engine] = catalog } }
 
     /** Reads the lists this phone kept, once a run, before a sheet asks for one. */
     fun warm(context: android.content.Context) {
         synchronized(cache) {
-            if (prefs != null) return
-            val kept = context.applicationContext.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+            val next = com.octaviantocan.pulls.data.NativeWorkspaceBinding.active?.namespace ?: "existing-server"
+            if (prefs != null && owner == next) return
+            cache.clear()
+            owner = next
+            val kept = context.applicationContext.getSharedPreferences(if (next == "existing-server") PREFS else "$PREFS-workspace-$next", android.content.Context.MODE_PRIVATE)
             prefs = kept
             kept.all.forEach { (engine, raw) ->
                 if (engine in cache || raw !is String) return@forEach

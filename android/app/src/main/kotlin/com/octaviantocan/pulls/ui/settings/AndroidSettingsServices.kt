@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.data.Analytics
@@ -25,16 +27,31 @@ import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.update.ChangelogEntries
 import com.octaviantocan.pulls.update.WhatsNew
 
+/** Host boundary for the provider browser; tests keep the real Settings page with a local browser fixture. */
+internal val LocalProviderSignInBrowser = androidx.compose.runtime.staticCompositionLocalOf<((String) -> Unit)?> { null }
+
 @Composable
 internal fun rememberAndroidSettingsServices(): SettingsServices {
     val context = androidx.compose.ui.platform.LocalContext.current
     val settings = AppSettings.get(context)
+    val providerBrowser = LocalProviderSignInBrowser.current
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    var foreground by androidx.compose.runtime.remember(lifecycle) {
+        androidx.compose.runtime.mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
+    }
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, _ ->
+            foreground = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     val models = rememberAndroidModelSettingsServices()
     val account = rememberAndroidAccountPagesServices()
     val stats = rememberAndroidStatsServices()
     val feedbackPage = rememberAndroidFeedbackServices()
     val server = rememberAndroidServerPageServices()
-    return remember(context, models, account, stats, feedbackPage, server) {
+    return remember(context, settings, models, account, stats, feedbackPage, server, providerBrowser) {
         val epoch = RepoIdentity.generation
         SettingsServices(settings, models, account, stats, feedbackPage, { server }, object : SettingsFeedback {
             override fun vibrationOn() = Haptics.cue(Cue.Toggle)
@@ -78,6 +95,10 @@ internal fun rememberAndroidSettingsServices(): SettingsServices {
         ), { epoch == RepoIdentity.generation }, Analytics::showScreen,
             // The providers' sign-in pages open in the browser, never in their own apps, which do not show the code.
             SourceAiSignInServices(Repo(context.applicationContext), { epoch == RepoIdentity.generation },
-                { OutsideLinks.open(context, it, browserOnly = true) }, { com.octaviantocan.pulls.ui.book.copyToClipboard(context, it) }))
+                { url -> if (providerBrowser != null) providerBrowser(url) else OutsideLinks.open(context, url, browserOnly = true) }, { com.octaviantocan.pulls.ui.book.copyToClipboard(context, it) }, { foreground }, { clear ->
+                    val stop = RepoIdentity.observeInvalidation { if (epoch != RepoIdentity.generation) clear() }
+                    if (epoch != RepoIdentity.generation) clear()
+                    stop
+                }))
     }
 }

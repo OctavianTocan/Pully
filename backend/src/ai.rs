@@ -8,7 +8,7 @@ pub(crate) mod provider;
 pub(super) use preview::safe_preview;
 mod tasks;
 mod tools;
-pub(crate) use tasks::{prepare_structured_answer, StructuredAnswerPreparation};
+pub(crate) use tasks::{StructuredAnswerPreparation, prepare_structured_answer};
 pub async fn mcp(
     state: &crate::AppState,
     context: &serde_json::Value,
@@ -71,15 +71,15 @@ pub async fn mcp_context(
     }
     tools::mcp(None, context, request).await
 }
-use crate::{now_ms, required, text, AppState};
-use anyhow::{bail, Context, Result};
-use serde_json::{json, Value};
+use crate::{AppState, now_ms, required, text};
+use anyhow::{Context, Result, bail};
+use serde_json::{Value, json};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::sync::{watch, Notify, Semaphore};
+use tokio::sync::{Notify, Semaphore, watch};
 #[derive(Clone)]
 pub struct Jobs {
     provider_slots: Arc<Semaphore>,
@@ -197,7 +197,10 @@ impl Jobs {
     /// A sign-in or sign-out changes which models that login's CLIs list.
     pub(crate) async fn forget_catalogs(&self, login: &crate::agent_login::AgentLogin) {
         let suffix = format!(":{}", login.volume());
-        self.catalogs.lock().await.retain(|key, _| !key.ends_with(&suffix));
+        self.catalogs
+            .lock()
+            .await
+            .retain(|key, _| !key.ends_with(&suffix));
     }
     #[cfg(test)]
     pub(crate) fn hold_session_for_test(&self, key: &str) -> Arc<tokio::sync::Mutex<()>> {
@@ -430,6 +433,7 @@ fn snapshot(run: &Run, after: f64) -> Value {
             .as_object()
             .unwrap()
             .iter()
+            .filter(|(key, _)| key.as_str() != "_workspaceRepositories")
             .map(|(key, value)| {
                 let value = if key == "activities" {
                     Value::Array(
@@ -448,6 +452,154 @@ fn snapshot(run: &Run, after: f64) -> Value {
             })
             .collect(),
     )
+}
+
+/// @cc [owner:OctavianTocan,label:security;architecture] workspace-run-retains-authoritative-provenance
+/// A personal workspace run MUST retain every server-selected context repository's
+/// immutable ID before publishing provider output. Completion, answer citations and
+/// snapshot cursors MUST NOT reduce that set, and caller hints MUST NOT replace it.
+/// Source: confirmed ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.
+async fn retain_workspace_context(
+    state: &AppState,
+    run: &Run,
+    context: &Value,
+) -> Result<Vec<crate::source::WorkspaceRepository>> {
+    let repositories = crate::source::workspace_repository_provenance(state, context).await?;
+    if state.personal_workspace {
+        let mut snapshot = run.snapshot.lock().unwrap();
+        let mut all: Vec<crate::source::WorkspaceRepository> =
+            serde_json::from_value(snapshot["_workspaceRepositories"].clone())?;
+        for repository in &repositories {
+            if let Some(previous) = all.iter().find(|old| {
+                old.owner.eq_ignore_ascii_case(&repository.owner)
+                    && old.repo.eq_ignore_ascii_case(&repository.repo)
+            }) {
+                anyhow::ensure!(
+                    previous.repository_id == repository.repository_id,
+                    "This task's repository identity changed"
+                );
+            } else {
+                all.push(repository.clone());
+            }
+        }
+        snapshot["_workspaceRepositories"] = serde_json::to_value(all)?;
+    }
+    Ok(repositories)
+}
+
+/// Workspace publication consumes trusted run metadata, never caller hints, key=inbox,
+/// answer text, citations or a diff record that may no longer exist.
+pub(crate) fn workspace_publication_repositories(
+    state: &AppState,
+    name: &str,
+    value: &Value,
+) -> Result<Vec<crate::source::WorkspaceRepository>> {
+    if !state.personal_workspace {
+        return Ok(Vec::new());
+    }
+    let snapshots: Vec<&Value> = match name {
+        "ai-task-wait" | "ai-job-wait" => vec![value],
+        "ai-task-list" | "ai-task-list-all" | "ai-job-list" => value
+            .as_array()
+            .context("Task snapshots unavailable")?
+            .iter()
+            .collect(),
+        "inbox-chat" => {
+            let mut repositories = Vec::new();
+            for turn in value["turns"].as_array().into_iter().flatten() {
+                if turn["answer"].is_string() || turn["activities"].is_array() {
+                    repositories.extend(serde_json::from_value::<Vec<crate::source::WorkspaceRepository>>(turn["_workspaceRepositories"].clone())
+                        .context("This saved Inbox answer has no repository provenance; clear the conversation to continue")?);
+                }
+            }
+            return Ok(repositories);
+        }
+        _ => return Ok(Vec::new()),
+    };
+    let runs = state.jobs.runs.lock().unwrap();
+    let mut repositories = Vec::new();
+    for snapshot in snapshots {
+        let run = runs
+            .get(text(snapshot, "id"))
+            .context("This task is no longer available")?;
+        repositories.extend(
+            serde_json::from_value::<Vec<crate::source::WorkspaceRepository>>(
+                run.snapshot.lock().unwrap()["_workspaceRepositories"].clone(),
+            )
+            .context("This task has no repository provenance")?,
+        );
+    }
+    Ok(repositories)
+}
+
+#[cfg(test)]
+pub(crate) async fn fixture_completed_workspace_inbox(
+    state: &AppState,
+    pulls: &Value,
+) -> Result<String> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let run = Arc::new(Run {
+        snapshot: Mutex::new(json!({"id":id,"key":"inbox","kind":"inbox","status":"running","rev":1,"activities":[],"startedAt":now_ms(),"_workspaceRepositories":[]})).into(),
+        publication: Default::default(),
+        request: json!({"key":"inbox","kind":"inbox"}),
+        task: true,
+        notify: Notify::new().into(),
+        cancel: watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Account(state.identity.account_id()?.to_owned()),
+    });
+    retain_workspace_context(state, &run, &json!({"pulls":pulls})).await?;
+    record_patch(
+        &run,
+        json!({"id":"private","kind":"text","title":"private inbox activity","text":"private inbox activity","status":"done"}),
+    );
+    settle(
+        &run,
+        "done",
+        Some("private inbox answer reader-a/project#7".into()),
+        None,
+        None,
+    );
+    state.jobs.runs.lock().unwrap().insert(id.clone(), run);
+    Ok(id)
+}
+#[cfg(test)]
+pub(crate) async fn fixture_failed_workspace_inbox(
+    state: &AppState,
+    pulls: &Value,
+    stopped: bool,
+    async_writer: bool,
+) -> Result<()> {
+    let run = Arc::new(Run {
+        snapshot: Mutex::new(json!({"id":uuid::Uuid::new_v4().to_string(),"key":"inbox","kind":"inbox","status":"running","rev":1,"activities":[],"startedAt":now_ms(),"_workspaceRepositories":[]})).into(),
+        publication: Default::default(),
+        request: json!({"key":"inbox","kind":"inbox","question":"Fixture saved question"}),
+        task: true,
+        notify: Notify::new().into(),
+        cancel: watch::channel(false).0,
+        login: crate::agent_login::AgentLogin::Account(state.identity.account_id()?.to_owned()),
+    });
+    tasks::prepare(state, &run)?;
+    retain_workspace_context(state, &run, &json!({"pulls":pulls})).await?;
+    record_patch(
+        &run,
+        json!({"id":"private","kind":"text","title":"private failed activity","text":"private failed activity","status":"done"}),
+    );
+    if stopped {
+        run.cancel.send_replace(true);
+    }
+    if async_writer {
+        tasks::failed_async(state, &run, "Fixture failure", stopped).await?;
+    } else {
+        tasks::failed(state, &run, "Fixture failure", stopped)?;
+    }
+    settle(
+        &run,
+        if stopped { "cancelled" } else { "failed" },
+        None,
+        None,
+        Some("Fixture failure".into()),
+    );
+    Ok(())
 }
 fn terminal_result(run: &Run) -> Option<Result<Value>> {
     let state = run.snapshot.lock().unwrap();
@@ -543,10 +695,8 @@ async fn start_async(
     task: bool,
     login: &crate::agent_login::AgentLogin,
 ) -> Result<String> {
-    anyhow::ensure!(
-        state.identity.is_legacy(),
-        "Connect a personal AI provider before starting work"
-    );
+    let model = req.get("model").filter(|v| v.is_object()).unwrap_or(&req);
+    state.authorize_subscription(login, text(model, "engine"))?;
     let (send, result) = tokio::sync::oneshot::channel();
     {
         let mut handles = state.jobs.handles.lock().unwrap();
@@ -578,6 +728,37 @@ fn start(
     parent: Option<&Run>,
     login: crate::agent_login::AgentLogin,
 ) -> Result<String> {
+    let model = req.get("model").filter(|v| v.is_object()).unwrap_or(&req);
+    state.authorize_subscription(&login, text(model, "engine"))?;
+    if state.personal_workspace {
+        // Caller hints never become task provenance, including for Inbox jobs.
+        req.as_object_mut()
+            .context("A task needs an object")?
+            .remove("_workspaceRepository");
+    }
+    if state.personal_workspace && task && req["kind"] != "inbox" {
+        if let Some(entry) = state
+            .host
+            .storage
+            .get(&format!("diff:{}", text(&req, "key")))?
+        {
+            let reference = &entry["diff"]["ref"];
+            if let (Some(owner), Some(repo)) =
+                (reference["owner"].as_str(), reference["repo"].as_str())
+            {
+                let id = state.host.storage.get(&format!(
+                    "workspace-repository:{}/{}",
+                    owner.to_ascii_lowercase(),
+                    repo.to_ascii_lowercase()
+                ))?;
+                let id = id
+                    .and_then(|id| id.as_u64())
+                    .filter(|id| *id > 0)
+                    .context("Open the repository again before starting this task")?;
+                req["_workspaceRepository"] = json!({"owner":owner,"repo":repo,"repositoryId":id});
+            }
+        }
+    }
     if task {
         required(&req, "key")?;
         if ![
@@ -651,6 +832,12 @@ fn start(
     }
     let id = uuid::Uuid::new_v4().to_string();
     let mut snap = json!({"id":id,"engine":model["engine"],"status":"running","rev":0,"activities":[],"startedAt":now_ms()});
+    if state.personal_workspace {
+        snap["_workspaceRepositories"] = match req.get("_workspaceRepository") {
+            Some(repository) => json!([repository]),
+            None => json!([]),
+        };
+    }
     if let Some(title) = title {
         snap["title"] = json!(title);
     }
@@ -729,15 +916,25 @@ fn start(
         let mut receiver = run.cancel.subscribe();
         // Keep the large provider/task state machine out of this poll frame.
         // Tokio's outer task boxing does not shrink nested inline polling frames.
-        let work: futures_util::future::BoxFuture<'_, _> = if task {
+        let mut work: futures_util::future::BoxFuture<'_, _> = if task {
             tasks::perform(&state, &run)
         } else {
             Box::pin(provider::run(&state, &run, &run.request))
         };
+        let retired = state.identity.retired();
         let outcome = if check(&run).is_err() {
             Err(anyhow::anyhow!("Stopped."))
         } else {
-            tokio::select! {biased;_=receiver.changed()=>Err(anyhow::anyhow!("Stopped.")),r=work=>r}
+            tokio::select! {
+                biased;
+                _ = retired => {
+                    run.cancel.send_replace(true);
+                    let _ = crate::rt::timeout(Duration::from_secs(30), &mut work).await;
+                    Err(anyhow::anyhow!("Your GitHub connection needs sign-in again"))
+                },
+                _ = receiver.changed() => Err(anyhow::anyhow!("Stopped.")),
+                r = &mut work => r,
+            }
         };
         match outcome {
             Ok((answer, usage)) => {
@@ -822,11 +1019,16 @@ pub fn begin_idle_update_shutdown(state: &AppState) -> bool {
     let handles = state.jobs.handles.lock().unwrap();
     let runs = state.jobs.runs.lock().unwrap();
     if handles.iter().any(|handle| !handle.is_finished())
-        || runs.values().any(|run| run.snapshot.lock().unwrap()["status"] == "running")
+        || runs
+            .values()
+            .any(|run| run.snapshot.lock().unwrap()["status"] == "running")
     {
         return false;
     }
-    state.jobs.stopping.store(true, std::sync::atomic::Ordering::SeqCst);
+    state
+        .jobs
+        .stopping
+        .store(true, std::sync::atomic::Ordering::SeqCst);
     state.jobs.update_shutdown.notify_one();
     true
 }

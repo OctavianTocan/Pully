@@ -58,8 +58,9 @@ class TourStore(
             MessageDigest.getInstance("SHA-1").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 
         private fun namespace(context: Context): String {
+            NativeWorkspaceBinding.active?.let { return it.namespace.takeIf { _ -> it.owner.current } ?: INVALID_TOUR_NAMESPACE }
             Account.load(context)
-            val eligible = Account.serverHasAccount != false && Account.headers(context).isNotEmpty()
+            val eligible = Account.eligible(context)
             val config = ServerStore.load(context)
             return tourNamespace(config.url, Account.email, eligible, config.headers())
         }

@@ -1,6 +1,7 @@
 mod github;
 mod review;
 mod wire;
+mod workspace;
 
 use crate::{
     identity::{RequestIdentity, TenantStates},
@@ -147,6 +148,18 @@ pub(super) async fn fixture_router(
         "Invalid fixture origin"
     );
     let tenants = blocking(move || TenantStates::new(root, 256)).await?;
+    fixture_router_with_tenants(auth, tenants, origin)
+}
+#[cfg(test)]
+pub(super) fn fixture_router_with_tenants(
+    auth: PersonalAuth,
+    tenants: TenantStates,
+    origin: url::Url,
+) -> anyhow::Result<Router> {
+    anyhow::ensure!(
+        origin.scheme() == "http" && origin.host_str() == Some("127.0.0.1") && origin.path() == "/",
+        "Invalid fixture origin"
+    );
     let http = reqwest::Client::builder()
         .no_proxy()
         .redirect(reqwest::redirect::Policy::none())
@@ -163,7 +176,8 @@ pub(super) async fn fixture_router(
     }))
 }
 fn routes(inner: Inner) -> Router {
-    Router::new()
+    let inner = Arc::new(inner);
+    let typed = Router::new()
         .route(REPOSITORIES_PATH, get(repositories))
         .route(REPOSITORY_PULLS_PATH, get(pulls))
         .route(PULLS_PATH, get(inbox))
@@ -172,8 +186,9 @@ fn routes(inner: Inner) -> Router {
         .route(ACCOUNT_PULLS_PATH, get(account_inbox))
         .route(ACCOUNT_CAPABILITIES_PATH, get(account_capabilities))
         .merge(review::routes())
-        .with_state(Arc::new(inner))
-        .layer(middleware::from_fn(boundary))
+        .with_state(inner.clone())
+        .layer(middleware::from_fn(boundary));
+    typed.merge(workspace::routes(inner))
 }
 async fn boundary(request: axum::extract::Request, next: Next) -> Response {
     let forbidden = [
@@ -225,6 +240,7 @@ enum ReadScope {
     Public,
     Account,
 }
+#[derive(Clone)]
 struct Context {
     session: CurrentPersonalSession,
     state: Arc<AppState>,
@@ -278,6 +294,8 @@ impl Inner {
                 ReadError::new(match error {
                     AuthError::Reconnect => Code::Reconnect,
                     AuthError::Unauthorized | AuthError::Expired => Code::Unauthorized,
+                    AuthError::Denied => Code::Forbidden,
+                    AuthError::RateLimited => Code::RateLimited,
                     _ => Code::Unavailable,
                 })
             })?;

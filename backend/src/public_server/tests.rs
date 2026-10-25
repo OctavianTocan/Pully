@@ -1,6 +1,7 @@
 use super::*;
 mod personal_review;
 mod review_regressions;
+mod workspace;
 use crate::personal_auth::{wire, PersonalAuthHost};
 use axum::{
     extract::{Form, Path, Query, State},

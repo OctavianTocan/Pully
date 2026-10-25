@@ -19,3 +19,10 @@ back; a page that changes under the finger ticks (rule 109; H18).
 Sounds play at the phone's touch-sound volume, stay silent in silent and vibrate modes and
 take no audio focus; vibration follows the phone's touch feedback setting and the app's
 own Vibration switch (rule 109).
+
+@cc [owner:OctavianTocan,label:product;security] feedback-follows-current-account-preferences
+The process-wide sound and haptics services MUST read the current account settings
+for each cue, rather than retain the preference owner selected during Application
+startup. Switching back to ExistingServer MUST restore that flow's own feedback
+choices. Hardware initialization MAY remain one-shot. Source: Tavi's 25 Oct 2026
+review-fix batch #1 and sound-follows-the-phone.

@@ -1,4 +1,16 @@
 use super::*;
+
+#[test]
+fn hosted_lenses_bundle_the_same_curated_instructions_without_filesystem_access() {
+    assert_eq!(SHIPPED.len(), 6);
+    for (name, text) in SHIPPED {
+        assert!(valid_name(name));
+        let (fields, body) = parse_skill(text);
+        assert!(fields.get("title").is_some_and(|v| !v.is_empty()));
+        assert!(instructions(body).is_some());
+        assert!(text.len() <= MAX_SKILL_BYTES);
+    }
+}
 use std::{
     path::PathBuf,
     sync::atomic::{AtomicU64, Ordering},

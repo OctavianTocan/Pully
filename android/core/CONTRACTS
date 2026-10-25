@@ -59,6 +59,11 @@ produce a late alert (Tavi, 21 Oct 2026, notification expansion).
 Update URLs and every redirect MUST match the configured server's scheme, host and
 effective port before any request is opened or Access headers attached. Automatic
 redirects MUST stay disabled (repository review 15 Oct 2026, finding 7).
+When a caller supplies a URL-scoped header resolver, the connection MUST invoke it for
+the resolved initial URL and each redirect before opening that hop. Headers calculated
+for an earlier URL MUST NOT be reused for a later URL. The default resolver MUST retain
+the saved compatibility headers on same-origin redirects. Source: confirmed review
+finding 6, 25 Oct 2026, enforcing Tavi's approved staging credential path boundary.
 
 @cc [owner:OctavianTocan,label:product;security] core-update-downloads-settle
 Update transfers MUST have a whole-request deadline as well as socket timeouts, including

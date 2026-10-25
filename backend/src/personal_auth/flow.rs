@@ -54,6 +54,16 @@ impl std::fmt::Display for AuthError {
 impl std::error::Error for AuthError {}
 type Result<T> = std::result::Result<T, AuthError>;
 
+fn vault_error(error: anyhow::Error) -> AuthError {
+    if let Some(error) = error.downcast_ref::<AuthError>() {
+        *error
+    } else if error.is::<super::provider::ReconnectRequired>() {
+        AuthError::Reconnect
+    } else {
+        AuthError::Unavailable
+    }
+}
+
 /// What an attempt will install once GitHub answers, whichever way it was asked.
 struct Grant {
     authority: GitHubAuthority,
@@ -127,6 +137,14 @@ impl CurrentPersonalSession {
 }
 
 impl PersonalAuth {
+    pub(crate) async fn workspace_session(&self, session: &str) -> Result<CurrentPersonalSession> {
+        self.0
+            .vault
+            .require_confirmed(session)
+            .await
+            .map_err(vault_error)?;
+        self.authenticate(session).await
+    }
     #[cfg(test)]
     pub(crate) async fn fixture(
         config: OAuthConfig,
@@ -155,13 +173,7 @@ impl PersonalAuth {
             .vault
             .resolve_or_refresh(session, self.0.provider.clone())
             .await
-            .map_err(|error| {
-                if error.is::<super::provider::ReconnectRequired>() {
-                    AuthError::Reconnect
-                } else {
-                    AuthError::Unavailable
-                }
-            })?;
+            .map_err(vault_error)?;
         resolved.identity().map_err(|_| AuthError::Unauthorized)?;
         Ok(CurrentPersonalSession(Arc::new(resolved)))
     }
@@ -455,7 +467,10 @@ impl PersonalAuth {
             let login = VerifiedLogin::acquire(self.0.provider.as_ref(), tokens?)
                 .await
                 .map_err(|_| AuthError::Unavailable)?;
-            if !login.grants(grant.authority) {
+            // A new Connect must obtain the requested grant. An existing, captured
+            // same-account consent may instead receive a reduced grant; the vault
+            // installs that actual publicRead authority and retires the old binding.
+            if !login.grants(grant.authority) && grant.upgrade.is_none() {
                 return Err(AuthError::Denied);
             }
             if let Some(source) = &grant.upgrade {

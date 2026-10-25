@@ -132,7 +132,8 @@ object AiWork {
     }
 
     private fun identity(context: Context): Pair<String, Map<String, String>> =
-        ServerStore.load(context).let { it.url to (it.headers() + Account.headers(context)) }
+        NativeWorkspaceBinding.active?.let { it.workspace.server to mapOf("workspace-owner" to it.namespace) }
+            ?: ServerStore.load(context).let { it.url to (it.headers() + Account.headers(context)) }
 
     private fun capture(context: Context): WorkNoticeState.Source<Pair<String, Map<String, String>>> {
         val source = state.capture(identity(context))

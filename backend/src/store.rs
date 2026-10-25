@@ -5,7 +5,7 @@ use crate::{decode_component as decode, encode_component as encode};
 use anyhow::{bail, Context, Result};
 use serde_json::Value;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fs,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, OnceLock, Weak},
@@ -35,6 +35,103 @@ pub trait Records: Send + Sync {
     fn delete(&self, id: &str) -> Result<bool>;
     /// Every stored id, in any order.
     fn ids(&self) -> Result<Vec<String>>;
+    /// Matching encoded ids, with a literal prefix (not a glob). Persistent adapters
+    /// narrow the lookup before enumerating records. The default keeps other adapters compatible.
+    fn ids_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
+        Ok(self
+            .ids()?
+            .into_iter()
+            .filter(|id| id.starts_with(prefix))
+            .collect())
+    }
+}
+
+struct WorkspaceRecords {
+    durable: Arc<Store>,
+    identity: crate::identity::RequestIdentity,
+    transient: Mutex<BTreeMap<String, Vec<u8>>>,
+}
+impl WorkspaceRecords {
+    fn persistent(id: &str) -> bool {
+        matches!(
+            id.split('/').next().unwrap_or(id),
+            "diff"
+                | "review"
+                | "tour"
+                | "brief"
+                | "critique"
+                | "ask-threads"
+                | "inbox-chat"
+                | "account"
+                | "account-settings"
+                | "agent-key"
+                | "posted-diff"
+                | "posted-patch"
+                | "posted-agent"
+                | "feedback"
+                | "workspace-repository"
+                | "workspace-retired"
+        )
+    }
+}
+impl Records for WorkspaceRecords {
+    fn get(&self, id: &str) -> Result<Option<Vec<u8>>> {
+        self.identity.ensure_current()?;
+        let result = if Self::persistent(id) {
+            // Store holds the shared durable transaction lock for the entire operation.
+            self.durable.lock.records.get(id)?
+        } else {
+            self.transient.lock().unwrap().get(id).cloned()
+        };
+        self.identity.ensure_current()?;
+        Ok(result)
+    }
+    fn put(&self, id: &str, bytes: &[u8]) -> Result<()> {
+        self.identity.ensure_current()?;
+        if Self::persistent(id) {
+            self.identity.ensure_current()?;
+            self.durable.lock.records.put(id, bytes)
+        } else {
+            self.transient
+                .lock()
+                .unwrap()
+                .insert(id.to_owned(), bytes.to_vec());
+            Ok(())
+        }
+    }
+    fn delete(&self, id: &str) -> Result<bool> {
+        self.identity.ensure_current()?;
+        if Self::persistent(id) {
+            self.identity.ensure_current()?;
+            self.durable.lock.records.delete(id)
+        } else {
+            Ok(self.transient.lock().unwrap().remove(id).is_some())
+        }
+    }
+    fn ids(&self) -> Result<Vec<String>> {
+        self.ids_with_prefix("")
+    }
+    fn ids_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
+        self.identity.ensure_current()?;
+        let mut ids: Vec<_> = self
+            .durable
+            .lock
+            .records
+            .ids_with_prefix(prefix)?
+            .into_iter()
+            .filter(|id| Self::persistent(id))
+            .collect();
+        ids.extend(
+            self.transient
+                .lock()
+                .unwrap()
+                .range(prefix.to_owned()..)
+                .take_while(|(id, _)| id.starts_with(prefix))
+                .map(|(id, _)| id.clone()),
+        );
+        self.identity.ensure_current()?;
+        Ok(ids)
+    }
 }
 
 #[derive(Clone)]
@@ -43,8 +140,9 @@ pub struct Store {
     lock: Arc<RootLock>,
 }
 struct RootLock {
-    mutex: Mutex<()>,
-    diff_index: Mutex<DiffIndex>,
+    mutex: Arc<Mutex<()>>,
+    diff_index: Arc<Mutex<DiffIndex>>,
+    binding: Option<crate::identity::RequestIdentity>,
     #[cfg(test)]
     diff_body_reads: std::sync::atomic::AtomicUsize,
     records: Box<dyn Records>,
@@ -52,8 +150,9 @@ struct RootLock {
 impl RootLock {
     fn new(records: Box<dyn Records>) -> Arc<Self> {
         Arc::new(Self {
-            mutex: Mutex::new(()),
-            diff_index: Mutex::new(DiffIndex::default()),
+            mutex: Arc::new(Mutex::new(())),
+            diff_index: Arc::new(Mutex::new(DiffIndex::default())),
+            binding: None,
             #[cfg(test)]
             diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
             records,
@@ -123,12 +222,49 @@ impl Records for Files {
         }
     }
     fn ids(&self) -> Result<Vec<String>> {
+        self.ids_with_prefix("")
+    }
+    fn ids_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
         let mut ids = Vec::new();
+        if let Some((head, name_prefix)) = prefix.split_once('/') {
+            // Prefixes are queries, not validated write ids. Never let one select a path.
+            if head.is_empty()
+                || !head
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b"-_".contains(&b))
+            {
+                return Ok(ids);
+            }
+            let directory = self.path(head)?;
+            let files = match fs::read_dir(directory) {
+                Ok(files) => files,
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+                    ) =>
+                {
+                    return Ok(ids)
+                }
+                Err(e) => return Err(e.into()),
+            };
+            for file in files {
+                let file = file?;
+                let name = file.file_name().to_string_lossy().into_owned();
+                if name.starts_with(name_prefix)
+                    && !name.starts_with('.')
+                    && file.file_type()?.is_file()
+                {
+                    ids.push(format!("{head}/{name}"));
+                }
+            }
+            return Ok(ids);
+        }
         for entry in fs::read_dir(&self.root)? {
             let entry = entry?;
             let kind = entry.file_type()?;
             let head = entry.file_name().to_string_lossy().into_owned();
-            if head.starts_with('.') || kind.is_symlink() {
+            if !head.starts_with(prefix) || head.starts_with('.') || kind.is_symlink() {
                 continue;
             }
             if kind.is_dir() {
@@ -191,6 +327,35 @@ pub(crate) struct DiffSnapshot {
 #[cfg(not(target_arch = "wasm32"))]
 static LOCKS: OnceLock<Mutex<HashMap<PathBuf, Weak<RootLock>>>> = OnceLock::new();
 impl Store {
+    /// A workspace keeps saved reviews/tours/settings durably, but never adopts a prior
+    /// binding's inbox, repository or full-file caches. Every access retains its binding.
+    pub(crate) fn workspace(
+        durable: Arc<Self>,
+        identity: crate::identity::RequestIdentity,
+        revision: &str,
+    ) -> Self {
+        let root = durable.root.join(crate::encode_component(revision));
+        // Binding roots remain distinct for transient caches and account coordinators.
+        // All storage operations, including read/transform/write and multi-key CAS,
+        // share the stable account's lock; the adapter must not acquire it recursively.
+        let mutex = durable.lock.mutex.clone();
+        let diff_index = durable.lock.diff_index.clone();
+        Self {
+            root,
+            lock: Arc::new(RootLock {
+                mutex,
+                diff_index,
+                binding: Some(identity.clone()),
+                #[cfg(test)]
+                diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
+                records: Box::new(WorkspaceRecords {
+                    durable,
+                    identity,
+                    transient: Mutex::new(BTreeMap::new()),
+                }),
+            }),
+        }
+    }
     pub(crate) async fn transaction<T: Send + 'static>(
         &self,
         operation: impl FnOnce(Self) -> Result<T> + Send + 'static,
@@ -388,6 +553,9 @@ impl Store {
             .mutex
             .lock()
             .map_err(|_| anyhow::anyhow!("Storage lock unavailable"))?;
+        if let Some(identity) = &self.lock.binding {
+            identity.ensure_current()?;
+        }
         let mut index = self
             .lock
             .diff_index
@@ -433,6 +601,9 @@ impl Store {
         let size_bytes = entries
             .values()
             .fold(0u64, |total, e| total.saturating_add(e.size_bytes));
+        if let Some(identity) = &self.lock.binding {
+            identity.ensure_current()?;
+        }
         Ok(Some(DiffSnapshot {
             revision: index.revision,
             entries,
@@ -451,6 +622,9 @@ impl Store {
             .mutex
             .lock()
             .map_err(|_| anyhow::anyhow!("Storage lock unavailable"))?;
+        if let Some(identity) = &self.lock.binding {
+            identity.ensure_current()?;
+        }
         let index = self
             .lock
             .diff_index
@@ -553,8 +727,31 @@ impl Store {
     }
     fn list_keys(&self, prefix: &str) -> Result<Vec<String>> {
         let prefix = prefix.replace(['/', '\\'], ":");
+        let encoded_prefix = |prefix: &str| match prefix.split_once(':') {
+            Some((head, rest)) => format!("{head}/{}", encode(rest)),
+            None => prefix.to_owned(),
+        };
+        let mut prefixes = vec![encoded_prefix(&prefix)];
+        // Native and legacy diff names remain aliases in prefix listings too.
+        for (source, alias) in [
+            ("diff", "pr-meta"),
+            ("diff", "pr-body"),
+            ("pr-meta", "diff"),
+        ] {
+            if let Some(rest) = prefix.strip_prefix(&format!("{alias}:")) {
+                prefixes.push(format!("{source}/{}", encode(rest)));
+            } else if alias.starts_with(&prefix) {
+                prefixes.push(format!("{source}/"));
+            }
+        }
+        prefixes.sort();
+        prefixes.dedup();
         let mut keys = Vec::new();
-        for id in self.lock.records.ids()? {
+        let mut ids = BTreeSet::new();
+        for prefix in prefixes {
+            ids.extend(self.lock.records.ids_with_prefix(&prefix)?);
+        }
+        for id in ids {
             let Some((head, name)) = id.split_once('/') else {
                 if id.starts_with(&prefix) {
                     keys.push(id);
@@ -633,6 +830,263 @@ fn copy_tree(from: &Path, to: &Path) -> Result<()> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Pause the first settings read after taking its snapshot, inside a real merge.
+    struct PausedSettings {
+        inner: Store,
+        pause: Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>,
+    }
+    impl Records for PausedSettings {
+        fn get(&self, id: &str) -> Result<Option<Vec<u8>>> {
+            let value = self.inner.lock.records.get(id)?;
+            if id == "account-settings/owner" {
+                let pause = self.pause.lock().unwrap().take();
+                if let Some((ready, release)) = pause {
+                    ready.send(())?;
+                    release.recv_timeout(std::time::Duration::from_secs(5))?;
+                }
+            }
+            Ok(value)
+        }
+        fn put(&self, id: &str, bytes: &[u8]) -> Result<()> {
+            self.inner.lock.records.put(id, bytes)
+        }
+        fn delete(&self, id: &str) -> Result<bool> {
+            self.inner.lock.records.delete(id)
+        }
+        fn ids(&self) -> Result<Vec<String>> {
+            self.inner.lock.records.ids()
+        }
+        fn ids_with_prefix(&self, prefix: &str) -> Result<Vec<String>> {
+            self.inner.lock.records.ids_with_prefix(prefix)
+        }
+    }
+
+    fn workspace_pair(durable: Store) -> (Store, Store, crate::identity::GitHubCredential) {
+        use crate::identity::{GitHubCredential, RequestIdentity};
+        let first = GitHubCredential::fixture("owner", 42, "fixture-first-session");
+        let second = GitHubCredential::fixture("owner", 42, "fixture-second-session");
+        let durable = Arc::new(durable);
+        (
+            Store::workspace(durable.clone(), RequestIdentity::Account(first), "first"),
+            Store::workspace(durable, RequestIdentity::Account(second.clone()), "second"),
+            second,
+        )
+    }
+
+    #[tokio::test]
+    async fn workspace_sessions_serialize_complete_settings_merges() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let root =
+            std::env::temp_dir().join(format!("pulls-workspace-merge-{}", uuid::Uuid::new_v4()));
+        let disk = Store::new(root.clone()).unwrap();
+        let pause = Arc::new(PausedSettings {
+            inner: disk,
+            pause: Mutex::new(None),
+        });
+        // Keep the latch accessible while the adapter is boxed by Store.
+        struct Shared(Arc<PausedSettings>);
+        impl Records for Shared {
+            fn get(&self, id: &str) -> Result<Option<Vec<u8>>> {
+                self.0.get(id)
+            }
+            fn put(&self, id: &str, bytes: &[u8]) -> Result<()> {
+                self.0.put(id, bytes)
+            }
+            fn delete(&self, id: &str) -> Result<bool> {
+                self.0.delete(id)
+            }
+            fn ids(&self) -> Result<Vec<String>> {
+                self.0.ids()
+            }
+        }
+        let durable =
+            Store::with_records(root.join("coordinator"), Box::new(Shared(pause.clone())));
+        let (a, b, second) = workspace_pair(durable);
+        a.set("my-pulls:open", &json!("first cache")).unwrap();
+        b.set("my-pulls:open", &json!("second cache")).unwrap();
+        let first_accounts = crate::account::Accounts::new(a.clone());
+        let second_accounts = crate::account::Accounts::new(b.clone());
+        let finished = Arc::new(AtomicUsize::new(0));
+        let first_finished = finished.clone();
+        let held = test_support::HeldLock::new(move |ready, release| {
+            *pause.pause.lock().unwrap() = Some((ready, release));
+            let result = first_accounts.merge_settings(
+                "owner",
+                json!({
+                    "theme": {"value":"dark","at":30}, "sound": {"value":false,"at":10}
+                }),
+            );
+            first_finished.fetch_add(1, Ordering::SeqCst);
+            result.is_ok()
+        });
+        let merged = held
+            .assert_yields(second_accounts.merge_settings_async(
+                "owner",
+                json!({
+                    "language": {"value":"es","at":20}, "theme": {"value":"light","at":5},
+                    "sound": {"value":true,"at":40}
+                }),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(finished.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            merged,
+            json!({
+                "theme":{"value":"dark","at":30.0}, "sound":{"value":true,"at":40.0},
+                "language":{"value":"es","at":20.0}
+            })
+        );
+        assert_eq!(
+            crate::account::Accounts::new(a.clone())
+                .settings("owner")
+                .unwrap(),
+            merged
+        );
+        assert_eq!(a.get("my-pulls:open").unwrap(), Some(json!("first cache")));
+        assert_eq!(b.get("my-pulls:open").unwrap(), Some(json!("second cache")));
+        second.revoke();
+        assert!(b
+            .update("account-settings:owner", |_| Ok(json!({})))
+            .is_err());
+        assert!(b
+            .compare_exchange(&[("account-settings:owner".into(), None, None)])
+            .is_err());
+        assert!(b.keys("account-settings:").is_err());
+        assert!(b.get("my-pulls:open").is_err());
+        assert_eq!(
+            a.get("account-settings:owner").unwrap().unwrap()["values"],
+            merged
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn workspace_cas_serializes_with_other_binding_updates_and_rechecks_revocation() {
+        let root =
+            std::env::temp_dir().join(format!("pulls-workspace-cas-{}", uuid::Uuid::new_v4()));
+        let durable = Store::new(root.clone()).unwrap();
+        let (a, b, second) = workspace_pair(durable.clone());
+        a.set("review:one", &json!(0)).unwrap();
+        let held = test_support::HeldLock::new(move |ready, release| {
+            a.update("review:one", |_| {
+                ready.send(())?;
+                release.recv_timeout(std::time::Duration::from_secs(5))?;
+                Ok(json!(1))
+            })
+            .is_ok()
+        });
+        let cas = held
+            .assert_yields(b.transaction(|store| {
+                store.compare_exchange(&[
+                    ("review:one".into(), Some(json!(0)), Some(json!(2))),
+                    ("my-pulls:new".into(), None, Some(json!("must not appear"))),
+                ])
+            }))
+            .await;
+        assert!(cas.is_err());
+        assert_eq!(b.get("review:one").unwrap(), Some(json!(1)));
+        assert!(b.get("my-pulls:new").unwrap().is_none());
+        let held = test_support::HeldLock::storage(&durable);
+        second.revoke();
+        assert!(held
+            .assert_yields(b.set_async("review:one", &json!(3)))
+            .await
+            .is_err());
+        assert_eq!(durable.get("review:one").unwrap(), Some(json!(1)));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn prefix_queries_preserve_flat_keys_and_legacy_aliases() {
+        let root =
+            std::env::temp_dir().join(format!("pulls-store-prefix-{}", uuid::Uuid::new_v4()));
+        let store = Store::new(root.clone()).unwrap();
+        for key in [
+            "analytics:2026-10-25:1",
+            "analytics:2026-10-24:1",
+            "account",
+            "account-settings:owner",
+            "diff:a/b#1",
+            "pr-meta:legacy",
+            "pr-body:legacy",
+            "review:a%_é",
+            "review:another",
+            "different:one",
+        ] {
+            store.set(key, &json!({})).unwrap();
+        }
+        let all = store.keys("").unwrap();
+        for prefix in [
+            "",
+            "a",
+            "account",
+            "analytics:2026-10-25:",
+            "pr-",
+            "pr-meta:",
+            "pr-body:",
+            "diff",
+            "diff:a/b",
+            "review:a%_é",
+            "missing:",
+        ] {
+            let normalized = prefix.replace(['/', '\\'], ":");
+            let expected: Vec<_> = all
+                .iter()
+                .filter(|key| key.starts_with(&normalized))
+                .cloned()
+                .collect();
+            assert_eq!(store.keys(prefix).unwrap(), expected, "prefix {prefix}");
+        }
+        // A narrow collection lookup must not descend into unrelated record directories.
+        fs::create_dir(root.join("unrelated")).unwrap();
+        fs::write(root.join("unrelated/broken"), b"not JSON").unwrap();
+        assert_eq!(
+            store
+                .lock
+                .records
+                .ids_with_prefix("analytics/2026-10-25%3A")
+                .unwrap(),
+            vec!["analytics/2026-10-25%3A1"]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn workspace_bindings_share_diff_metadata_without_bypassing_revocation() {
+        let root =
+            std::env::temp_dir().join(format!("pulls-workspace-index-{}", uuid::Uuid::new_v4()));
+        let durable = Store::new(root.clone()).unwrap();
+        let (a, b, second) = workspace_pair(durable.clone());
+        a.set("diff:one", &json!({"sizeBytes":10,"lastViewedAt":1}))
+            .unwrap();
+        let first = b.diff_snapshot(None).unwrap().unwrap();
+        a.update("diff:one", |_| Ok(json!({"sizeBytes":20,"lastViewedAt":2})))
+            .unwrap();
+        let next = b.diff_snapshot(Some(first.revision)).unwrap().unwrap();
+        assert_eq!(next.size_bytes, 20);
+        assert!(b
+            .diff_entry_if_unchanged("diff:one", first.entries["diff:one"].revision)
+            .unwrap()
+            .is_none());
+        durable.set("diff:two", &json!({"sizeBytes":5})).unwrap();
+        assert_eq!(
+            a.diff_snapshot(Some(next.revision))
+                .unwrap()
+                .unwrap()
+                .size_bytes,
+            25
+        );
+        second.revoke();
+        assert!(b.diff_snapshot(None).is_err());
+        assert!(b.diff_snapshot(Some(next.revision)).is_err());
+        assert!(b
+            .diff_entry_if_unchanged("diff:one", next.entries["diff:one"].revision)
+            .is_err());
+        assert_eq!(a.diff_snapshot(None).unwrap().unwrap().size_bytes, 25);
+        fs::remove_dir_all(root).unwrap();
+    }
     #[test]
     fn diff_metadata_tracks_all_mutations_across_store_instances() {
         let root =

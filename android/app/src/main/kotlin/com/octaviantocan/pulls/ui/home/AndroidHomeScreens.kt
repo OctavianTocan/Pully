@@ -19,9 +19,8 @@ import com.octaviantocan.pulls.data.AppSettings
 import com.octaviantocan.pulls.data.PullSizes
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoIdentity
-import com.octaviantocan.pulls.data.ServerStore
 import com.octaviantocan.pulls.data.TourStore
-import com.octaviantocan.pulls.data.sourceStorageNamespace
+import com.octaviantocan.pulls.data.nativeStorageNamespace
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
 import com.octaviantocan.pulls.sound.Sounds
@@ -52,15 +51,14 @@ internal fun androidHomeScreenData(context: Context, repo: Repo): HomeScreenData
             RepoIdentity.generation == epoch &&
                 if (source == null) runCatching { repo.source() }.isFailure else repo.isCurrent(source)
         }
-        val config = ServerStore.load(app)
         Account.load(app)
-        val namespace = sourceStorageNamespace(config.url, Account.email, Account.serverHasAccount != false && Account.headers(app).isNotEmpty(), config.headers())
+        val namespace = nativeStorageNamespace(app)
         val sizes = PullSizes.source(namespace ?: "invalid-source:$epoch", bounded = false)
         val effects = AndroidHomeScreenEffects(sizes, current)
         val disk = AndroidRepoPages(File(app.cacheDir, "repo-pulls-source-v2-${namespace ?: "invalid"}")) { namespace != null && current() }
         HomeScreenData(
             repo, FirstPages(disk, current),
-            PostedDiffsStore(repo, deviceStore(app, "pully-posted"), { Account.serverHasAccount != false && Account.headers(app).isNotEmpty() }, current),
+            PostedDiffsStore(repo, deviceStore(app, "pully-posted"), { Account.eligible(app) }, current),
             GithubStatsStore(repo, deviceStore(app, "pulls-github-stats"), current),
             current, effects, sizes,
         )
@@ -147,9 +145,10 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
     val parentScope = rememberCoroutineScope()
     val toaster = LocalToaster.current
     val home = rememberHomeState(repo)
+    val workspace = com.octaviantocan.pulls.data.NativeWorkspaceBinding.active
     val askEpoch = remember(repo, home, native) { RepoIdentity.generation }
     val askScope = remember(repo, home, native) { CoroutineScope(parentScope.coroutineContext + SupervisorJob(parentScope.coroutineContext[Job])) }
-    val services = remember(repo, home, native, askScope) {
+    val services = remember(repo, home, native, askScope, workspace) {
         val data = androidHomeScreenData(context, repo)
         val settings = AppSettings.get(context)
         val source = runCatching { repo.source() }.getOrNull()
@@ -157,7 +156,7 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
         val current = { RepoIdentity.generation == epoch && source != null && repo.isCurrent(source) }
         val tourStore = TourStore.get(context)
         val canAsk = cliEngine(context)
-        val observations = HomeObservations()
+        val observations = HomeObservations(initialReady = workspace?.workspace?.current ?: true)
         val ask = if (canAsk) InboxAsk(
             repo, askScope, settings, native,
             object : InboxAskEffects {
@@ -195,10 +194,13 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
             services.ask?.invalidate()
             askScope.cancel()
         }
+        val stopAdmission = workspace?.observeForeground { ready ->
+            if (ready) services.observations.resume() else services.observations.pause()
+        }
         val unsubscribe = RepoIdentity.observeInvalidation { retire() }
         // Identity may change after composition and before this listener is registered.
         if (RepoIdentity.generation != askEpoch) retire()
-        onDispose { unsubscribe(); retire() }
+        onDispose { stopAdmission?.invoke(); unsubscribe(); retire() }
     }
     return services
 }

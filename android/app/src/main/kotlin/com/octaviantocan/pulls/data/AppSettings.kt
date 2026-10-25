@@ -5,10 +5,12 @@ import com.octaviantocan.pulls.settings.SettingsEffects
 import com.octaviantocan.pulls.settings.SharedPreferencesSettings
 
 /** Android factory retained while screens move to the shared reactive settings implementation. */
-class AppSettings private constructor(context: Context) : com.octaviantocan.pulls.settings.AppSettings(
-    SharedPreferencesSettings(context.getSharedPreferences("pulls-ui", Context.MODE_PRIVATE)),
+class AppSettings private constructor(context: Context, namespace: String?) : com.octaviantocan.pulls.settings.AppSettings(
+    SharedPreferencesSettings(context.getSharedPreferences(namespace?.let { "pulls-ui-workspace-$it" } ?: "pulls-ui", Context.MODE_PRIVATE)),
     object : SettingsEffects {
-        override fun touched(name: String) = SettingsSync.touched(context, name)
+        override fun touched(name: String) {
+            if (namespace == NativeWorkspaceBinding.active?.namespace) SettingsSync.touched(context, name)
+        }
         override fun settingsChanged(key: String, value: String) = Analytics.track("settings.change", "key" to key, "value" to value)
         override fun usageStatsEnabled(enabled: Boolean) = Analytics.setEnabled(enabled)
         override fun experimentChanged(feature: String, enabled: Boolean) {
@@ -22,9 +24,11 @@ class AppSettings private constructor(context: Context) : com.octaviantocan.pull
     companion object {
         const val MIN_ZOOM = com.octaviantocan.pulls.settings.AppSettings.MIN_ZOOM
         const val MAX_ZOOM = com.octaviantocan.pulls.settings.AppSettings.MAX_ZOOM
-        @Volatile private var instance: AppSettings? = null
-        fun get(context: Context): AppSettings = instance ?: synchronized(this) {
-            instance ?: AppSettings(context.applicationContext).also { instance = it }
+        private val instances = mutableMapOf<String?, AppSettings>()
+        fun get(context: Context): AppSettings = synchronized(this) {
+            val namespace = NativeWorkspaceBinding.active?.namespace ?: if (NativeEntry.privateConnection(context)) null
+                else com.octaviantocan.pulls.data.personal.PersonalAccounts.settingsNamespace(context) ?: "explore"
+            instances.getOrPut(namespace) { AppSettings(context.applicationContext, namespace) }
         }
     }
 }

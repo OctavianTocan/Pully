@@ -16,8 +16,8 @@ object Account {
     private var loaded = false
 
     /** The signed-in email; null while signed out. */
-    var email by mutableStateOf<String?>(null)
-        private set
+    private var legacyEmail by mutableStateOf<String?>(null)
+    val email: String? get() = NativeWorkspaceBinding.active?.let { it.owner.login.takeIf { _ -> it.owner.current } } ?: legacyEmail.takeIf { NativeWorkspaceBinding.active == null }
 
     private var session: String? = null
 
@@ -25,8 +25,8 @@ object Account {
     private var server: String? = null
 
     /** `true` once the server said it takes a sign-in, `false` once it said it takes none, null before it was asked. */
-    var serverHasAccount by mutableStateOf<Boolean?>(null)
-        private set
+    private var legacyServerHasAccount by mutableStateOf<Boolean?>(null)
+    val serverHasAccount: Boolean? get() = if (NativeWorkspaceBinding.active != null) true else legacyServerHasAccount
 
     /** The client ID the server takes Google sign-in for; null while the server has none, so the page hides the button. */
     var googleClientId by mutableStateOf<String?>(null)
@@ -64,12 +64,15 @@ object Account {
             googleClientId = prefs.getString("googleClientId", null),
             verifiedServer = prefs.getString("verifiedServer", null),
         )
-        email = restored.email
-        serverHasAccount = restored.hasAccount
+        legacyEmail = restored.email
+        legacyServerHasAccount = restored.hasAccount
         googleClientId = restored.googleClientId
         connectionVerified = restored.verified
         loaded = true
     }
+
+    fun eligible(context: Context): Boolean = NativeWorkspaceBinding.active?.owner?.current
+        ?: (serverHasAccount != false && headers(context).isNotEmpty())
 
     /** Whether the sign-in page covers the app: the server has an account and this phone is not signed in to it. */
     val mustSignIn: Boolean get() = serverHasAccount == true && email == null
@@ -79,6 +82,7 @@ object Account {
      * reaches it), so a changed server address or a plain-HTTP one never receives it.
      */
     fun headers(context: Context, url: String = ServerStore.load(context).url.trim()): Map<String, String> {
+        if (NativeWorkspaceBinding.active != null) return emptyMap()
         load(context)
         val session = session ?: return emptyMap()
         return if (sameAccountServer(server, url) && carriesSecrets(url)) mapOf("X-Pully-Session" to session) else emptyMap()
@@ -88,7 +92,7 @@ object Account {
         com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         RepoIdentity.invalidate()
         this.session = session
-        this.email = email
+        legacyEmail = email
         connectionVerified = true
         server = ServerStore.load(context).url.trim()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -98,22 +102,24 @@ object Account {
 
     /** Forgets the session, as Sign out does and as a session the server no longer knows does. */
     fun signedOut(context: Context) {
+        NativeWorkspaceBinding.active?.let { it.signOut(); return }
         com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         RepoIdentity.invalidate()
         session = null
-        email = null
+        legacyEmail = null
         server = null
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove("session").remove("email").remove("server").apply()
         com.octaviantocan.pulls.notifications.DeviceNotifications.sync(context)
     }
 
     fun noteServer(context: Context, status: AccountStatus) {
+        if (NativeWorkspaceBinding.active != null) return
         val ownershipChanged = serverHasAccount != null && serverHasAccount != status.hasAccount
         if (ownershipChanged) {
             RepoIdentity.invalidate()
             com.octaviantocan.pulls.notifications.DeviceNotifications.reset(context)
         }
-        serverHasAccount = status.hasAccount
+        legacyServerHasAccount = status.hasAccount
         googleClientId = status.googleClientId
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean("hasAccount", status.hasAccount).putString("googleClientId", status.googleClientId)
@@ -130,6 +136,7 @@ object Account {
     fun ownsConnectionCheck(revision: Long): Boolean = checkRevision == revision
 
     fun connectionAnswered(context: Context, revision: Long) {
+        if (NativeWorkspaceBinding.active != null) return
         if (!ownsConnectionCheck(revision)) return
         connectionVerified = true
         connectionProblem = null
@@ -151,11 +158,11 @@ object Account {
         checkRevision++
         checkingConnection = false
         connectionProblem = null
-        serverHasAccount = null
+        legacyServerHasAccount = null
         googleClientId = null
         val configured = ServerStore.load(context).url.trim()
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        email = prefs.getString("email", null)?.takeIf { session != null && sameAccountServer(server, configured) }
+        legacyEmail = prefs.getString("email", null)?.takeIf { session != null && sameAccountServer(server, configured) }
         connectionVerified = email != null
         prefs.edit().remove("hasAccount").remove("googleClientId").remove("statusServer").remove("verifiedServer").apply()
     }

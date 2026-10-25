@@ -37,26 +37,12 @@ class MainActivity : ComponentActivity() {
         val night = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         paintWindow(ColorThemes.of(settings.colorTheme).colors(when (settings.theme) { "dark" -> true; "light" -> false; else -> night }))
         setContent {
-            val dark = when (settings.theme) {
-                "dark" -> true
-                "light" -> false
-                else -> isSystemInDarkTheme()
-            }
-            val theme = ColorThemes.of(settings.colorTheme)
-            val colors = theme.colors(dark)
-            // The bars follow the app's theme, not the system's: dark icons on the light paper. A theme with one look
-            // keeps it under Light too, so the bars follow the palette on screen rather than the choice.
-            DisposableEffect(colors) {
+            ActiveAccountTheme(onColors = { colors ->
                 paintWindow(colors)
                 val clear = android.graphics.Color.TRANSPARENT
                 val style = if (colors.dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear)
                 this@MainActivity.enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
-                onDispose { }
-            }
-            // Every role of `PullsType` but the numbers' reads `AppFonts`, which follows this; set before the theme so
-            // the first frame is already in the chosen face (N10).
-            if (com.octaviantocan.pulls.ui.design.AppFonts.selected != settings.appFont) com.octaviantocan.pulls.ui.design.AppFonts.selected = settings.appFont
-            PullsTheme(dark = dark, theme = theme, locale = settings.locale) {
+            }) {
                 PullsApp(initialTarget = IncomingLinks.read(intent, this@MainActivity), initialAIResult = IncomingLinks.result(intent, this@MainActivity))
             }
         }
@@ -96,4 +82,20 @@ class MainActivity : ComponentActivity() {
         setIntent(intent)
         IncomingLinks.receive(intent, this)
     }
+}
+
+/** The Activity and native entry tests use the same account-reactive appearance root. */
+@androidx.compose.runtime.Composable
+internal fun ActiveAccountTheme(onColors: (PullsColors) -> Unit = {}, content: @androidx.compose.runtime.Composable () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val settings = AppSettings.get(context)
+    val dark = when (settings.theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
+    val theme = ColorThemes.of(settings.colorTheme)
+    val colors = theme.colors(dark)
+    DisposableEffect(colors) { onColors(colors); onDispose { } }
+    if (com.octaviantocan.pulls.ui.design.AppFonts.selected != settings.appFont)
+        com.octaviantocan.pulls.ui.design.AppFonts.selected = settings.appFont
+    if (com.octaviantocan.pulls.ui.design.CodeFonts.selected != settings.codeFont)
+        com.octaviantocan.pulls.ui.design.CodeFonts.selected = settings.codeFont
+    PullsTheme(dark = dark, theme = theme, locale = settings.locale, content = content)
 }

@@ -24,8 +24,26 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AccountPagesServicesTest {
     @Test
+    fun unavailableAgentKeyCapabilityExplainsThePageAndDispatchesNoKeyOrClipboardActions() = runTest {
+        val reason = "Agent keys are unavailable for GitHub workspaces."
+        val h = Harness(agentKeysUnavailableReason = reason)
+        assertEquals(reason, h.services.agentKeysUnavailableReason)
+        assertTrue(h.services.current())
+        assertEquals("reader@example.com", h.services.email)
+        assertEquals(reason, assertFailsWith<IllegalStateException> { h.services.keys() }.message)
+        assertEquals(reason, assertFailsWith<IllegalStateException> { h.services.create("Laptop") }.message)
+        assertEquals(reason, assertFailsWith<IllegalStateException> { h.services.revoke("old-key") }.message)
+        assertFalse(h.services.copy("old-key"))
+        assertTrue(h.methods.isEmpty())
+        assertTrue(h.copied.isEmpty())
+        h.services.signOut()
+        assertEquals(1, h.signedOut)
+    }
+
+    @Test
     fun theActualKeyMethodsKeepTheServerPayloadAndCopyOnlyTheOneTimeValue() = runTest {
         val h = Harness()
+        assertNull(h.services.agentKeysUnavailableReason)
         assertEquals("key-1", h.services.keys().single().id)
         val made = h.services.create("Laptop")
         assertEquals("fixture-key", made.first)
@@ -112,7 +130,7 @@ class AccountPagesServicesTest {
         assertEquals(0, h.signedOut)
     }
 
-    private class Harness {
+    private class Harness(agentKeysUnavailableReason: String? = null) {
         var generation = 0L
         var signedOut = 0
         var signOutFailure: Exception? = null
@@ -133,6 +151,7 @@ class AccountPagesServicesTest {
                 else -> """{"result":null}"""
             })
         })
-        val services = SourceAccountPagesServices(repo, { "reader@example.com" }, { true }, { signOutFailure?.let { throw it }; signedOut++; generation++ }, { copied += it })
+        val services = SourceAccountPagesServices(repo, { "reader@example.com" }, { true }, { signOutFailure?.let { throw it }; signedOut++; generation++ }, { copied += it },
+            agentKeysUnavailableReason = agentKeysUnavailableReason)
     }
 }

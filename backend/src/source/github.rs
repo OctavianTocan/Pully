@@ -166,6 +166,11 @@ async fn raw_inner(
     if let Some(response) = snapshot_tests::response(&method, path, body.as_ref(), accept) {
         return response;
     }
+    let url = if state.personal_workspace {
+        state.github_origin.join(path.trim_start_matches('/'))?
+    } else {
+        url
+    };
     let mut req = state
         .http
         .request(method, url)

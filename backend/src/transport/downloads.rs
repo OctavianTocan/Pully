@@ -44,7 +44,7 @@ pub(super) async fn response(host: &ServerHost, path: &str) -> Response {
 
 fn history_asset(relative: &str) -> bool {
     static ALLOWED: OnceLock<regex::Regex> = OnceLock::new();
-    relative == "past/index.json"
+    matches!(relative, "past/index.json" | "staging/past/index.json")
         || ALLOWED
             .get_or_init(|| {
                 regex::Regex::new(
@@ -373,6 +373,17 @@ mod tests {
         ] {
             assert_eq!(staging_origin(refused), None, "{refused}");
         }
+    }
+
+    #[tokio::test]
+    async fn unpublished_staging_history_is_an_empty_index_without_inventing_apks() {
+        let server = Server::new().await;
+        for path in ["/download/past/index.json", "/download/staging/past/index.json"] {
+            let response = server.get(path).await;
+            assert_eq!(response.status(), StatusCode::OK, "{path}");
+            assert_eq!(response.json::<Value>().await.unwrap(), serde_json::json!({"versions":[]}));
+        }
+        assert_eq!(server.get("/download/staging/past/0.1.0.apk").await.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

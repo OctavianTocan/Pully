@@ -32,6 +32,7 @@ pub(super) struct PersonalGitHub {
     repositories: Mutex<RepositoryFence>,
     pub(super) reviews: Mutex<super::review::PullFence>,
 }
+#[derive(Clone)]
 pub(super) struct RepositoryRead {
     pub(super) repository: ReadRepository,
     pub(super) scope: String,

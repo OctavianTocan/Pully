@@ -74,29 +74,11 @@ pub(super) async fn call(
         Ok(None) => return Some(error(StatusCode::UNAUTHORIZED, "Sign in first.")),
         Err(e) => return Some(reply(Err(e))),
     };
-    let result: Result<Value> = async {
-        match name {
-            "account-sign-out" => { app.accounts.sign_out_async(session(headers).unwrap_or("")).await?; Ok(json!(true)) },
-            "account-me" => Ok(json!(user)),
-            "agent-keys" => Ok(json!(app.accounts.keys_async(&user.id).await?)),
-            "agent-key-create" => Ok(json!(app.accounts.create_key_async(&user.id,text(args,"name")).await?)),
-            "agent-key-revoke" => Ok(json!(app.accounts.revoke_key_async(&user.id,text(args,"id")).await?)),
-            "account-settings" => Ok(json!({"values":app.accounts.settings_async(&user.id).await?})),
-            "account-settings-merge" => {
-                let values = crate::account::clean_settings(&args["values"]).context("Settings need `values`: { name: { value, at } }.")?;
-                Ok(json!({"values":app.accounts.merge_settings_async(&user.id, values).await?}))
-            },
-            "posted-list" => Ok(json!(app.posted.list_async(&user.id).await?.into_iter().map(|meta| json!({"id":meta["id"],"title":meta["title"],"author":meta.get("author").unwrap_or(&meta["keyName"]),"key":meta["keyName"],"version":meta["version"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":meta["files"],"additions":meta["additions"],"deletions":meta["deletions"]})).collect::<Vec<_>>())),
-            "posted-diff" => {
-                let Some(mut opened) = app.posted.open_async(&user.id,text(args,"id")).await? else { return Ok(Value::Null); };
-                opened["groups"] = crate::source::groups(&opened["diff"]); Ok(opened)
-            },
-            "posted-delete" => Ok(json!(app.posted.remove_async(&user.id,text(args,"id")).await?)),
-            "feedback-send" => app.feedback.save_async(&user.id, args).await,
-            "feedback-list" => Ok(json!({"items":app.feedback.list_async(&user.id, None).await?.into_iter().take(100).collect::<Vec<_>>()})),
-            _ => unreachable!(),
-        }
-    }.await;
+    let result = if name == "account-sign-out" {
+        app.accounts.sign_out_async(session(headers).unwrap_or("")).await.map(|_| json!(true))
+    } else {
+        owned_value(app, &user, name, args).await
+    };
     if name == "posted-diff" && matches!(&result, Ok(Value::Null)) {
         return Some(error(
             StatusCode::NOT_FOUND,
@@ -104,6 +86,31 @@ pub(super) async fn call(
         ));
     }
     Some(reply(result))
+}
+
+/// Account operations shared by native sessions and canonical personal workspace sessions.
+/// The caller supplies a server-resolved account; request arguments cannot select it.
+pub(crate) async fn owned_value(app: &Arc<AppState>, user: &crate::account::Account, name: &str, args: &Value) -> Result<Value> {
+    match name {
+        "account-me" => Ok(json!(user)),
+        "agent-keys" => Ok(json!(app.accounts.keys_async(&user.id).await?)),
+        "agent-key-create" => Ok(json!(app.accounts.create_key_async(&user.id,text(args,"name")).await?)),
+        "agent-key-revoke" => Ok(json!(app.accounts.revoke_key_async(&user.id,text(args,"id")).await?)),
+        "account-settings" => Ok(json!({"values":app.accounts.settings_async(&user.id).await?})),
+        "account-settings-merge" => {
+            let values = crate::account::clean_settings(&args["values"]).context("Settings need `values`: { name: { value, at } }.")?;
+            Ok(json!({"values":app.accounts.merge_settings_async(&user.id, values).await?}))
+        },
+        "posted-list" => Ok(json!(app.posted.list_async(&user.id).await?.into_iter().map(|meta| json!({"id":meta["id"],"title":meta["title"],"author":meta.get("author").unwrap_or(&meta["keyName"]),"key":meta["keyName"],"version":meta["version"],"createdAt":meta["createdAt"],"updatedAt":meta["updatedAt"],"files":meta["files"],"additions":meta["additions"],"deletions":meta["deletions"]})).collect::<Vec<_>>())),
+        "posted-diff" => {
+            let Some(mut opened) = app.posted.open_async(&user.id,text(args,"id")).await? else { return Ok(Value::Null); };
+            opened["groups"] = crate::source::groups(&opened["diff"]); Ok(opened)
+        },
+        "posted-delete" => Ok(json!(app.posted.remove_async(&user.id,text(args,"id")).await?)),
+        "feedback-send" => app.feedback.save_async(&user.id, args).await,
+        "feedback-list" => Ok(json!({"items":app.feedback.list_async(&user.id, None).await?.into_iter().take(100).collect::<Vec<_>>()})),
+        _ => unreachable!(),
+    }
 }
 
 fn account_status(has_account: bool, google_client_id: Option<&str>) -> Value {
@@ -190,23 +197,27 @@ pub(super) async fn agent_login_call(
         Ok(login) => login,
         Err(response) => return Some(response),
     };
+    Some(agent_login_value(app, &login, name, args).await)
+}
+
+pub(crate) async fn agent_login_value(app: &Arc<AppState>, login: &AgentLogin, name: &str, args: &Value) -> Response {
     if name == "ai-login-status" {
         let result = crate::agent_login::status(&login).await.map(|mut value| {
             value["account"] = json!(matches!(login, AgentLogin::Account(_)));
             value
         });
-        return Some(reply(result));
+        return reply(result);
     }
-    if login == AgentLogin::Server {
-        return Some(error(
+    if login == &AgentLogin::Server {
+        return error(
             StatusCode::UNAUTHORIZED,
             "Sign in to your Pully account first, so the AI sign-in is yours.",
-        ));
+        );
     }
     let binary = match args.get("engine").and_then(Value::as_str) {
         Some("claude") => "claude",
         Some("codex") => "codex",
-        _ => return Some(reply(Err(anyhow::anyhow!("That method received invalid arguments.")))),
+        _ => return reply(Err(anyhow::anyhow!("That method received invalid arguments."))),
     };
     let logins = &app.agent_logins;
     let result = match name {
@@ -227,7 +238,7 @@ pub(super) async fn agent_login_call(
     if name != "ai-login-start" {
         app.jobs.forget_catalogs(&login).await;
     }
-    Some(reply(result))
+    reply(result)
 }
 
 pub(super) async fn authorize_posted(

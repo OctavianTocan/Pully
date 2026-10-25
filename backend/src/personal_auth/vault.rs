@@ -418,6 +418,18 @@ impl PersonalVault {
         .await
     }
 
+    pub(super) async fn require_confirmed(&self, session: &str) -> Result<()> {
+        let hash = session_hash(session).map_err(|_| super::flow::AuthError::Unauthorized)?;
+        let this = self.clone();
+        blocking(move || {
+            if this.snapshot(hash, true)?.session.confirm_by.is_some() {
+                return Err(super::flow::AuthError::Unauthorized.into());
+            }
+            Ok(())
+        })
+        .await
+    }
+
     pub(super) async fn resolve(
         &self,
         session: &str,

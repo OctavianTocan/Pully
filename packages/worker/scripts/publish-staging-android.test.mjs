@@ -44,13 +44,23 @@ function fixture({ tools = true, packageName = 'com.octaviantocan.pulls.staging'
     events,
     manifest,
     commit: git('rev-parse', 'HEAD'),
-    run: () => spawnSync('bash', [join(root, 'packages/worker/scripts/publish-staging-android.sh'), 'https://staging.example.invalid'], {
+    run: (extraEnv = {}) => spawnSync('bash', [join(root, 'packages/worker/scripts/publish-staging-android.sh'), 'https://staging.example.invalid'], {
       cwd: root,
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ANDROID_HOME: sdk, TEST_EVENTS: events, TEST_MANIFEST: manifest },
+      env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ANDROID_HOME: sdk, TEST_EVENTS: events, TEST_MANIFEST: manifest, PULLY_STAGING_ACCESS_CLIENT_ID: 'fixture-staging.access', PULLY_STAGING_ACCESS_CLIENT_SECRET: 'fixture-staging-secret', ...extraEnv },
     }),
   }
 }
+
+test('missing embedded staging Access credentials refuse building and publication', () => {
+  for (const key of ['PULLY_STAGING_ACCESS_CLIENT_ID', 'PULLY_STAGING_ACCESS_CLIENT_SECRET']) {
+    const f = fixture()
+    const result = f.run({ [key]: '' })
+    assert.notEqual(result.status, 0)
+    assert.match(result.stderr, /Missing staging Access build credential/)
+    assert.equal(readFileSync(f.events, 'utf8'), '')
+  }
+})
 
 test('staging publication selects the pinned SDK with several installed versions and a spaced SDK path', () => {
   const f = fixture()

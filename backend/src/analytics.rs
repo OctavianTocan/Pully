@@ -44,6 +44,14 @@ pub trait DayFiles: Send + Sync {
     fn append(&self, day: &str, lines: &[String]) -> Result<()>;
     /// The lines of `day` in the order they were added; empty when it has none.
     fn read(&self, day: &str) -> Result<Vec<String>>;
+    /// Visits lines in the same order without retaining a complete day in memory.
+    /// Adapters with cursors or record batches override this compatibility default.
+    fn visit(&self, day: &str, line: &mut dyn FnMut(&str)) -> Result<()> {
+        for stored in self.read(day)? {
+            line(&stored);
+        }
+        Ok(())
+    }
     /// Every day that has lines, as `YYYY-MM-DD`.
     fn days(&self) -> Result<Vec<String>>;
     /// Removes every line of `day`.
@@ -60,6 +68,14 @@ impl Default for Analytics {
 }
 
 impl Analytics {
+    /// Account-owned records work on native hosts and Worker SQLite without filesystem I/O.
+    pub(crate) fn in_records(store: crate::store::Store) -> Self {
+        Self::configured(
+            store.root().join("analytics"),
+            enabled_by_environment(),
+            Some(Arc::new(RecordDays(store))),
+        )
+    }
     /// Directory excluded from repository inspection and AI context.
     pub fn root(&self) -> &Path {
         &self.inner.dir
@@ -87,10 +103,6 @@ impl Analytics {
                 home.join(".local/share/pulls-review/analytics")
             });
         Self::configured(dir, enabled, None)
-    }
-
-    pub(crate) fn for_tenant(dir: PathBuf) -> Self {
-        Self::configured(dir, enabled_by_environment(), None)
     }
 
     /// Keeps events in `days` instead of a directory, on unless `PULLS_REVIEW_ANALYTICS` turns
@@ -321,9 +333,7 @@ impl Analytics {
         let _files = FILE_LOCK.lock().await;
         for day in &days {
             if let Some(stored) = &self.inner.days {
-                for line in stored.read(day).unwrap_or_default() {
-                    tally_line(&mut tally, &line);
-                }
+                let _ = stored.visit(day, &mut |line| tally_line(&mut tally, line));
                 continue;
             }
             let Ok(file) = fs::File::open(self.inner.dir.join(format!("{day}.ndjson"))).await
@@ -336,6 +346,58 @@ impl Analytics {
             }
         }
         Ok(tally.summary(first, last))
+    }
+}
+
+struct RecordDays(crate::store::Store);
+impl DayFiles for RecordDays {
+    fn append(&self, day: &str, lines: &[String]) -> Result<()> {
+        let sequence = self.0.update("analytics-sequence", |old| {
+            Ok(json!(old
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0)
+                .saturating_add(1)))
+        })?;
+        self.0.set(
+            &format!("analytics:{day}:{:020}", sequence.as_u64().unwrap()),
+            &json!(lines),
+        )
+    }
+    fn read(&self, day: &str) -> Result<Vec<String>> {
+        let mut lines = Vec::new();
+        self.visit(day, &mut |line| lines.push(line.to_owned()))?;
+        Ok(lines)
+    }
+    fn visit(&self, day: &str, line: &mut dyn FnMut(&str)) -> Result<()> {
+        for key in self.0.keys(&format!("analytics:{day}:"))? {
+            if let Some(value) = self.0.get(&key)? {
+                for stored in serde_json::from_value::<Vec<String>>(value)? {
+                    line(&stored);
+                }
+            }
+        }
+        Ok(())
+    }
+    fn days(&self) -> Result<Vec<String>> {
+        Ok(self
+            .0
+            .keys("analytics:")?
+            .iter()
+            .filter_map(|key| {
+                key.strip_prefix("analytics:")?
+                    .split(':')
+                    .next()
+                    .map(str::to_owned)
+            })
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect())
+    }
+    fn remove(&self, day: &str) -> Result<()> {
+        for key in self.0.keys(&format!("analytics:{day}:"))? {
+            self.0.remove(&key)?;
+        }
+        Ok(())
     }
 }
 
@@ -1332,6 +1394,104 @@ mod tests {
     struct MemoryDays {
         days: std::sync::Mutex<BTreeMap<String, Vec<String>>>,
         failing: std::sync::atomic::AtomicBool,
+    }
+
+    #[tokio::test]
+    async fn record_summary_streams_thirty_days_without_visiting_unrelated_records() {
+        use crate::store::{test_support::CountedRecords, Store};
+        use std::sync::atomic::Ordering;
+        let counted = CountedRecords::default();
+        let store = Store::with_records(
+            PathBuf::from("/fixture-analytics"),
+            Box::new(counted.clone()),
+        );
+        let records = Arc::new(RecordDays(store.clone()));
+        let reference = Arc::new(MemoryDays::default());
+        let today = now_ms().div_euclid(DAY_MS);
+        for day in today - 29..=today {
+            let name = format_day(day);
+            for batch in 0..20 {
+                let lines: Vec<_> = (0..50).map(|i| {
+                    let (event, props) = match i % 5 {
+                        0 => ("pr.open", json!({"number":i + 1})),
+                        1 => ("ai.run", json!({"engine":"codex","task":"review","model":"fixture",
+                            "status":"done","ms":i * 100,"costUsd":0.001,"tokensIn":10,"tokensOut":5})),
+                        2 => ("rpc.call", json!({"method":"my-pulls","ms":i,"status":"ok"})),
+                        3 => ("cache.diff", json!({"outcome":"hit"})),
+                        _ => ("screen.view", json!({"screen":"home"})),
+                    };
+                    serde_json::to_string(&json!({"name":event,"at":iso_time(day * DAY_MS),
+                        "rx":iso_time(day * DAY_MS),"app":"android","session":format!("s{batch}"),
+                        "device":format!("d{}", i % 3),"props":props})).unwrap()
+                }).collect();
+                records.append(&name, &lines).unwrap();
+                reference.append(&name, &lines).unwrap();
+            }
+        }
+        for i in 0..5_000 {
+            store
+                .set(
+                    &format!("review:unrelated-{i}"),
+                    &json!({"title":"not analytics"}),
+                )
+                .unwrap();
+        }
+        records
+            .append(&format_day(today - 30), &["{}".into()])
+            .unwrap();
+        records
+            .append(&format_day(today + 1), &["{}".into()])
+            .unwrap();
+        counted.visits.store(0, Ordering::SeqCst);
+        counted.reads.store(0, Ordering::SeqCst);
+        counted.full_scans.store(0, Ordering::SeqCst);
+        // Opt-out disables writes, while history stays readable and retention still runs.
+        let actual_reader = Analytics::configured(PathBuf::from("/records"), false, Some(records));
+        let old_reader = Analytics::configured(PathBuf::from("/reference"), false, Some(reference));
+        let args = json!({"to":format_day(today)});
+        let actual = actual_reader.summary(args.clone()).await.unwrap();
+        assert_eq!(actual, old_reader.summary(args).await.unwrap());
+        assert_eq!(actual["days"].as_array().unwrap().len(), 30);
+        assert_eq!(actual["totals"]["events"], 30_000);
+        assert_eq!(counted.full_scans.load(Ordering::SeqCst), 0);
+        // One cold retention inventory visits 602 analytics batches; the summary visits
+        // only its 600 batches. None of the 5,000 saved reviews is enumerated or read.
+        assert_eq!(counted.visits.load(Ordering::SeqCst), 602 + 600);
+        assert_eq!(counted.reads.load(Ordering::SeqCst), 600);
+        counted.visits.store(0, Ordering::SeqCst);
+        counted.reads.store(0, Ordering::SeqCst);
+        assert_eq!(
+            actual,
+            actual_reader
+                .summary(json!({"to":format_day(today)}))
+                .await
+                .unwrap()
+        );
+        assert_eq!(counted.visits.load(Ordering::SeqCst), 600);
+        assert_eq!(counted.reads.load(Ordering::SeqCst), 600);
+    }
+
+    #[tokio::test]
+    async fn record_days_prune_only_history_older_than_365_days() {
+        use crate::store::{test_support::CountedRecords, Store};
+        let store = Store::with_records(
+            PathBuf::from("/fixture-retention"),
+            Box::new(CountedRecords::default()),
+        );
+        let days = Arc::new(RecordDays(store.clone()));
+        let today = now_ms().div_euclid(DAY_MS);
+        for age in [0, 365, 366] {
+            days.append(&format_day(today - age), &["{}".into()])
+                .unwrap();
+        }
+        store.set("review:unrelated", &json!("keep")).unwrap();
+        let analytics = Analytics::configured(PathBuf::from("/records"), true, Some(days.clone()));
+        analytics.prune().await;
+        assert_eq!(
+            days.days().unwrap(),
+            vec![format_day(today - 365), format_day(today)]
+        );
+        assert_eq!(store.get("review:unrelated").unwrap(), Some(json!("keep")));
     }
     impl DayFiles for MemoryDays {
         fn append(&self, day: &str, lines: &[String]) -> Result<()> {

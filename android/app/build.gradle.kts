@@ -12,6 +12,16 @@ plugins {
 val channel = providers.gradleProperty("pully.channel").orElse("stable").get()
 require(channel == "stable" || channel == "staging") { "pully.channel must be stable or staging." }
 val staging = channel == "staging"
+fun stagingAccess(name: String): String {
+    if (!staging) return ""
+    val value = providers.environmentVariable(name).orNull.orEmpty()
+    require(value.isNotEmpty() && Regex("[A-Za-z0-9._-]+").matches(value)) {
+        "Missing or invalid staging Access build credential: $name"
+    }
+    return value
+}
+val stagingAccessClientId = stagingAccess("PULLY_STAGING_ACCESS_CLIENT_ID")
+val stagingAccessClientSecret = stagingAccess("PULLY_STAGING_ACCESS_CLIENT_SECRET")
 val stagingBuild = providers.gradleProperty("pully.stagingBuild").orElse("0").get().toInt()
 require(!staging || stagingBuild in 1..2_000_000_000) { "A staging build needs pully.stagingBuild, the main commit count." }
 val defaultServer = providers.gradleProperty("pully.defaultServer").orElse("https://prs.octaviantocan.com").get()
@@ -45,7 +55,10 @@ android {
         targetSdk = 36
         versionCode = 79
         versionName = "0.62.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
+        buildConfigField("String", "STAGING_ACCESS_CLIENT_ID", "\"$stagingAccessClientId\"")
+        buildConfigField("String", "STAGING_ACCESS_CLIENT_SECRET", "\"$stagingAccessClientSecret\"")
         buildConfigField("String", "DEFAULT_SERVER", "\"$defaultServer\"")
         buildConfigField("String", "UPDATE_CHANNEL", "\"${if (staging) "staging/" else ""}\"")
         manifestPlaceholders["appLabel"] = if (staging) "Pully Staging" else "@string/app_name"
@@ -192,6 +205,10 @@ dependencies {
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(composeBom)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.7.0")
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")

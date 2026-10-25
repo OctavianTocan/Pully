@@ -1,7 +1,7 @@
 //! HTTP boundary: the native API remains network-authenticated, while browser-only
 //! storage/proxy operations require the terminal-code session and a same-origin POST.
 use crate::{required, text, AppState};
-mod account;
+pub(crate) mod account;
 mod downloads;
 #[cfg(not(target_arch = "wasm32"))]
 #[path = "devframe.rs"]
@@ -295,7 +295,7 @@ struct Rpc {
     #[serde(default)]
     args: Value,
 }
-fn phone_allowed(name: &str) -> bool {
+pub(crate) fn phone_allowed(name: &str) -> bool {
     // Mirrors native-api.ts and its native review handlers. Raw storage, credentials,
     // arbitrary prompts, and the GitHub proxy are deliberately not included.
     matches!(
@@ -665,7 +665,7 @@ async fn android_file_response(host: &crate::host::ServerHost, relative: &str) -
             );
             response
         }
-        Ok(None) if relative == "past/index.json" => (
+        Ok(None) if matches!(relative, "past/index.json" | "staging/past/index.json") => (
             [(header::CACHE_CONTROL, "no-store")],
             Json(json!({"versions":[]})),
         )
