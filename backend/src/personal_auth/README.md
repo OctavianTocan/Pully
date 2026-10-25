@@ -46,7 +46,12 @@ the user's legacy private-server configuration. Native requests carry no Access
 headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configuration.
 
 - `GET /api/personal/v1/capabilities` returns `{github:{enabled:Boolean}}`.
-- `POST /api/personal/v1/auth/github/start` accepts only `nativeChallenge` and
+- Normal Connect GitHub uses `POST /api/personal/v1/auth/github/connect/start`: one
+  authorization includes repository consent and only a verified repository grant can
+  complete it. The native app confirms the Pully session before opening Your repositories.
+  Older public-only accounts finish connecting through the existing same-account
+  repository upgrade. The legacy `POST /api/personal/v1/auth/github/start` remains
+  public-only for installed clients. Both start routes accept only `nativeChallenge` and
   returns `attemptId`, `authorizeUrl`, `expiresAt`, `pollAfterMs` and, for device
   sign-in, `userCode`.
 - The native client makes 32 CSPRNG bytes, encodes them as 43-character base64url
@@ -85,7 +90,7 @@ headers, legacy `X-Pully-Session`, cookies or user-selected redirect/configurati
   origin; explicit cancel after a claim revokes that exact session.
 
 `*At` timestamps are Unix epoch seconds. `pollAfterMs` is milliseconds (2000).
-Public sign-in always has `publicRead` application authority, even when GitHub
+Legacy public sign-in always has `publicRead` application authority, even when GitHub
 returns an inherited `repo` grant. The separate bearer-authenticated
 `POST /api/personal/v1/auth/github/repositories/start` accepts the same
 `{nativeChallenge}` body and opens Pully's actual GitHub `repo` consent. It captures

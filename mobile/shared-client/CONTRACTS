@@ -137,8 +137,11 @@ sent only in status/claim/cancel JSON bodies. GitHub credentials MUST remain on 
 server. The browser URL MUST use fixed HTTPS GitHub authorization, the captured Pully
 callback and S256, or be exactly https://github.com/login/device with a short
 upper-case user code that the sheet shows and copies before opening GitHub (GitHub CLI
-device sign-in, Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."). Ordinary sign-in MUST request only public-read consent; a separate
-repository-consent purpose MUST capture the verified initiating account/session and
+device sign-in, Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."). Normal Connect GitHub MUST request repository consent in the same authorization through
+the fixed connect/start route, and require privateRepositories in its claim and confirmation
+(Tavi, 25 Oct 2026, one normal login including private repositories). The legacy public
+start retains publicRead compatibility. Upgrading an existing public connection MUST
+capture the verified initiating account/session and
 request only the fixed repository grant (repo/offline_access, or repo read:org for
 device sign-in). Source changes/cancellation MUST reject late
 results; retired cleanup MAY contact only the captured origin with its own cancelled
@@ -196,7 +199,7 @@ with no legacy/Access/cookie authority or GitHub API fallback. Every successful 
 MUST match the captured immutable account/GitHub identity and the route's explicit
 application authority. Public-only reads MUST retain publicRead envelopes and exclude
 private data, even for an upgraded account. Account/private reads MUST require the
-separately confirmed privateRepositories session, use only the account route family,
+confirmed privateRepositories session, use only the account route family,
 and require explicit repository visibility. Selected repository reads MUST retain
 their numeric repository ID and visibility. HTTP concurrency,
 body, page and total deadlines MUST remain bounded. Only a valid typed service error

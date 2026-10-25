@@ -356,6 +356,10 @@ pub(super) struct VerifiedLogin {
 }
 
 impl VerifiedLogin {
+    pub(super) fn grants(&self, requested: GitHubAuthority) -> bool {
+        self.tokens.authority(requested) == requested
+    }
+
     pub(super) async fn acquire(
         provider: &dyn GitHubProvider,
         tokens: GitHubTokens,

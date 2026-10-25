@@ -197,10 +197,21 @@ class PersonalAccountRuntime(
     }
 
     fun openSignIn(parentScope: CoroutineScope, openBrowser: (String) -> Unit): SignIn? {
+        return openSignIn(parentScope, openBrowser, PersonalSignInPurpose.Public)
+    }
+
+    /** Normal account entry includes repository consent; older public sessions upgrade as the same account. */
+    fun openConnect(parentScope: CoroutineScope, openBrowser: (String) -> Unit): SignIn? {
+        if (verifiedRecord()?.second?.authority == PersonalAuthority.PublicRead)
+            return openRepositoryConsent(parentScope, openBrowser)
+        return openSignIn(parentScope, openBrowser, PersonalSignInPurpose.Connect)
+    }
+
+    private fun openSignIn(parentScope: CoroutineScope, openBrowser: (String) -> Unit, purpose: PersonalSignInPurpose): SignIn? {
         val client = client ?: return null
         if (!current()) return null
         signIn?.close()
-        return SignIn(client, parentScope, openBrowser).also {
+        return SignIn(client, parentScope, openBrowser, purpose).also {
             signIn = it
             it.controller.foreground(inForeground)
         }
@@ -208,13 +219,8 @@ class PersonalAccountRuntime(
 
     /** Opening this action captures the accepted account; form/route data cannot choose the subject. */
     fun openRepositoryConsent(parentScope: CoroutineScope, openBrowser: (String) -> Unit): SignIn? {
-        val client = client ?: return null
         val (record, _) = verifiedRecord() ?: return null
-        signIn?.close()
-        return SignIn(client, parentScope, openBrowser, PersonalSignInPurpose.Repositories(record)).also {
-            signIn = it
-            it.controller.foreground(inForeground)
-        }
+        return openSignIn(parentScope, openBrowser, PersonalSignInPurpose.Repositories(record))
     }
 
     inner class SignIn internal constructor(client: PersonalAuthClient, parentScope: CoroutineScope, openBrowser: (String) -> Unit,

@@ -18,7 +18,51 @@ import kotlin.test.assertTrue
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class PersonalBrowseMountTest {
     @Test
-    fun anonymousMountHasNoReaderAndTheVerifiedProfileDoesNotReadUntilItsAccountOpens() = runTest {
+    fun combinedSignInOpensTheConfirmedAccountsRepositoriesImmediatelyAndOnlyOnce() = runTest {
+        val h = PersonalBrowseSessionTest.Harness(this)
+        val held = CompletableDeferred<Unit>()
+        h.onClaim = { response -> held.await(); response }
+        val mount = PersonalBrowseMount(h.runtime, backgroundScope, h.entry.guestSource()!!, h.navigation)
+        try {
+            mount.foreground(true)
+            h.runtime.openConnect(backgroundScope) {}!!.controller.start(); runCurrent()
+            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
+            assertNull(mount.session)
+            held.complete(Unit); runCurrent()
+            val route = h.navigation.stack.last() as Screen.PersonalRepositories
+            val browse = assertNotNull(mount.session)
+            assertTrue(browse.privateEnabled)
+            assertNull(mount.presentation)
+            browse.repositories(route).start(); runCurrent()
+            assertTrue(browse.repositories(route).rows.single().private)
+            assertTrue(h.reads().filterNot { it.url.endsWith("/capabilities") }.all { "/github/account/" in it.url })
+            assertEquals(1, h.requests.count { it.url.endsWith("/start") })
+            h.navigation.nav.back(); mount.keepRoutes()
+            mount.foreground(false); mount.foreground(true); runCurrent()
+            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList(), "Back to Explore must remain usable")
+        } finally { mount.close(); h.runtime.close() }
+    }
+
+    @Test
+    fun restoredRepositoryAccountWaitsForForegroundAdmissionAndPreservesAnOpenDeepLink() = runTest {
+        for (deepLink in listOf(false, true)) {
+            val h = PersonalBrowseSessionTest.Harness(this)
+            h.verify(private = true)
+            val mount = PersonalBrowseMount(h.runtime, backgroundScope, h.entry.guestSource()!!, h.navigation)
+            try {
+                if (deepLink) h.navigation.stack.add(Screen.PersonalPulls())
+                val before = h.navigation.stack.toList()
+                mount.foreground(true, available = false); runCurrent()
+                assertEquals(before, h.navigation.stack.toList())
+                mount.availability(true); runCurrent()
+                if (deepLink) assertEquals(before, h.navigation.stack.toList())
+                else assertTrue(h.navigation.stack.last() is Screen.PersonalRepositories)
+            } finally { mount.close(); h.runtime.close() }
+        }
+    }
+
+    @Test
+    fun anonymousMountHasNoReaderAndAnOlderPublicProfileIsOfferedCompletion() = runTest {
         val h = PersonalBrowseSessionTest.Harness(this)
         val mount = PersonalBrowseMount(h.runtime, backgroundScope, h.entry.guestSource()!!, h.navigation)
         try {
@@ -33,7 +77,9 @@ class PersonalBrowseMountTest {
             h.verify()
             val browse = assertNotNull(mount.session)
             assertTrue(browse.current)
-            assertTrue(h.reads().isEmpty(), "Showing a restored profile does not start personal pages")
+            assertTrue(h.reads().all { it.url.endsWith("/github/account/capabilities") })
+            assertFalse(assertNotNull(mount.presentation).repositoryConsent)
+            assertTrue(h.requests.none { it.url.endsWith("/repositories/start") }, "Finishing connection still needs the person's action")
             mount.openAccount(); runCurrent()
             assertTrue(assertNotNull(browse.capabilities).consentAvailable)
             assertTrue(h.reads().all { it.url.endsWith("/github/account/capabilities") })
@@ -173,6 +219,7 @@ class PersonalBrowseMountTest {
         var opened = 0
         try {
             mount.foreground(true)
+            val completion = assertNotNull(mount.presentation)
             val signIn = assertNotNull(h.runtime.openRepositoryConsent(backgroundScope) { opened++ })
             assertTrue(signIn.controller.start()); runCurrent()
             assertEquals(1, h.requests.drop(beforeConsent).count { it.url.endsWith("/claim") })
@@ -183,7 +230,11 @@ class PersonalBrowseMountTest {
             assertEquals(PersonalAuthority.PrivateRepositories, h.runtime.view.value.account!!.authority)
             assertEquals(1, opened)
             assertEquals(1, h.requests.drop(beforeConsent).count { it.url.endsWith("/claim") })
+            assertSame(completion, mount.presentation)
+            assertEquals(listOf(Screen.Explore), h.navigation.stack.toList())
+            mount.availability(true)
             assertNull(mount.presentation)
+            assertTrue(h.navigation.stack.last() is Screen.PersonalRepositories)
         } finally { mount.close(); h.runtime.close() }
     }
 

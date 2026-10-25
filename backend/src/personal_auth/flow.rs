@@ -216,6 +216,16 @@ impl PersonalAuth {
             .await
     }
 
+    /// @cc [owner:OctavianTocan,label:product;security] github-connect-includes-repository-consent
+    /// Connect GitHub MUST request repository consent in the initial authorization and issue
+    /// privateRepositories authority only after verified GitHub approval and the owned claim.
+    /// The older public-only start MUST retain its publicRead maximum for installed clients.
+    /// Source: Tavi, 25 Oct 2026, one login including private repositories, opening them immediately.
+    pub(crate) async fn connect(&self, request: StartRequest) -> Result<StartReply> {
+        self.begin(request, GitHubAuthority::PrivateRepositories, None, None)
+            .await
+    }
+
     /// The separate repository-consent action captures the existing personal source.
     pub(crate) async fn start_repository_consent(
         &self,
@@ -445,6 +455,9 @@ impl PersonalAuth {
             let login = VerifiedLogin::acquire(self.0.provider.as_ref(), tokens?)
                 .await
                 .map_err(|_| AuthError::Unavailable)?;
+            if !login.grants(grant.authority) {
+                return Err(AuthError::Denied);
+            }
             if let Some(source) = &grant.upgrade {
                 let status = source.status().map_err(|_| AuthError::Denied)?;
                 if status.github_id != login.github_id() {

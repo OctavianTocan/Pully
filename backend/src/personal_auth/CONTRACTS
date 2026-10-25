@@ -32,8 +32,10 @@ sign-in as the GitHub CLI is Tavi, 23 Oct 2026 13:36: "What I want is what you g
 
 @cc [owner:OctavianTocan,label:security;product] personal-app-authority-is-not-inherited-scope
 Public-read sign-in MUST retain public-read application authority even if GitHub
-returns previously granted broader scopes. Private repository authority MUST require
-an explicit upgrade and its actual repo grant. Expiring access/refresh responses
+returns previously granted broader scopes. Private repository authority MUST require explicit GitHub repository consent and its actual
+repo grant. Normal Connect GitHub requests that consent in the initial login; the older
+public-only start retains its publicRead maximum (Tavi, 25 Oct 2026, one normal login
+including private repositories). Expiring access/refresh responses
 MUST retain both expirations and rotate the pair; reduced grants MUST NOT preserve
 broader application authority. Scope MUST NOT bypass organization approval or SSO;
 the GitHub CLI client is exempt from organization OAuth app restrictions only because
@@ -42,7 +44,7 @@ GitHub lists it as a privileged app, and SAML SSO still applies. Source: Tavi's 
 scope and refresh documentation, and Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security;product] personal-repository-consent-is-source-and-session-bound
-Repository consent MUST require a current personal session, the fixed configured
+An upgrade of an existing public-only connection MUST require a current personal session, the fixed configured
 GitHub repo authorization, the same immutable GitHub subject and a still-current
 initiating session/revision at credential installation. Sign-out, source replacement
 or a different selected GitHub user MUST deny the upgrade. Each Pully session MUST
@@ -50,7 +52,9 @@ authenticate its own maximum application authority; an older publicRead session
 MUST NOT inherit a later session's private access. Missing authority in older durable
 records MUST mean publicRead, and a reduced GitHub grant MUST still reduce effective
 authority. Source: Tavi's 22 Oct 2026 own-account private-access requirement while
-preserving the existing publicRead contract and canonical source isolation.
+preserving the existing publicRead contract and canonical source isolation. Tavi, 25 Oct
+2026, adds the fixed connect/start flow: a new login requests the same repository grant
+without a pre-existing Pully session, bound to its native proof and verified GitHub identity.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-session-is-bound-to-one-stable-user
 Persisted personal sessions MUST contain only hashes of high-entropy Pully session

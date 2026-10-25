@@ -81,6 +81,60 @@ fn owned(start: &Value, proof: &str) -> Value {
 }
 
 #[tokio::test]
+async fn connect_github_authorizes_repositories_in_one_login_and_confirms_the_private_session() {
+    let h = Harness::new();
+    let server = Server::new(configured_router(h.service.clone())).await;
+    let proof = random_secret().unwrap();
+    let response = server
+        .post(
+            "/api/personal/v1/auth/github/connect/start",
+            json!({"nativeChallenge":wire::native_challenge(&proof).unwrap()}),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let start: Value = response.json().await.unwrap();
+    let authorize = Url::parse(start["authorizeUrl"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        authorize
+            .query_pairs()
+            .find(|(key, _)| key == "scope")
+            .unwrap()
+            .1,
+        "repo offline_access"
+    );
+    assert_eq!(server.callback(&start).await.status(), StatusCode::OK);
+    let response = server.post(wire::CLAIM_PATH, owned(&start, &proof)).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let claimed: Value = response.json().await.unwrap();
+    assert_eq!(claimed["status"]["authority"], "privateRepositories");
+    let confirmed: Value = server
+        .client
+        .get(format!("{}{}", server.origin, wire::SESSION_PATH))
+        .bearer_auth(claimed["session"].as_str().unwrap())
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(confirmed["authority"], "privateRepositories");
+    assert_eq!(confirmed["githubId"], 42);
+    assert_eq!(confirmed["accountId"], claimed["status"]["accountId"]);
+    assert!(!claimed.to_string().contains("fixture-access"));
+    // An installed older app still receives exactly the public-only flow it understands.
+    let (legacy, _) = server.start().await;
+    let legacy = Url::parse(legacy["authorizeUrl"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        legacy
+            .query_pairs()
+            .find(|(key, _)| key == "scope")
+            .unwrap()
+            .1,
+        "offline_access"
+    );
+}
+
+#[tokio::test]
 async fn disabled_discovery_has_no_auth_or_legacy_methods() {
     let server = Server::new(unconfigured_router()).await;
     let response = server.get(wire::CAPABILITIES_PATH).await;

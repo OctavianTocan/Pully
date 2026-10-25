@@ -106,6 +106,11 @@ class PersonalAuthClient(
         return attempt(value, proof, source)
     }
 
+    internal suspend fun connect(proof: PersonalAuthProof, source: RpcSource = source()): PersonalAuthAttempt {
+        val value = request(PersonalPaths.Connect, buildJsonObject { put("nativeChallenge", proof.challenge) }, source).obj()
+        return attempt(value, proof, source, authority = PersonalAuthority.PrivateRepositories)
+    }
+
     /** Only the runtime's captured, verified account can request the separate repository consent. */
     internal suspend fun startRepositoryConsent(proof: PersonalAuthProof, session: StoredPersonalSession, source: RpcSource): PersonalAuthAttempt {
         if (session.origin != origin.base) throw PersonalAuthError(PersonalAuthProblem.InvalidRequest)
@@ -113,8 +118,8 @@ class PersonalAuthClient(
         return attempt(value, proof, source, session)
     }
 
-    private fun attempt(value: JsonObject, proof: PersonalAuthProof, source: RpcSource, session: StoredPersonalSession? = null): PersonalAuthAttempt {
-        val authority = if (session == null) PersonalAuthority.PublicRead else PersonalAuthority.PrivateRepositories
+    private fun attempt(value: JsonObject, proof: PersonalAuthProof, source: RpcSource, session: StoredPersonalSession? = null,
+        authority: PersonalAuthority = if (session == null) PersonalAuthority.PublicRead else PersonalAuthority.PrivateRepositories): PersonalAuthAttempt {
         val id = value.string("attemptId").takeIf(::canonicalPersonalSecret) ?: invalidPersonal()
         val url = value.string("authorizeUrl")
         val userCode = value["userCode"]?.string()
@@ -242,6 +247,7 @@ internal expect fun personalAuthTransport(): RpcTransport
 
 private enum class PersonalPaths(val path: String) {
     Capabilities("/api/personal/v1/capabilities"), Start("/api/personal/v1/auth/github/start"),
+    Connect("/api/personal/v1/auth/github/connect/start"),
     RepositoryConsent("/api/personal/v1/auth/github/repositories/start"),
     Status("/api/personal/v1/auth/github/status"), Claim("/api/personal/v1/auth/github/claim"),
     Cancel("/api/personal/v1/auth/github/cancel"), Session("/api/personal/v1/session"),

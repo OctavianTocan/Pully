@@ -33,6 +33,8 @@ class PersonalBrowseMount(
     private var pendingRecovery: PersonalAuthProblem? = null
     private var reading: PersonalBrowseSession? = null
     private var readsActive = false
+    private var enteredRepositories = false
+    private var offeredCompletion = false
     private var stopSource: (() -> Unit)? = null
     var session by mutableStateOf<PersonalBrowseSession?>(null)
         private set
@@ -57,6 +59,7 @@ class PersonalBrowseMount(
             session = PersonalBrowseSession(account, scope, source, navigation, ::recoverAccount)
         }
         updateReads()
+        finishConnectionEntry()
     }
 
     /** Gate new work by actual lifecycle and admitted secure storage before deferred UI state. */
@@ -68,6 +71,7 @@ class PersonalBrowseMount(
         if (!current) return
         showRecovery()
         updateReads()
+        finishConnectionEntry()
     }
 
     /** A completed current native secure-store probe may enable the already-active workspace. */
@@ -78,6 +82,21 @@ class PersonalBrowseMount(
         if (!current) return
         showRecovery()
         updateReads()
+        finishConnectionEntry()
+    }
+
+    private fun finishConnectionEntry() {
+        val opening = session ?: return
+        if (!canPresent() || !opening.current || navigation.stack.lastOrNull() !== Screen.Explore) return
+        if (opening.privateEnabled && !enteredRepositories) {
+            enteredRepositories = true
+            presentation = null
+            openRepositories(opening)
+        } else if (!opening.privateEnabled && !offeredCompletion && presentation == null) {
+            offeredCompletion = true
+            presentation = Presentation(false)
+            updateReads()
+        }
     }
 
     fun openAccount() {
