@@ -55,7 +55,6 @@ fun GuestPages(
     if (welcome) GuestWelcomeSheet(
         onClose = { welcome = false; onWelcomeSeen() },
         onGitHubSignIn = onGitHubSignIn?.let { action -> { welcome = false; onWelcomeSeen(); session.runFrom(Screen.Explore, action) } },
-        onExistingAccount = { welcome = false; onWelcomeSeen(); onExistingAccount() },
         githubAccount = githubAccount, links = links,
     )
     PullToCommands({ session.runFrom(navigation.stack.last(), onCommands) }, Modifier.fillMaxSize()) {

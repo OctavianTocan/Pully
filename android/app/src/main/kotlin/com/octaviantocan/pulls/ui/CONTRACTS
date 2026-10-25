@@ -45,10 +45,13 @@ Within the existing-server or verified GitHub workspace, Commands holds Home, Se
 every page, and a page adds its own commands while it is open. Commands is the one palette: there is no
 second command menu and no Commands row in the ⋯ or profile sheets (rules 61 and 104;
 J30, H22; recording 15 Oct 13:54, 12:33).
-In anonymous Explore, the same palette MUST expose public Home, the existing-account
+In anonymous Explore, the same palette MUST expose public Home, the GitHub account
 entry and local appearance actions without mounting private Settings, feedback or
 updater clients. The staging APK MAY use its separately scoped staging updater
 without private app authority (Tavi25Oct2026, one GitHub login/update flow). Source: Tavi's 21 Oct 2026 signed-out public-browsing decision.
+The account command MUST use the same GitHub entry as the welcome sheet, returning
+to the accepted workspace when present. This replaces the existing-account command
+by Tavi's 25 Oct 2026 decision to use GitHub for both new and returning accounts.
 
 @cc [owner:OctavianTocan,label:product] nav-commands-themes
 Commands offers Themes, which opens the same theme sheet as Settings (recording 15 Oct
