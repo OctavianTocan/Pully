@@ -1,8 +1,13 @@
 package com.octaviantocan.pulls.core
 
 import java.io.File
+import java.time.Instant
+import java.time.ZoneId
+import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ChangelogTest {
@@ -97,6 +102,40 @@ class ChangelogTest {
     }
 
     @Test
+    fun readsWhenEachVersionWasReleased() {
+        val entries = parseChangelog(
+            """
+            ## 0.63.0
+
+            #### 2026-10-26 13:28 UTC
+
+            Changelog entries say when they came out.
+
+            - Each version shows its date and time.
+
+            ## 0.62.0
+            #### 2026-02-31 10:00 UTC
+            A time that does not exist.
+
+            - Skipped.
+            """.trimIndent() + "\n\n" + text,
+        )
+        assertEquals(Instant.parse("2026-10-26T13:28:00Z"), entries[0].released)
+        // The release line is not part of the summary, as a build from before it reads the section too.
+        assertEquals("Changelog entries say when they came out.", entries[0].summary)
+        assertNull(entries[1].released)
+        assertEquals("A time that does not exist.", entries[1].summary)
+        assertNull(entries[2].released)
+    }
+
+    @Test
+    fun writesTheReleaseTimeInTheReadersZone() {
+        val released = Instant.parse("2026-10-26T13:28:00Z")
+        assertEquals("26 Oct 2026, 14:28", changelogTime(released, ZoneId.of("Europe/Berlin"), Locale.UK))
+        assertEquals("26 Oct 2026, 13:28", changelogTime(released, ZoneId.of("UTC"), Locale.UK))
+    }
+
+    @Test
     fun comparesVersionsAsNumbers() {
         assertTrue(compareVersions("0.10.0", "0.9.2") > 0)
         assertTrue(compareVersions("0.9.0", "0.10.0") < 0)
@@ -129,12 +168,14 @@ class ChangelogTest {
         assertEquals("Read the docs.", plainChangelogText("Read the [docs](https://example.com)."))
     }
 
-    /** The changelog the app ships: newest first, and every section has a summary and something under it. */
+    /** The changelog the app ships: newest first, and every section has a release time, a summary and something under it. */
     @Test
     fun shippedChangelogIsWellFormed() {
         val entries = parseChangelog(File("../CHANGELOG.md").readText())
         assertTrue(entries.isNotEmpty())
         entries.zipWithNext().forEach { (newer, older) -> assertTrue(compareVersions(newer.version, older.version) > 0, "${newer.version} before ${older.version}") }
         entries.forEach { assertTrue(it.summary.isNotBlank() && it.items.isNotEmpty(), "${it.version} needs a summary and bullets") }
+        entries.forEach { assertNotNull(it.released, "${it.version} needs its release date and time") }
+        entries.zipWithNext().forEach { (newer, older) -> assertTrue(newer.released!! >= older.released!!, "${newer.version} was released before ${older.version}") }
     }
 }

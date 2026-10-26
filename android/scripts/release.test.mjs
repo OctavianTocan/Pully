@@ -5,7 +5,7 @@ import { describe, it } from 'node:test'
 import { checkRelease, checkRevisions, shipsInApk } from './check-release.mjs'
 
 const gradle = (code, name = '0.52.0') => `versionCode = ${code}\nversionName = "${name}"\n`
-const notes = text => `## 0.52.0\n\n${text}\n\n- Links open in the right place.\n![A link](changelog/0.52.0/link.png)\n`
+const notes = text => `## 0.52.0\n\n#### 2026-10-20 12:57 UTC\n\n${text}\n\n- Links open in the right place.\n![A link](changelog/0.52.0/link.png)\n`
 function fixture(overrides) {
   return {
     beforeGradle: gradle(66),
@@ -46,6 +46,11 @@ describe('Android release prerequisites', () => {
     assert.match(checkRelease(fixture({ afterGradle })).join('\n'), /no section for 0.53.0/)
     const afterChangelog = `${notes('A new release.').replaceAll('0.52.0', '0.53.0')}\n${notes('Links open in the right place.')}`
     assert.deepEqual(checkRelease(fixture({ afterGradle, afterChangelog })), [])
+  })
+
+  it('does not count a new release time alone as new notes', () => {
+    const afterChangelog = notes('Links open in the right place.').replace('2026-10-20 12:57', '2026-10-21 08:00')
+    assert.match(checkRelease(fixture({ afterChangelog })).join('\n'), /release notes.*change/)
   })
 
   it('does not accept changes only to an older version as this release\'s notes', () => {

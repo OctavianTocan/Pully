@@ -32,3 +32,12 @@ show each one under the bullet it follows, full width with the cards' corner. A 
 already installed loads its pictures from the APK; a version only offered loads them from
 the server beside the APK. Tavi asked for this on 16 Oct at 10:49 ("images in the
 changelog too, showing the stuff, or little gifs if its animated").
+
+@cc [owner:OctavianTocan,label:product;design] changelog-shows-when-each-version-came-out
+Every section of `android/CHANGELOG.md` MUST carry the date and time its version was
+released, in UTC, on a `#### YYYY-MM-DD HH:MM UTC` line right under its heading, and the
+sections MUST run newest first by that time. The update screen, What's new and Settings'
+What's new MUST show it at the far end of the version's header in the phone's own zone and
+language. Builds from before it MUST still read the section: the line is one they skip.
+Tavi asked on 26 Oct 2026 at 13:28 ("add a date and time to each changelog entry from now
+on"); rule 205.
