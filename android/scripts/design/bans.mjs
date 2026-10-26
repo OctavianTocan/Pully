@@ -168,6 +168,12 @@ export const BANS = {
     allowIn: ['ui/design/Fields.kt'],
     call: call(TEXT_FIELDS),
   },
+  'changing-alpha': {
+    label: 'Compose alpha with a value that changes',
+    rules: [],
+    advice: 'Use the kit\'s fade(): Compose\'s alpha drops its layer at 1 and a clipped fill before it stops drawing once enabled (recording 26 Oct 2026, 03:45).',
+    call: /\.alpha\((?!\s*[0-9.]+f\s*\))/g,
+  },
   'waiting': {
     label: 'loading screens and spinners',
     rules: [51],

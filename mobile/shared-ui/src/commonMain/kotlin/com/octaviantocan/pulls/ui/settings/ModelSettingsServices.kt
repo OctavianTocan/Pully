@@ -18,6 +18,10 @@ interface ModelSettingsServices {
     fun remember(engine: String, model: String)
     fun cached(engine: String): CliCatalog?
     suspend fun fetch(engine: String, refresh: Boolean = false): Result<CliCatalog>
+    /** Whether [engine]'s CLI is signed in: null when not known yet or for an engine with no sign-in. */
+    fun signedIn(engine: String): Boolean? = null
+    /** Asks the server which CLIs are signed in, for [signedIn]. */
+    suspend fun checkSignIns() {}
 }
 
 /** Native prefs use an opaque source namespace supplied by the real account root. */
@@ -44,6 +48,8 @@ class SourceModelSettingsServices(
             runCatching { (Json.parseToJsonElement(raw) as? JsonObject)?.asCatalog() }.getOrNull()
         }
     }
+    override fun signedIn(engine: String): Boolean? = if (current()) knownAiSignIn(repo, engine) else null
+    override suspend fun checkSignIns() { if (current()) checkAiSignIns(repo) }
     override suspend fun fetch(engine: String, refresh: Boolean): Result<CliCatalog> = try {
         requireCurrent()
         opening.getOrThrow()

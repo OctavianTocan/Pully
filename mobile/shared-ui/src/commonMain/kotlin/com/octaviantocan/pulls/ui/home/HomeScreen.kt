@@ -82,7 +82,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.draw.alpha
+import com.octaviantocan.pulls.ui.design.fade
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -415,6 +415,8 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
             modifier = Modifier.align(Alignment.BottomCenter),
             onFocus = { searchFocused = it },
             onAsk = if (ui.tab == 0 && canAsk) ::askSearch else null,
+            // A closed Inbox chat is one tap away again (recording 26 Oct 2026, 06:43 to 06:58).
+            onChat = if (ui.tab == 0 && canAsk && inboxAsk?.hasChat == true) ({ focusManager.clearFocus(); ui.askOpen = true }) else null,
             trailing = { SortButton(ui.tab == 0, sort, onClick = { sortOpen = true }) },
         )
         if (ui.askOpen && canAsk && inboxAsk != null) {
@@ -803,7 +805,7 @@ fun SwipeRow(
     ) {
         if (dx > 0f) {
             Row(
-                Modifier.matchParentSize().background(c.primary).alpha((dx / ramp).coerceIn(0f, 1f)).padding(start = 18.dp),
+                Modifier.matchParentSize().background(c.primary).fade((dx / ramp).coerceIn(0f, 1f)).padding(start = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -814,7 +816,7 @@ fun SwipeRow(
         }
         if (dx < 0f && opensLeft) {
             Row(
-                Modifier.matchParentSize().background(c.primary).alpha((-dx / ramp).coerceIn(0f, 1f)).padding(end = 18.dp),
+                Modifier.matchParentSize().background(c.primary).fade((-dx / ramp).coerceIn(0f, 1f)).padding(end = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
@@ -825,7 +827,7 @@ fun SwipeRow(
         }
         if (dx < 0f && !opensLeft) {
             Row(
-                Modifier.matchParentSize().background(c.cta).alpha((-dx / ramp).coerceIn(0f, 1f)).padding(end = 20.dp),
+                Modifier.matchParentSize().background(c.cta).fade((-dx / ramp).coerceIn(0f, 1f)).padding(end = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
@@ -932,17 +934,18 @@ private val SWIPE_BLUR = 1.3.dp
  * away; once something is typed the page is what the field is for, so it is shown at full strength and takes taps.
  * The dim starts with the tap, not when the keyboard is up, and comes in quickly; it goes a little slower than it came,
  * as the pill settles back down (H12). Putting the keyboard away with Back lifts it too. Home's search and the Tour's
- * Ask share it (K12); draw it under the pill.
+ * Ask share it (K12); draw it under the pill. An Ask bar passes [keepWhileTyping]: what is typed there is a question,
+ * not a filter, so the page stays dimmed until the bar lets go (recording 26 Oct 2026, 07:15 to 07:30).
  */
 @Composable
-fun SearchDim(focused: Boolean, empty: Boolean) {
+fun SearchDim(focused: Boolean, empty: Boolean, keepWhileTyping: Boolean = false) {
     val c = LocalPullsColors.current
     val focusManager = LocalFocusManager.current
     val imeUp = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     var imeShown by remember { mutableStateOf(false) }
     LaunchedEffect(focused) { if (!focused) imeShown = false }
     SideEffect { if (focused && imeUp) imeShown = true }
-    val waiting = focused && empty && (imeUp || !imeShown)
+    val waiting = focused && (empty || keepWhileTyping) && (imeUp || !imeShown)
     val dim by animateFloatAsState(
         if (waiting) 1f else 0f,
         if (waiting) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(PullsMotion.MEDIUM, easing = PullsMotion.InOut),
@@ -975,6 +978,8 @@ fun SearchPill(
     modifier: Modifier = Modifier,
     onFocus: (Boolean) -> Unit = {},
     onAsk: (() -> Unit)? = null,
+    /** With nothing typed, a chat button that opens the Inbox chat again. */
+    onChat: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalPullsColors.current
@@ -983,7 +988,7 @@ fun SearchPill(
     val question = askable && looksLikeQuestion(value)
     val asking = askable && endsInQuestion(value)
     val ask = { focus.clearFocus(); onAsk?.invoke(); Unit }
-    FootPill(key, modifier, search = true, button = value.isNotEmpty(), trailing = trailing) {
+    FootPill(key, modifier, search = true, button = value.isNotEmpty() || onChat != null, trailing = trailing) {
         FieldText(
             value, onChange, placeholder,
             Modifier.weight(1f).onFocusChanged { onFocus(it.isFocused) },
@@ -997,6 +1002,7 @@ fun SearchPill(
             ) { Text("Open", style = PullsType.sm.copy(fontWeight = FontWeight.Medium), color = c.onCta, maxLines = 1) }
         }
         if (value.isNotEmpty()) ClearOrSend(asking, onClear = { onChange("") }, onSend = ask)
+        else if (onChat != null) FloatIcon(Lu.history, "Open your chat", onChat, size = 40.dp, iconSize = 20.dp, flat = true, tint = c.muted)
     }
 }
 

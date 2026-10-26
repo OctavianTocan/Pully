@@ -457,7 +457,10 @@ production workspace, replacing the limited GitHub Home and second app login.
 Only an explicitly admitted personal workspace MAY use the native Claude Code and Codex
 services with its own canonical Account login volume. A guest or typed-read context MUST
 remain unable to use those services. Personal work, model lists and follow-ups MUST NOT
-use Pi, TypeSafe, server login homes or operator/default paid credentials. Binding
+use Pi, TypeSafe, server login homes or operator/default paid credentials, with one
+exception: the single GitHub account whose id the server's PULLY_PI_GITHUB_ID names MAY
+run Pi on the server's own proxy settings, and an unset or malformed id admits nobody
+(Tavi's recording of 26 Oct 2026, 02:21 to 02:36: Pi "hooked up to my proxy API"). Binding
 revocation MUST retire captured work and prevent further saved-state access. Provider
 subscription login remains separate provider setup, never another app login. Source:
 Tavi25Oct2026 single GitHub app login and own Claude/Codex subscriptions.

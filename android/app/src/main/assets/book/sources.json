@@ -32,7 +32,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 209,
+        "line": 215,
         "doc": "`.cap` with `.ind`: a white pill of equal segments, the selected one marked by a sliding paper pill.",
         "params": [
           {
@@ -76,9 +76,14 @@
             "name": "position",
             "type": "(() -> Float)?",
             "default": "null"
+          },
+          {
+            "name": "enabled",
+            "type": "(index: Int) -> Boolean",
+            "default": "{ true }"
           }
         ],
-        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */\n    sound: Boolean = true,\n    /**\n     * Where the pages under the tabs are, in tabs ([SidePagesState.at]): the pill then sits exactly there, so it moves\n     * with the pages under a finger and as they glide, instead of running its own animation beside them (J15).\n     */\n    position: (() -> Float)? = null,\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        val pill = if (position != null) {\n            val last = labels.lastIndex.coerceAtLeast(0).toFloat()\n            Modifier.graphicsLayer { translationX = segment.toPx() * position().coerceIn(0f, last) }\n        } else {\n            Modifier.offset(x = x)\n        }\n        Box(pill.width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(\n                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }\n                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },\n                    ),\n                    contentAlignment = Alignment.Center,\n                ) {\n                    // The mark and the word sit centred in the tab with room either side; a word too long for it ends in …\n                    // instead of wrapping out of sight, which pushed the mark against the tab's edge (recording 15 Oct\n                    // 15:37, 11:50 to 12:07; L22).\n                    Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(\n                            label, Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium),\n                            color = if (index == selected) c.text else c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,\n                        )\n                    }\n                }\n            }\n        }\n    }\n}"
+        "source": "@Composable\nfun CapsuleTabs(\n    labels: List<String>,\n    selected: Int,\n    onSelect: (Int) -> Unit,\n    modifier: Modifier = Modifier,\n    height: Dp = 44.dp,\n    flat: Boolean = false,\n    /** A mark before a label, such as an engine's own; the only icons a tab may carry. */\n    leading: (@Composable (index: Int) -> Unit)? = null,\n    /** False for a picker that sounds its own choice, so a tab does not also make the generic one. */\n    sound: Boolean = true,\n    /**\n     * Where the pages under the tabs are, in tabs ([SidePagesState.at]): the pill then sits exactly there, so it moves\n     * with the pages under a finger and as they glide, instead of running its own animation beside them (J15).\n     */\n    position: (() -> Float)? = null,\n    /** False for a tab that cannot be chosen yet, such as an engine not signed in: dimmed and not clickable. */\n    enabled: (index: Int) -> Boolean = { true },\n) {\n    val c = LocalPullsColors.current\n    val shape = RoundedCornerShape(50)\n    BoxWithConstraints(\n        modifier.height(height).then(if (flat) Modifier else Modifier.floatShadow(shape)).clip(shape).background(c.raised).padding(2.dp),\n    ) {\n        val segment = maxWidth / labels.size.coerceAtLeast(1)\n        val x by animateDpAsState(segment * selected, tween(PullsMotion.FAST, easing = PullsMotion.SmoothOut), label = \"capsule\")\n        val pill = if (position != null) {\n            val last = labels.lastIndex.coerceAtLeast(0).toFloat()\n            Modifier.graphicsLayer { translationX = segment.toPx() * position().coerceIn(0f, last) }\n        } else {\n            Modifier.offset(x = x)\n        }\n        Box(pill.width(segment).fillMaxHeight().clip(shape).background(c.paper2))\n        Row(Modifier.fillMaxSize()) {\n            labels.forEachIndexed { index, label ->\n                val on = enabled(index)\n                Box(\n                    Modifier.weight(1f).fillMaxHeight().clip(shape).then(\n                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), enabled = on, role = Role.Tab) { onSelect(index) }\n                        else Modifier.clickable(enabled = on, role = Role.Tab) { onSelect(index) },\n                    ).fade(if (on) 1f else 0.4f),\n                    contentAlignment = Alignment.Center,\n                ) {\n                    // The mark and the word sit centred in the tab with room either side; a word too long for it ends in …\n                    // instead of wrapping out of sight, which pushed the mark against the tab's edge (recording 15 Oct\n                    // 15:37, 11:50 to 12:07; L22).\n                    Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {\n                        leading?.invoke(index)\n                        Text(\n                            label, Modifier.weight(1f, fill = false), style = PullsType.sm.copy(fontWeight = FontWeight.Medium),\n                            color = if (index == selected) c.text else c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,\n                        )\n                    }\n                }\n            }\n        }\n    }\n}"
       }
     ]
   },
@@ -87,7 +92,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 455,
+        "line": 464,
         "doc": "`.cb`: a 22dp rounded box, white with a grey edge, filled accent with a white tick once on.",
         "params": [
           {
@@ -124,7 +129,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 486,
+        "line": 495,
         "doc": "`.cta`: the 52dp pill that carries a screen's one main action.",
         "params": [
           {
@@ -166,7 +171,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun CtaButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    container: Color = LocalPullsColors.current.cta,\n    contentColor: Color = LocalPullsColors.current.onCta,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    Row(\n        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = contentColor, maxLines = 1)\n        trailing?.invoke()\n    }\n}"
+        "source": "@Composable\nfun CtaButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    container: Color = LocalPullsColors.current.cta,\n    contentColor: Color = LocalPullsColors.current.onCta,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n    trailing: (@Composable () -> Unit)? = null,\n) {\n    Row(\n        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).fade(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = contentColor, maxLines = 1)\n        trailing?.invoke()\n    }\n}"
       }
     ]
   },
@@ -175,7 +180,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 164,
+        "line": 170,
         "doc": "`.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row.",
         "params": [
           {
@@ -221,11 +226,11 @@
             "type": "@Composable BoxScope.() -> Unit"
           }
         ],
-        "source": "@Composable\nfun FloatButton(\n    onClick: () -> Unit,\n    label: String,\n    modifier: Modifier = Modifier,\n    size: Dp = 44.dp,\n    enabled: Boolean = true,\n    flat: Boolean = false,\n    container: Color = LocalPullsColors.current.raised,\n    /** The one main action on a screen (Send) sounds at full weight; the rest are quiet. */\n    emphasis: Emphasis = Emphasis.Subtle,\n    content: @Composable BoxScope.() -> Unit,\n) {\n    Box(\n        modifier\n            .size(size)\n            .then(if (flat) Modifier else Modifier.floatShadow(CircleShape))\n            .clip(CircleShape)\n            .background(if (flat) Color.Transparent else container)\n            .semantics { contentDescription = label }\n            .cueClickable(emphasis = emphasis, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)\n            .alpha(if (enabled) 1f else 0.4f),\n        contentAlignment = Alignment.Center,\n        content = content,\n    )\n}"
+        "source": "@Composable\nfun FloatButton(\n    onClick: () -> Unit,\n    label: String,\n    modifier: Modifier = Modifier,\n    size: Dp = 44.dp,\n    enabled: Boolean = true,\n    flat: Boolean = false,\n    container: Color = LocalPullsColors.current.raised,\n    /** The one main action on a screen (Send) sounds at full weight; the rest are quiet. */\n    emphasis: Emphasis = Emphasis.Subtle,\n    content: @Composable BoxScope.() -> Unit,\n) {\n    Box(\n        modifier\n            .size(size)\n            .then(if (flat) Modifier else Modifier.floatShadow(CircleShape))\n            .clip(CircleShape)\n            .background(if (flat) Color.Transparent else container)\n            .semantics { contentDescription = label }\n            .cueClickable(emphasis = emphasis, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)\n            .fade(if (enabled) 1f else 0.4f),\n        contentAlignment = Alignment.Center,\n        content = content,\n    )\n}"
       },
       {
         "file": "ui/design/Kit.kt",
-        "line": 192,
+        "line": 198,
         "doc": "A [FloatButton] holding one prototype icon.",
         "params": [
           {
@@ -407,7 +412,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 889,
+        "line": 898,
         "doc": "`.pend`: a hollow 10dp ring for a step that has not started.",
         "params": [
           {
@@ -430,7 +435,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 509,
+        "line": 518,
         "doc": "`.pill`: the quiet 44dp action beside the one main one (Retry, Stop, Rewrite): paper fill, medium 15sp ink, no shadow.",
         "params": [
           {
@@ -457,7 +462,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun PillButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)\n    }\n}"
+        "source": "@Composable\nfun PillButton(\n    text: String,\n    onClick: () -> Unit,\n    modifier: Modifier = Modifier,\n    enabled: Boolean = true,\n    leading: (@Composable () -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    Row(\n        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).fade(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),\n        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),\n        verticalAlignment = Alignment.CenterVertically,\n    ) {\n        leading?.invoke()\n        Text(text, style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text, maxLines = 1)\n    }\n}"
       }
     ]
   },
@@ -466,7 +471,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 533,
+        "line": 542,
         "doc": "`.ask`: the raised pill that holds a one-line question or comment at the bottom of a page, its action inside at the\nright. It is the kit's one field in its page frame, so it has Home's search pill's height, padding and words (rule\n132; N6).",
         "params": [
           {
@@ -516,7 +521,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 555,
+        "line": 564,
         "doc": "The avatar placeholder: the prototype's warm gradient disc.",
         "params": [
           {
@@ -592,7 +597,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 763,
+        "line": 772,
         "doc": "`.r-qa button`: a 72dp tile with an icon over a label.",
         "params": [
           {
@@ -622,7 +627,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 724,
+        "line": 733,
         "doc": "The list a sheet picks from, with a [SheetSearch] over it once it is longer than [searchFrom] rows: themes, models,\npast chats. Most sheets are easier with a search (\"most bottom sheets that we have actually benefit a lot from\nsearch\": recording 15 Oct 15:37, 12:28 to 12:36; L4, L23, L36), so every picking list is this one component. [group]\nsplits the rows under small headings in their order, each run in its own card; [row] draws one, told whether it is\nthe first in its card. [text] is what a search matches, every word in any order (rule 101).",
         "receiver": "ColumnScope",
         "params": [
@@ -672,7 +677,7 @@
     "declarations": [
       {
         "file": "ui/design/Sheet.kt",
-        "line": 103,
+        "line": 104,
         "doc": "`.sheet`: a paper sheet with 24dp top corners, a grabber, and a header of round close button, centered\ntitle and a spacer, or the round [trailing] button in its place (Ask's new chat). The body scrolls\nunder the header, which stays put. Every sheet rests at two heights and slides between them (rule 77):\nits normal height, which is its content up to half the screen, and its tall height near the top of the\nscreen, which a short sheet reaches too: the room under its content is the sheet's own paper. [full]\nmakes the body fill the sheet (chat, Commands); its normal height is then half the screen, and its\n[footer] stays on screen at either height, floating over the body, which runs on under it and dissolves into the\npaper as the Tour's page does under its Ask bar ([aboveFooter] floats just over the footer, as Ask's\nscroll-to-the-end button). [expandable] off keeps a sheet at its normal height. [back] swaps the close X for a back\narrow. [tall] opens it at its tall height (Commands, whose search takes the keyboard; Ask).\n\nThe sheet is the kit's own window, not Material's. It rises from below the screen on a spring with a little bounce\nwhile fading in through a 2px blur, and leaves in 350ms on the smooth-out curve (rule 73, H3). It follows a finger:\ndragged up from its normal height it goes to the tall one, down from the tall height to the normal one, and down\nfrom the normal height it closes, settling on the same spring at the speed it was let go. Only a drag that starts\nwith the content at its top moves the sheet: scrolling the content back up to its top, or a fling that runs into\nit, never takes the sheet down with it (H2). A sheet is always a bottom sheet, wherever it was opened from (H6).\nA field that takes the keyboard lifts it to the tall height, so the field never sits behind the keyboard.",
         "params": [
           {
@@ -732,7 +737,7 @@
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 132,
+        "line": 133,
         "doc": "",
         "params": [
           {
@@ -792,7 +797,7 @@
       },
       {
         "file": "ui/design/Sheet.kt",
-        "line": 157,
+        "line": 158,
         "doc": "A sheet whose pages slide inside it (rule 78). Language from Settings, Select model from the Analyze\ncard, Effort from the model list: the panel, the lip and the header stay where they are, the ✕ turns\ninto ← and the body slides sideways through a 3px blur, a third of the sheet's width over 350ms, far and slow\nenough to see which way it went: forward from the right, ← to the right (H1). [parent]\nnames the page ← goes back to (null for the first page); [onPage] changes the page, so the caller\nowns where it is. Each page keeps its own scroll position, so back finds a list where it was left.\nAt its normal height the panel grows or shrinks to the next page's height as the body slides. [heading] draws a\npage's title itself where plain text is not enough (the pull request's name and number); [title] is still its name.",
         "params": [
           {
@@ -844,7 +849,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 563,
+        "line": 572,
         "doc": "`.r-card`: a white 16dp card on the sheet's paper, [gap] below what comes before it.",
         "params": [
           {
@@ -871,7 +876,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 614,
+        "line": 623,
         "doc": "A field inside a sheet's white card: the label small and muted over the text, a hairline above it\nunless it is the [first] row. [minLines] above one makes it a note area; [trailing] is for a word\nsuch as Show, never an icon.",
         "params": [
           {
@@ -946,7 +951,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 677,
+        "line": 686,
         "doc": "A heading over a card on a sheet, the one kind every sheet uses: the Settings sheet's small muted words and nothing\nelse, no count, no chevron and no line under it, and it folds nothing (\"we get rid of this number, we get rid of this\ndivider, we get rid of this chevron, we keep them consistent\": recording 16 Oct 09:50, 02:55 to 04:05; M7). [extra]\nsits at its end, for the + and − a group of files shows (L20). [first] is the heading right under the ✕ or a search.",
         "params": [
           {
@@ -978,7 +983,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 573,
+        "line": 582,
         "doc": "`.r-mrow`: a 52dp row, a 22dp icon column, the label, and a trailing value; a hairline above it\nstarts after the icon column. [first] drops that hairline. [detail] is a second, muted line under the label.",
         "params": [
           {
@@ -1035,7 +1040,7 @@
             "default": "null"
           }
         ],
-        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    detail: String? = null,\n    labelMaxLines: Int = Int.MAX_VALUE,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .alpha(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            Text(label, style = PullsType.row, color = if (danger) c.error else c.text, maxLines = labelMaxLines,\n                overflow = if (labelMaxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis)\n            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)\n        }\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
+        "source": "@Composable\nfun SheetRow(\n    label: String,\n    onClick: (() -> Unit)?,\n    modifier: Modifier = Modifier,\n    first: Boolean = false,\n    enabled: Boolean = true,\n    danger: Boolean = false,\n    /** `.noi`: no icon column, so the label starts at the edge and the hairline spans the row. */\n    iconless: Boolean = false,\n    icon: (@Composable () -> Unit)? = null,\n    detail: String? = null,\n    labelMaxLines: Int = Int.MAX_VALUE,\n    value: (@Composable RowScope.() -> Unit)? = null,\n) {\n    val c = LocalPullsColors.current\n    val inset = if (iconless) 16.dp else 52.dp\n    Row(\n        modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)\n            .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)\n            .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }\n            .fade(if (enabled) 1f else 0.5f)\n            .padding(horizontal = 16.dp),\n        verticalAlignment = Alignment.CenterVertically,\n        horizontalArrangement = Arrangement.spacedBy(14.dp),\n    ) {\n        if (!iconless) Box(Modifier.size(22.dp), contentAlignment = Alignment.Center) { icon?.invoke() }\n        Column(Modifier.weight(1f).padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {\n            Text(label, style = PullsType.row, color = if (danger) c.error else c.text, maxLines = labelMaxLines,\n                overflow = if (labelMaxLines == Int.MAX_VALUE) TextOverflow.Clip else TextOverflow.Ellipsis)\n            if (detail != null) Text(detail, style = PullsType.sm, color = c.muted)\n        }\n        if (value != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), content = value)\n    }\n}"
       }
     ]
   },
@@ -1044,7 +1049,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 696,
+        "line": 705,
         "doc": "`.find`: the search field at the top of a sheet's list (Repositories, Files, Commands). It is the kit's one field in its\nsheet frame, made like the cards under it, white with their 16dp corners and their soft shadow, so it reads as part of\nthe list and not as a pill floating over it: the magnifier, the placeholder in the muted ink, and ✕ to clear once\nsomething is typed. The keyboard's [imeAction] runs [onAction], or puts the keyboard away when there is none.",
         "params": [
           {
@@ -1084,7 +1089,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 898,
+        "line": 907,
         "doc": "`.sk`: a 12dp bar standing in for content that is still arriving. A soft light band, 40% of the bar wide, sweeps across it\nfrom left to right every 1200ms on a linear curve (rule 85). With the system setting \"Remove animations\" it sits still.",
         "params": [
           {
@@ -1120,7 +1125,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 267,
+        "line": 276,
         "doc": "`.chip`: a 36dp outlined pill; selected it fills with `--chipOn`. [count] is muted and tabular.",
         "params": [
           {
@@ -1155,7 +1160,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 470,
+        "line": 479,
         "doc": "`.tog`: a 52x32 switch.",
         "params": [
           {
@@ -1181,7 +1186,7 @@
             "default": "true"
           }
         ],
-        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .cueClickable(direction = directionOf(!checked), enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .alpha(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))\n    }\n}"
+        "source": "@Composable\nfun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier, enabled: Boolean = true) {\n    val c = LocalPullsColors.current\n    val track by animateColorAsState(if (checked) c.primary else c.border, tween(200), label = \"switch-track\")\n    val thumb by animateDpAsState(if (checked) 23.dp else 3.dp, tween(200), label = \"switch-thumb\")\n    Box(\n        modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)\n            .semantics { contentDescription = label }\n            .cueClickable(direction = directionOf(!checked), enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }\n            .fade(if (enabled) 1f else 0.5f),\n    ) {\n        Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))\n    }\n}"
       }
     ]
   },
@@ -1190,7 +1195,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 820,
+        "line": 829,
         "doc": "`.toast`: a dark pill above the bottom bars; it leaves after 2.4s, or 4.2s when it offers an action.\nIt rises 16dp from 97% size through a 2px blur in 350ms and leaves in 250ms (the Toast recipe, rule 73).",
         "params": [
           {
@@ -1212,7 +1217,7 @@
     "declarations": [
       {
         "file": "ui/design/Kit.kt",
-        "line": 294,
+        "line": 303,
         "doc": "`.tb`: text tabs on a hairline, the selected one underlined in the accent. Each tab is a 48dp-tall target that reaches\nhalfway to its neighbours, so the space between two labels hits one of them; the underline stays as wide as the label.\n[spread] lays the labels across the whole width, the first at the start and the last at the end with even gaps\nbetween. When they do not fit with 16dp between them the labels step down to body size (15sp), and only when they\nstill do not fit does the row keep a 24dp gap and scroll sideways; a label is never cut.\n\nThe underline is one stroke that slides from tab to tab when the selection changes (250ms smooth-out), and leans\ntoward a neighbour by [pull] (-1 to 1, toward the next tab when positive) while a finger drags the page under it, so\nit moves the way the page does (rule 105).",
         "params": [
           {

@@ -116,7 +116,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
     // The page the pull request's sheet opens on: its actions, or a review to submit when Commands asked for one (N14).
     var prStart by remember { mutableStateOf<PrPage>(PrPage.Actions) }
     // The Tour's Ask bar is focused and empty: the header dims with the page (N29).
-    var tourAskDim by remember { mutableStateOf(false to true) }
+    var askDim by remember { mutableStateOf(false to true) }
     var ask by remember { mutableStateOf<AskRequest?>(null) }
     // An Ask bar's earlier-chats button: the Chats sheet alone, for the Tour (true) or the Overview (false); a chat picked
     // there opens Ask on it (P5).
@@ -366,7 +366,8 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                         }
                         // The Tour's dim for its focused Ask bar covers the header as well as the page ("the top bar stays
                         // bright", recording of 16 Oct 12:10, 14:15 to 14:26, N29); a tap on it lets go of the bar.
-                        if (view == PrView.Tour) Box(Modifier.matchParentSize()) { SearchDim(tourAskDim.first, tourAskDim.second) }
+                        // The Overview's Ask bar dims it the same way (recording 26 Oct 2026, 07:22 to 07:27).
+                        if (view == PrView.Tour || view == PrView.Overview) Box(Modifier.matchParentSize()) { SearchDim(askDim.first, askDim.second, keepWhileTyping = true) }
                     }
                     // The views sit left to right as the capsule shows them, so going to one moves the page that way (rule 105).
                     // Pulling down past the top of any view opens Commands, as on the Inbox (J30).
@@ -385,6 +386,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                                 onCite = { cite -> openSource(session, TourSource(cite.path, cite.line, "")) },
                                 onOpenRepo = { owner, repo -> if (services.current()) nav.openRepo(owner, repo) },
                                 askDraft = askDraft,
+                                onAskDim = { focused, empty -> askDim = focused to empty },
                             )
                             PrView.Diff -> PrDiffScreen(
                                 session, ui, diffPath, commitLabel(session.selection, data?.overview), { diffPath = it },
@@ -402,7 +404,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                                     onAsk = if (aiPolicy.canAsk && services.actions != null) ({ question -> openAsk(forTour = true, initial = question) }) else null,
                                     onOpenAsk = if (aiPolicy.canAsk && services.actions != null) ({ openAsk(forTour = true) }) else null,
                                     onAskHistory = if (aiPolicy.canAsk && services.actions != null) ({ chats = true }) else null,
-                                    onAskDim = { focused, empty -> tourAskDim = focused to empty },
+                                    onAskDim = { focused, empty -> askDim = focused to empty },
                                     onProgress = if (aiPolicy.canTour && services.actions != null) ({ sheet = "tour" }) else null,
                                     onRegenerate = if (aiPolicy.canTour && services.actions != null) ({
                                         if (session.tour == null) sheet = "tour"

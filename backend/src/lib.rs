@@ -134,6 +134,9 @@ impl AppState {
             return Ok(());
         }
         anyhow::ensure!(self.personal_workspace, "Connect a personal AI provider before starting work");
+        if engine == "pi" && self.pi_owner() {
+            return Ok(());
+        }
         anyhow::ensure!(
             matches!(login, agent_login::AgentLogin::Account(id) if self.identity.account_id().ok() == Some(id.as_str()))
                 && matches!(engine, "claude" | "claude-code" | "codex"),
@@ -142,6 +145,32 @@ impl AppState {
         Ok(())
     }
 }
+impl AppState {
+    /// Whether this personal workspace belongs to the one GitHub account `PULLY_PI_GITHUB_ID` names, the only account
+    /// that may run Pi on the server's own proxy (Tavi's recording of 26 Oct 2026, 02:21 to 02:36).
+    fn pi_owner(&self) -> bool {
+        self.personal_workspace && is_pi_owner(crate::rt::env::var("PULLY_PI_GITHUB_ID").ok().as_deref(), self.identity.github_id())
+    }
+}
+
+/// True when `setting` is a GitHub user id and `github_id` is that id; an unset or malformed setting admits nobody.
+fn is_pi_owner(setting: Option<&str>, github_id: Option<u64>) -> bool {
+    let owner = setting.and_then(|id| id.trim().parse::<u64>().ok());
+    owner.is_some() && github_id == owner
+}
+
+#[cfg(test)]
+#[test]
+fn only_the_named_github_account_runs_pi() {
+    assert!(is_pi_owner(Some("42"), Some(42)));
+    assert!(is_pi_owner(Some(" 42 "), Some(42)));
+    assert!(!is_pi_owner(Some("42"), Some(43)));
+    assert!(!is_pi_owner(Some("42"), None));
+    assert!(!is_pi_owner(None, Some(42)));
+    assert!(!is_pi_owner(Some(""), Some(42)));
+    assert!(!is_pi_owner(Some("octaviantocan"), Some(42)));
+}
+
 pub fn encode_component(s: &str) -> String {
     let mut out = String::new();
     for b in s.bytes() {

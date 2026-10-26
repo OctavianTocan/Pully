@@ -65,6 +65,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
@@ -637,21 +638,23 @@ internal fun SheetPanel(
         Box(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tall)
                 .onSizeChanged { position.measured(it.height, scope, motion) }
-                .graphicsLayer {
-                    translationY = position.shift(size.height)
-                    val t = position.reveal
-                    alpha = t
-                    // The cross-blur of the panel reveal: 2px at the start, sharp once it is up.
-                    if (BlurSupported && t < 1f) {
-                        val radius = PullsMotion.BlurSmall.toPx() * (1f - t)
-                        renderEffect = BlurEffect(radius, radius, TileMode.Decal)
-                    }
-                }
+                .graphicsLayer { translationY = position.shift(size.height) }
                 .clip(shape).background(c.paper)
                 .nestedScroll(connection)
                 .draggable(dragState, Orientation.Vertical, onDragStopped = { v -> position.settle(scope, v, speed, latestMotion, latestDismiss) }),
         ) {
-            Column(Modifier.fillMaxWidth().then(sized).imePadding().onSizeChanged { position.measuredContent(it.height, scope, motion) }) {
+            // The paper comes up solid and only what is on it fades in through the cross-blur of the panel reveal, 2px at
+            // the start and sharp once it is up: a see-through panel over the page read as a glitch (recording 26 Oct
+            // 2026, 01:07 to 01:28).
+            Column(Modifier.fillMaxWidth().then(sized).imePadding().onSizeChanged { position.measuredContent(it.height, scope, motion) }
+                .graphicsLayer {
+                    val t = position.reveal
+                    alpha = t
+                    if (BlurSupported && t < 1f) {
+                        val radius = PullsMotion.BlurSmall.toPx() * (1f - t)
+                        renderEffect = BlurEffect(radius, radius, TileMode.Decal)
+                    }
+                }) {
                 Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(CircleShape).background(c.grabber))
                 CompositionLocalProvider(LocalSheetSettled provides position.settled, LocalSheet provides control) { body() }
             }
@@ -687,7 +690,8 @@ private fun SheetHeader(leading: @Composable () -> Unit, title: @Composable () -
     // The same round white button, with its soft shadow, as on the page behind the sheet (rule 70).
     Row(Modifier.fillMaxWidth().zIndex(1f).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
         leading()
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+        // The title keeps clear of the buttons beside it, and a long one ends in … (recording 26 Oct 2026, 06:14 to 06:19).
+        Box(Modifier.weight(1f).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
             CompositionLocalProvider(LocalTextStyle provides PullsType.lg.copy(fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)) { title() }
         }
         // A button on the right, or the room one takes, so the title stays centred.
@@ -697,7 +701,7 @@ private fun SheetHeader(leading: @Composable () -> Unit, title: @Composable () -
 
 @Composable
 private fun SheetTitle(text: String) {
-    Text(text, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1)
+    Text(text, style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = LocalPullsColors.current.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /** How deep the body fades out under the header and above a footer. */

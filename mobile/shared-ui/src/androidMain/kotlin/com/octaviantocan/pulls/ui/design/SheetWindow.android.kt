@@ -35,13 +35,19 @@ internal actual object SheetPlatform {
 private fun ConfigureSheetWindow() {
     val view = LocalView.current
     val light = LocalPullsColors.current.paper.luminance() > 0.5f
+    val lightPage = !LocalPullsColors.current.dark
     SideEffect {
         val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        // No system dim at all, not even for the first frame: it flashed black under the panel (recording 26 Oct 2026, 01:07 to 01:28).
+        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
         window.setDimAmount(0f)
         window.setWindowAnimations(0)
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) window.isNavigationBarContrastEnforced = false
         // The panel's paper runs under the navigation bar, so its icons follow the paper.
         WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = light
+        // The status bar sits over the page behind the sheet, so its icons follow the page, as the app's own window does;
+        // the window's default left them white on a light page while the sheet opened.
+        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = lightPage
     }
 }

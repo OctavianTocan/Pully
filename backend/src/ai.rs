@@ -1311,11 +1311,26 @@ fn recover_turns(state: &AppState, turns: &mut Value) {
             .unwrap()
             .get(text(turn, "taskId"))
             .cloned();
-        if !live.is_some_and(|r| r.snapshot.lock().unwrap()["status"] == "running") {
-            turn["outcome"] = json!("failed");
-            turn["error"] =
-                json!("The server restarted before this answer finished. Ask again to retry.");
+        // A run that is still here but failed before its turn was written says why; only a run that is gone lost its
+        // answer to a restart (recording 26 Oct 2026, 05:59: an Ask failed at once as "server restarted").
+        let (status, error) = match &live {
+            Some(run) => {
+                let snapshot = run.snapshot.lock().unwrap();
+                (text(&snapshot, "status").to_owned(), text(&snapshot, "error").to_owned())
+            }
+            None => (String::new(), String::new()),
+        };
+        if status == "running" {
+            continue;
         }
+        turn["outcome"] = json!("failed");
+        turn["error"] = json!(if live.is_some() && !error.is_empty() {
+            error
+        } else if live.is_some() {
+            "This answer failed. Ask again to retry.".to_owned()
+        } else {
+            "The server restarted before this answer finished. Ask again to retry.".to_owned()
+        });
     }
 }
 fn skill_root(state: &AppState) -> std::path::PathBuf {

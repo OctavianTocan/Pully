@@ -57,6 +57,8 @@ internal fun androidModelSettingsServices(context: Context): ModelSettingsServic
         override fun remembered(engine: String): String? { requireCurrent(); return memory.model(engine) }
         override fun remember(engine: String, model: String) { requireCurrent(); memory.setModel(engine, model) }
         override fun cached(engine: String): CliCatalog? = if (source.isSuccess && current()) ModelCatalogs.get(engine) else null
+        override fun signedIn(engine: String): Boolean? = if (current()) knownAiSignIn(repo, engine) else null
+        override suspend fun checkSignIns() { if (current()) checkAiSignIns(repo) }
         override suspend fun fetch(engine: String, refresh: Boolean): Result<CliCatalog> = try {
             requireCurrent()
             source.getOrThrow()

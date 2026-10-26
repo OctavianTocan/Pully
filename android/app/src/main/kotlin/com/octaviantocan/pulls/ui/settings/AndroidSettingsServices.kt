@@ -35,6 +35,7 @@ internal fun rememberAndroidSettingsServices(): SettingsServices {
     val context = androidx.compose.ui.platform.LocalContext.current
     val settings = AppSettings.get(context)
     val providerBrowser = LocalProviderSignInBrowser.current
+    val paper = LocalPullsColors.current.paper
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     var foreground by androidx.compose.runtime.remember(lifecycle) {
         androidx.compose.runtime.mutableStateOf(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
@@ -51,7 +52,7 @@ internal fun rememberAndroidSettingsServices(): SettingsServices {
     val stats = rememberAndroidStatsServices()
     val feedbackPage = rememberAndroidFeedbackServices()
     val server = rememberAndroidServerPageServices()
-    return remember(context, settings, models, account, stats, feedbackPage, server, providerBrowser) {
+    return remember(context, settings, models, account, stats, feedbackPage, server, providerBrowser, paper) {
         val epoch = RepoIdentity.generation
         SettingsServices(settings, models, account, stats, feedbackPage, { server }, object : SettingsFeedback {
             override fun vibrationOn() = Haptics.cue(Cue.Toggle)
@@ -93,12 +94,22 @@ internal fun rememberAndroidSettingsServices(): SettingsServices {
             },
             experimentalRows = { open -> BrowserHelperExperimentRow { open(SettingsPage.BrowserHelper) } },
         ), { epoch == RepoIdentity.generation }, Analytics::showScreen,
-            // The providers' sign-in pages open in the browser, never in their own apps, which do not show the code.
+            // The providers' sign-in pages open in a browser sheet over Pully, else in the browser, never in their own
+            // apps, which do not show the code.
             SourceAiSignInServices(Repo(context.applicationContext), { epoch == RepoIdentity.generation },
-                { url -> if (providerBrowser != null) providerBrowser(url) else OutsideLinks.open(context, url, browserOnly = true) }, { com.octaviantocan.pulls.ui.book.copyToClipboard(context, it) }, { foreground }, { clear ->
+                { url ->
+                    if (providerBrowser != null) providerBrowser(url)
+                    else if (!ProviderSignInTab.open(context, url, paper)) OutsideLinks.open(context, url, browserOnly = true)
+                }, { com.octaviantocan.pulls.ui.book.copyToClipboard(context, it) }, { foreground }, { clear ->
                     val stop = RepoIdentity.observeInvalidation { if (epoch != RepoIdentity.generation) clear() }
                     if (epoch != RepoIdentity.generation) clear()
                     stop
-                }))
+                }, readCopied = { readClipboard(context) }))
     }
 }
+
+/** The clipboard's text, read only while Pully is in front (Android allows nothing else), for Claude's sign-in code. */
+private fun readClipboard(context: android.content.Context): String? = runCatching {
+    val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+    clipboard?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString()
+}.getOrNull()
