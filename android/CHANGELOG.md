@@ -21,6 +21,17 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.63.0
+
+#### 2026-10-26 13:59 UTC
+
+Pull requests show as they load, and the Inbox loads faster.
+
+- On a first load the Inbox shows your pull requests as they come in, starting with the ones waiting on your review, instead of only skeletons until every one is in. A few skeleton rows under them say more are on the way, and checks and sizes fill in as they arrive.
+![The Inbox filling in: three pull requests waiting on review first, then the rest, then their checks and sizes](changelog/0.63.0/arriving.gif)
+- The server now asks GitHub for the Inbox's searches and details several at a time instead of one after another, so the whole list is in sooner.
+![The Inbox with every pull request in, grouped by repository, with checks and sizes](changelog/0.63.0/all-in.png)
+
 ## 0.62.0
 
 #### 2026-10-23 14:19 UTC

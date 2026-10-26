@@ -134,6 +134,7 @@ async fn numeric_rest_continuations_keep_page_limits_and_errors() {
 async fn inbox_latest_role_windows_allow_large_totals_and_keep_role_precedence() {
     for state in ["open", "closed"] {
         let mut requests = Vec::new();
+        let mut shown = Vec::new();
         let pulls = inbox_window(state, "viewer", &[json!({"login":"team"})], |path| {
             requests.push(path);
             let role = requests.len();
@@ -147,8 +148,10 @@ async fn inbox_latest_role_windows_allow_large_totals_and_keep_role_precedence()
                 items[0]["repository_url"] = json!("https://api.github.com/repos/team/shared");
                 Ok(json!({"total_count":1001,"incomplete_results":false,"items":items}))
             }
-        }).await.unwrap();
+        }, |found| shown.push(found.len())).await.unwrap();
         assert_eq!(requests.len(), 4);
+        // Each role's rows are handed out as soon as it and the roles before it are read.
+        assert_eq!(shown, [100, 199, 298, 397]);
         assert!(requests
             .iter()
             .all(|path| path.ends_with("&per_page=100&page=1")
@@ -174,13 +177,20 @@ async fn inbox_latest_role_windows_allow_large_totals_and_keep_role_precedence()
 #[tokio::test]
 async fn inbox_latest_role_windows_still_reject_incomplete_provider_responses() {
     let mut calls = 0;
-    let error = inbox_window("closed", "viewer", &[], |_| {
-        calls += 1;
-        async { Ok(json!({"total_count":1001,"incomplete_results":true,"items":[]})) }
-    })
+    let error = inbox_window(
+        "closed",
+        "viewer",
+        &[],
+        |_| {
+            calls += 1;
+            async { Ok(json!({"total_count":1001,"incomplete_results":true,"items":[]})) }
+        },
+        |_| {},
+    )
     .await
     .unwrap_err();
-    assert_eq!(calls, 1);
+    // The four role searches start together; the first incomplete one still fails the window.
+    assert_eq!(calls, 4);
     assert_eq!(
         error.to_string(),
         "GitHub inbox search is incomplete; retry later"

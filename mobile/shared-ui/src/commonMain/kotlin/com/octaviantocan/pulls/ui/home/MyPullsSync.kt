@@ -5,7 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.data.PullRow
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.Json
@@ -36,6 +38,8 @@ class MyPullsSync(
     private val peek: suspend (state: String, classify: Boolean) -> PullsSnapshot? = { state, _ -> cached(state) },
     private val effects: HomeEffects = NoHomeEffects,
     private val currentSource: () -> Boolean = { true },
+    /** How often a first load asks the server for the rows it has found so far. */
+    private val partialEveryMs: Long = 1_500,
 ) {
     /** The newest list known, null until any copy arrives. */
     var pulls by mutableStateOf<List<PullRow>?>(null)
@@ -46,6 +50,13 @@ class MyPullsSync(
         private set
 
     var updating by mutableStateOf(false)
+        private set
+
+    /**
+     * [pulls] are the rows the server's first load has found so far, with more to come: the Inbox shows them at once
+     * instead of skeletons until the whole list is in (Tavi, 26 Oct 2026, on Staging 0.62.0).
+     */
+    var partial by mutableStateOf(false)
         private set
 
     /** Why the last update failed; the previous list stays in [pulls]. */
@@ -69,6 +80,7 @@ class MyPullsSync(
         invalidated = true
         generation++
         pulls = null
+        partial = false
         fetchedAt = null
         error = null
         updating = false
@@ -82,6 +94,7 @@ class MyPullsSync(
         this.state = state
         val stored = readStored(state)
         pulls = stored?.pulls
+        partial = false
         fetchedAt = stored?.fetchedAt
         stored?.let { jev = it.jev }
         load(false)
@@ -119,7 +132,8 @@ class MyPullsSync(
             } ?: continue
             currentCoroutineContext().ensureActive()
             val shown = pulls
-            if (!active() || current != generation || shown == null) continue
+            // Rows so far are replaced as a whole when the list is in, so they take no kinds.
+            if (!active() || current != generation || shown == null || partial || server.partial) continue
             jev = server.jev
             val sorted = server.pulls.filter { it.jev != null }.associateBy { Triple(it.owner, it.repo, it.number) }
             val filled = shown.map { row ->
@@ -140,8 +154,15 @@ class MyPullsSync(
         fun show(value: PullsSnapshot) {
             if (!isCurrent() || (fetchedAt != null && value.fetchedAt < fetchedAt!!)) return
             pulls = value.pulls
+            partial = false
             fetchedAt = value.fetchedAt
             writeStored(selected, value)
+        }
+        // Rows so far only stand in for nothing or for fewer rows so far, and are not kept on the device.
+        fun showPartial(value: PullsSnapshot) {
+            if (!isCurrent() || (pulls != null && !partial)) return
+            pulls = value.pulls
+            partial = true
         }
         updating = true
         error = null
@@ -153,10 +174,10 @@ class MyPullsSync(
             currentCoroutineContext().ensureActive()
             // Whether the server runs Jev is news even when its list is older than the one on screen.
             if (server != null && isCurrent()) jev = server.jev
-            if (server != null) show(server)
+            if (server != null) if (server.partial) showPartial(server) else show(server)
             if (!isCurrent()) return
-            if (!force && server != null && !server.refreshing && now() - server.fetchedAt < freshForMs) return
-            val list = fresh(selected)
+            if (!force && server != null && !server.partial && !server.refreshing && now() - server.fetchedAt < freshForMs) return
+            val list = if (pulls == null || partial) withPartials(selected, ::isCurrent, ::showPartial) { fresh(selected) } else fresh(selected)
             currentCoroutineContext().ensureActive()
             show(PullsSnapshot(list, now(), jev = jev))
         } catch (e: CancellationException) {
@@ -164,12 +185,34 @@ class MyPullsSync(
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
             if (isCurrent()) {
+                // Rows so far are not a list to keep: the failure note and its Retry take their place.
+                if (partial) { pulls = null; partial = false }
                 error = e.message ?: e.toString()
                 effects.loadError(e.message)
             }
         } finally {
             if (isCurrent()) updating = false
         }
+    }
+
+    /**
+     * Runs [load], and meanwhile, every [partialEveryMs] while nothing complete is on screen, shows the rows the
+     * server's refresh has found so far. The server's copy is read without it asking GitHub again.
+     */
+    private suspend fun <T> withPartials(
+        selected: String,
+        isCurrent: () -> Boolean,
+        show: (PullsSnapshot) -> Unit,
+        load: suspend () -> T,
+    ): T = coroutineScope {
+        val follow = launch {
+            while (isCurrent() && (pulls == null || partial)) {
+                delay(partialEveryMs)
+                val server = try { peek(selected, false) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                if (server?.partial == true) show(server)
+            }
+        }
+        try { load() } finally { follow.cancel() }
     }
 
     private fun readStored(state: String): PullsSnapshot? = runCatching {
