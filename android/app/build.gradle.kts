@@ -53,8 +53,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 80
-        versionName = "0.63.0"
+        versionCode = 81
+        versionName = "0.64.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
         buildConfigField("String", "STAGING_ACCESS_CLIENT_ID", "\"$stagingAccessClientId\"")
