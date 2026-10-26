@@ -22,6 +22,8 @@ import com.octaviantocan.pulls.ui.home.inShownRepos
 import com.octaviantocan.pulls.ui.home.repoChoices
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
@@ -67,6 +69,74 @@ class MyPullsSyncTest {
         assertEquals(listOf(3), sync.pulls?.map { it.number })
         assertEquals(1_000_000L, sync.fetchedAt)
         assertTrue(storage.items.getValue(MyPullsSync.STORAGE_PREFIX + "open").contains("\"number\":3"))
+    }
+
+    @Test
+    fun aFirstLoadShowsTheRowsFoundSoFarThenTheWholeList() = runTest {
+        val storage = Memory()
+        var server: PullsSnapshot? = null
+        val fresh = CompletableDeferred<List<PullRow>>()
+        val sync = MyPullsSync({ null }, { fresh.await() }, storage, now = { 1_000 }, peek = { _, classify ->
+            assertFalse(classify)
+            server
+        })
+        val job = async { sync.select("open") }
+        runCurrent()
+        assertNull(sync.pulls)
+        server = PullsSnapshot(listOf(pull(1)), 900, refreshing = true, partial = true)
+        advanceTimeBy(1_600)
+        assertEquals(listOf(1), sync.pulls?.map { it.number })
+        assertTrue(sync.partial)
+        assertNull(sync.fetchedAt)
+        server = PullsSnapshot(listOf(pull(1), pull(2)), 950, refreshing = true, partial = true)
+        advanceTimeBy(1_500)
+        assertEquals(listOf(1, 2), sync.pulls?.map { it.number })
+        // Rows so far are never the device copy.
+        assertTrue(storage.items.isEmpty())
+        fresh.complete(listOf(pull(1), pull(2), pull(3)))
+        job.await()
+        assertFalse(sync.partial)
+        assertFalse(sync.updating)
+        assertEquals(listOf(1, 2, 3), sync.pulls?.map { it.number })
+        assertTrue(storage.items.getValue(MyPullsSync.STORAGE_PREFIX + "open").contains("\"number\":3"))
+    }
+
+    @Test
+    fun rowsSoFarNeverStandInForAWholeList() = runTest {
+        val storage = Memory()
+        MyPullsSync({ PullsSnapshot(listOf(pull(1), pull(2)), 100) }, { error("unused") }, storage, now = { 100 }).select("open")
+        var peeks = 0
+        val fresh = CompletableDeferred<List<PullRow>>()
+        val sync = MyPullsSync(
+            { PullsSnapshot(listOf(pull(7)), 1_000, refreshing = true, partial = true) }, { fresh.await() }, storage,
+            now = { 1_000_000 }, peek = { _, _ -> peeks++; null },
+        )
+        val job = async { sync.select("open") }
+        advanceTimeBy(5_000)
+        assertEquals(listOf(1, 2), sync.pulls?.map { it.number })
+        assertFalse(sync.partial)
+        assertEquals(0, peeks)
+        fresh.complete(listOf(pull(3)))
+        job.await()
+        assertEquals(listOf(3), sync.pulls?.map { it.number })
+    }
+
+    @Test
+    fun aFailedFirstLoadDropsItsRowsSoFarForTheFailureNote() = runTest {
+        val fresh = CompletableDeferred<List<PullRow>>()
+        val sync = MyPullsSync(
+            { PullsSnapshot(listOf(pull(1)), 900, refreshing = true, partial = true) }, { fresh.await() },
+            now = { 1_000 }, peek = { _, _ -> null },
+        )
+        val job = async { sync.select("open") }
+        runCurrent()
+        assertEquals(listOf(1), sync.pulls?.map { it.number })
+        assertTrue(sync.partial)
+        fresh.completeExceptionally(IllegalStateException("The server request timed out."))
+        job.await()
+        assertNull(sync.pulls)
+        assertFalse(sync.partial)
+        assertEquals("The server request timed out.", sync.error)
     }
 
     @Test

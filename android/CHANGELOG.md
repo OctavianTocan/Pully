@@ -16,6 +16,15 @@ From 0.40.0 on every section shows what changed in pictures, a short GIF where i
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
 -->
 
+## 0.63.0
+
+Pull requests show as they load, and the Inbox loads faster.
+
+- On a first load the Inbox shows your pull requests as they come in, starting with the ones waiting on your review, instead of only skeletons until every one is in. A few skeleton rows under them say more are on the way, and checks and sizes fill in as they arrive.
+![The Inbox filling in: three pull requests waiting on review first, then the rest, then their checks and sizes](changelog/0.63.0/arriving.gif)
+- The server now asks GitHub for the Inbox's searches and details several at a time instead of one after another, so the whole list is in sooner.
+![The Inbox with every pull request in, grouped by repository, with checks and sizes](changelog/0.63.0/all-in.png)
+
 ## 0.62.0
 
 Sign in to your own Claude Code and Codex for Pully's AI.

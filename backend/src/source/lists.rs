@@ -1,4 +1,5 @@
 use super::*;
+use futures_util::{stream, StreamExt};
 use std::collections::{HashMap, HashSet};
 async fn get(state: &AppState, path: &str) -> Result<Value> {
     github_request(state, reqwest::Method::GET, path, None).await
@@ -431,24 +432,40 @@ async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
             return Ok(v);
         }
     }
-    let viewer = get(state, "/user").await?;
+    let progress = InboxProgress((state.host.storage.root().to_path_buf(), cachekey.clone()));
+    let (viewer, orgs) = futures_util::join!(
+        get(state, "/user"),
+        github::pages(state, "/user/orgs", None)
+    );
+    let viewer = viewer?;
     let login = s(&viewer, "login");
-    let orgs = github::pages(state, "/user/orgs", None)
-        .await
-        .unwrap_or_default();
+    let orgs = orgs.unwrap_or_default();
     let mut pulls = inbox_window(
         st,
         login,
         &orgs,
         |path| async move { get(state, &path).await },
+        |pulls| progress.publish(st, pulls),
     )
     .await?;
-    let _ = enrich(state, &mut pulls).await;
+    let _ = enrich(state, &mut pulls, |pulls| progress.publish(st, pulls)).await;
     if st == "open" {
         let _ = native_stacks(state, &mut pulls).await;
         apply_stacks(&mut pulls);
     }
-    for pull in &mut pulls {
+    inbox_rows(st, &mut pulls);
+    let v = json!({"pulls":pulls,"fetchedAt":now(),"refreshing":false});
+    state.host.storage.set_async(&cachekey, &v).await?;
+    Ok(v)
+}
+
+/// GitHub requests one Inbox refresh keeps in flight at once: the role searches, then the
+/// detail and stack queries of twenty rows each.
+const INBOX_REQUESTS: usize = 4;
+
+/// Drops the fields only the refresh uses and sorts the rows newest first, as clients get them.
+fn inbox_rows(st: &str, pulls: &mut [Value]) {
+    for pull in pulls.iter_mut() {
         if let Some(object) = pull.as_object_mut() {
             object.remove("_crossRepository");
             object.remove("_defaultBranch");
@@ -466,9 +483,49 @@ async fn fetch_my_pulls(state: &AppState, args: &Value) -> Result<Value> {
         }
     }
     pulls.sort_by(|a, b| s(b, "updatedAt").cmp(s(a, "updatedAt")));
-    let v = json!({"pulls":pulls,"fetchedAt":now(),"refreshing":false});
-    state.host.storage.set_async(&cachekey, &v).await?;
-    Ok(v)
+}
+
+fn inbox_progresses() -> &'static std::sync::Mutex<HashMap<RepoRefreshKey, Value>> {
+    use std::sync::{Mutex, OnceLock};
+    static PROGRESS: OnceLock<Mutex<HashMap<RepoRefreshKey, Value>>> = OnceLock::new();
+    PROGRESS.get_or_init(Default::default)
+}
+
+/// @cc [owner:OctavianTocan,label:product;architecture] inbox-refresh-shows-rows-as-they-arrive
+/// While an Inbox refresh runs, the rows it has so far MUST be readable as a `partial`
+/// snapshot, kept in memory under the same storage root and key as the refresh and dropped
+/// when it ends, so a first load shows pull requests as they arrive rather than all at the
+/// end. A partial snapshot MUST NOT be stored as the server's copy (Tavi, 26 Oct 2026, on
+/// Staging 0.62.0: "showed some of them gradually as we load them").
+struct InboxProgress(RepoRefreshKey);
+impl InboxProgress {
+    fn publish(&self, st: &str, pulls: &[Value]) {
+        let mut rows = pulls.to_vec();
+        inbox_rows(st, &mut rows);
+        let snapshot = json!({"pulls":rows,"fetchedAt":now(),"refreshing":true,"partial":true});
+        inbox_progresses()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(self.0.clone(), snapshot);
+    }
+}
+impl Drop for InboxProgress {
+    fn drop(&mut self) {
+        inbox_progresses()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(&self.0);
+    }
+}
+
+/// The rows a running Inbox refresh has found so far, or None when none is running.
+pub(super) fn inbox_partial(state: &AppState, args: &Value) -> Option<Value> {
+    let key = format!("my-pulls:{}", args["state"].as_str().unwrap_or("open"));
+    inbox_progresses()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&(state.host.storage.root().to_path_buf(), key))
+        .cloned()
 }
 
 /// @cc [owner:OctavianTocan,label:product;architecture] rust-inbox-preserves-role-windows
@@ -481,6 +538,7 @@ async fn inbox_window<F, Fut>(
     login: &str,
     orgs: &[Value],
     mut request: F,
+    mut progress: impl FnMut(&[Value]),
 ) -> Result<Vec<Value>>
 where
     F: FnMut(String) -> Fut,
@@ -506,12 +564,18 @@ where
     ];
     let mut seen = HashSet::new();
     let mut pulls = vec![];
+    // The searches run together and are read in role order, so an earlier role keeps a shared row.
+    let mut searches = vec![];
     for (role, query) in roles {
-        let v = request(format!(
+        let response = request(format!(
             "/search/issues?q={}&per_page=100&page=1",
             enc(&format!("is:pr is:{st} sort:updated-desc {query}"))
-        ))
-        .await?;
+        ));
+        searches.push(async move { (role, response.await) });
+    }
+    let mut searches = stream::iter(searches).buffered(INBOX_REQUESTS);
+    while let Some((role, v)) = searches.next().await {
+        let v = v?;
         ensure!(
             v["incomplete_results"] != true,
             "GitHub inbox search is incomplete; retry later"
@@ -536,12 +600,18 @@ where
             }
             pulls.push(item)
         }
+        progress(&pulls);
     }
     Ok(pulls)
 }
 
-async fn enrich(state: &AppState, pulls: &mut [Value]) -> Result<()> {
-    for chunk in pulls.chunks_mut(20) {
+async fn enrich(
+    state: &AppState,
+    pulls: &mut [Value],
+    mut progress: impl FnMut(&[Value]),
+) -> Result<()> {
+    let mut queries = vec![];
+    for (index, chunk) in pulls.chunks(20).enumerate() {
         let mut query = String::from("query {");
         for (i, p) in chunk.iter().enumerate() {
             github::prefix(p)?;
@@ -549,16 +619,26 @@ async fn enrich(state: &AppState, pulls: &mut [Value]) -> Result<()> {
             query.push_str(&format!(" p{i}: repository(owner:{},name:{}) {{ defaultBranchRef {{ name }} pullRequest(number:{n}) {{ isCrossRepository headRefOid baseRefName headRefName mergedAt closedAt reviewDecision mergeable additions deletions changedFiles commits(last:1) {{ nodes {{ commit {{ statusCheckRollup {{ state }} }} }} }} reviewRequests(first:100) {{ nodes {{ requestedReviewer {{ ... on User {{ login }} ... on Team {{ combinedSlug }} }} }} }} }} }}",serde_json::to_string(s(p,"owner"))?,serde_json::to_string(s(p,"repo"))?));
         }
         query.push('}');
-        let response = github_request(
-            state,
-            reqwest::Method::POST,
-            "/graphql",
-            Some(json!({"query":query})),
-        )
-        .await;
+        queries.push((index * 20, query));
+    }
+    let mut responses = stream::iter(queries)
+        .map(|(start, query)| async move {
+            let response = github_request(
+                state,
+                reqwest::Method::POST,
+                "/graphql",
+                Some(json!({"query":query})),
+            )
+            .await;
+            (start, response)
+        })
+        .buffer_unordered(INBOX_REQUESTS);
+    while let Some((start, response)) = responses.next().await {
         let Ok(response) = response else {
             continue;
         };
+        let end = (start + 20).min(pulls.len());
+        let chunk = &mut pulls[start..end];
         // Enrichment is optional. Omit unavailable fields without inventing a successful check or review.
         for (i, p) in chunk.iter_mut().enumerate() {
             let d = &response["data"][format!("p{i}")]["pullRequest"];
@@ -605,6 +685,7 @@ async fn enrich(state: &AppState, pulls: &mut [Value]) -> Result<()> {
                 }
             }
         }
+        progress(pulls);
     }
     Ok(())
 }
@@ -615,7 +696,8 @@ async fn native_stacks(state: &AppState, pulls: &mut [Value]) -> Result<()> {
     if now() < UNSUPPORTED_UNTIL.load(Ordering::Relaxed) {
         return Ok(());
     }
-    for chunk in pulls.chunks_mut(20) {
+    let mut queries = vec![];
+    for (index, chunk) in pulls.chunks(20).enumerate() {
         let mut query = String::from("query {");
         for (i, p) in chunk.iter().enumerate() {
             github::prefix(p)?;
@@ -623,13 +705,22 @@ async fn native_stacks(state: &AppState, pulls: &mut [Value]) -> Result<()> {
             query.push_str(&format!(" p{i}: repository(owner:{},name:{}) {{ pullRequest(number:{n}) {{ stack {{ number size }} stackEntry {{ position }} }} }}",serde_json::to_string(s(p,"owner"))?,serde_json::to_string(s(p,"repo"))?));
         }
         query.push('}');
-        let response = github_request(
-            state,
-            reqwest::Method::POST,
-            "/graphql",
-            Some(json!({"query":query})),
-        )
-        .await?;
+        queries.push((index * 20, query));
+    }
+    let mut responses = stream::iter(queries)
+        .map(|(start, query)| async move {
+            let response = github_request(
+                state,
+                reqwest::Method::POST,
+                "/graphql",
+                Some(json!({"query":query})),
+            )
+            .await;
+            (start, response)
+        })
+        .buffer_unordered(INBOX_REQUESTS);
+    while let Some((start, response)) = responses.next().await {
+        let response = response?;
         if response["errors"]
             .as_array()
             .into_iter()
@@ -639,6 +730,8 @@ async fn native_stacks(state: &AppState, pulls: &mut [Value]) -> Result<()> {
             UNSUPPORTED_UNTIL.store(now() + 3_600_000, Ordering::Relaxed);
             return Ok(());
         }
+        let end = (start + 20).min(pulls.len());
+        let chunk = &mut pulls[start..end];
         for (i, p) in chunk.iter_mut().enumerate() {
             let d = &response["data"][format!("p{i}")]["pullRequest"];
             if let (Some(number), Some(size), Some(position)) = (
@@ -950,6 +1043,40 @@ mod tests {
             .unwrap()
             .keys()
             .any(|(root, _)| root == state.host.storage.root()));
+    }
+
+    #[tokio::test]
+    async fn first_inbox_load_reads_the_rows_found_so_far() {
+        let fixture = RepoFixture::new();
+        let state = &fixture.0;
+        let args = json!({"state":"open","revalidate":false});
+        let read = || async {
+            crate::source::handle(state, "my-pulls-cached", args.clone())
+                .await
+                .unwrap()
+                .unwrap()
+        };
+        assert_eq!(read().await, Value::Null);
+        let progress = InboxProgress((
+            state.host.storage.root().to_path_buf(),
+            "my-pulls:open".into(),
+        ));
+        progress.publish(
+            "open",
+            &[
+                json!({"owner":"o","repo":"r","number":1,"updatedAt":"2026-10-25T00:00:00Z","_defaultBranch":"main"}),
+                json!({"owner":"o","repo":"r","number":2,"updatedAt":"2026-10-26T00:00:00Z"}),
+            ],
+        );
+        let partial = read().await;
+        assert_eq!(partial["partial"], true);
+        assert_eq!(partial["refreshing"], true);
+        assert_eq!(partial["pulls"][0]["number"], 2);
+        assert!(partial["pulls"][1].get("_defaultBranch").is_none());
+        // A partial list is never the server's copy, and it is gone once the refresh ends.
+        assert!(state.host.storage.get("my-pulls:open").unwrap().is_none());
+        drop(progress);
+        assert_eq!(read().await, Value::Null);
     }
 
     fn pull(number: u64, base: &str, head: &str) -> Value {

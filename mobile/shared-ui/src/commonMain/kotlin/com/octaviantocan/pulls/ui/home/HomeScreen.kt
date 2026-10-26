@@ -377,7 +377,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
                     ActivityStrip(workTasks, { activityOpen = true })
                     InboxList(
                         sections = sections, rowRepos = rowRepos, now = now, archived = archived, work = work,
-                        loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null,
+                        loading = pulls == null && sync.error == null, failed = if (pulls == null) sync.error else null, more = sync.partial,
                         filter = ui.filter, searching = needle.isNotEmpty(),
                         sort = sort, groupBy = groupBy, folded = layout.folded, onFold = { section -> layout.toggle(section.key) },
                         onRetry = reload, onCommands = { services.commands() }, onSettings = services.navigation(nav).settings,
@@ -579,6 +579,8 @@ fun InboxList(
     work: Map<String, PullWork>,
     loading: Boolean,
     failed: String?,
+    /** The rows so far of a first load: more are coming, so the list ends in skeleton rows and is never "empty". */
+    more: Boolean = false,
     filter: String,
     searching: Boolean,
     sort: InboxSort,
@@ -674,7 +676,7 @@ fun InboxList(
                 }
             }
             when {
-                loading -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
+                loading || (more && sections.isEmpty() && posted.isEmpty()) -> item(key = "loading") { RowsSkeleton(Modifier.padding(top = 24.dp)) }
                 failed != null -> item(key = "failed") {
                     ListNote(t("local.home.failed"), hint = failed) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(PullsSpace.x3)) {
@@ -730,6 +732,8 @@ fun InboxList(
                             }
                         }
                     }
+                    // More rows are still coming in: a few skeleton rows under them say so (Tavi, 26 Oct 2026).
+                    if (more) item(key = "more") { RowsSkeleton(Modifier.animateItem(), rows = 3) }
                 }
             }
             footer?.let { content -> item(key = "footer") { content() } }
