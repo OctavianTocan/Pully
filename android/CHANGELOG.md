@@ -23,6 +23,8 @@ Sections run newest first by date too.
 
 ## 0.63.0
 
+#### 2026-10-26 13:59 UTC
+
 Pull requests show as they load, and the Inbox loads faster.
 
 - On a first load the Inbox shows your pull requests as they come in, starting with the ones waiting on your review, instead of only skeletons until every one is in. A few skeleton rows under them say more are on the way, and checks and sizes fill in as they arrive.
