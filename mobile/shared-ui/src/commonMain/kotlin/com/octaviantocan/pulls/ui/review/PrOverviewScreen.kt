@@ -12,7 +12,9 @@ import com.octaviantocan.pulls.data.riskLevel
 import com.octaviantocan.pulls.data.riskWords
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
@@ -148,6 +150,8 @@ fun PrOverviewScreen(
     onCite: (Cite) -> Unit,
     onOpenRepo: (owner: String, repo: String) -> Unit,
     askDraft: MutableState<String> = remember { mutableStateOf("") },
+    /** Says when the Ask bar is focused, for the header the page does not draw to dim with it (recording 26 Oct 2026, 07:22). */
+    onAskDim: (focused: Boolean, empty: Boolean) -> Unit = { _, _ -> },
 ) {
     val services = LocalOverviewServices.current
     val progress = rememberReviewProgressActions(session)
@@ -315,7 +319,11 @@ fun PrOverviewScreen(
         // The Ask field is Home's search pill, and the page dims behind it while it waits for its first letter (rule 132).
         var askText by askDraft
         var askFocused by remember { mutableStateOf(false) }
-        SearchDim(askFocused, askText.isEmpty())
+        val latestDim by rememberUpdatedState(onAskDim)
+        val askable = services.ai.canStartPaidWork
+        LaunchedEffect(askFocused, askText.isEmpty(), askable) { latestDim(askable && askFocused, askText.isEmpty()) }
+        DisposableEffect(Unit) { onDispose { latestDim(false, true) } }
+        SearchDim(askFocused, askText.isEmpty(), keepWhileTyping = true)
         if (services.ai.canStartPaidWork) {
         LaunchedEffect(session.key) { session.loadChatHistory() }
         ReviewBar(

@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.settings
 
 import androidx.compose.foundation.background
+import com.octaviantocan.pulls.ui.design.fade
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -51,7 +51,7 @@ fun LayoutChoice(split: Boolean, selected: Boolean, label: String, onClick: () -
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(PullsRadius.xl)
     Column(
-        modifier.alpha(if (enabled) 1f else 0.5f).clip(shape).cueClickable(enabled = enabled, role = Role.RadioButton, onClickLabel = label, onClick = onClick),
+        modifier.fade(if (enabled) 1f else 0.5f).clip(shape).cueClickable(enabled = enabled, role = Role.RadioButton, onClickLabel = label, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {

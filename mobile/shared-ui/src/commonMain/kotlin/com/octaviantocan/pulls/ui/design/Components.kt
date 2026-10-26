@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -123,7 +122,7 @@ fun ActionButton(
         modifier
             .defaultMinSize(minHeight = TOUCH)
             // `disabled:op50` dims the whole button, fill and border included.
-            .alpha(restAlpha)
+            .fade(restAlpha)
             .clip(shape)
             .background(fill, shape)
             .border(1.dp, border, shape)
@@ -153,7 +152,7 @@ fun IconButton(icon: String, label: String, onClick: () -> Unit, modifier: Modif
             .clip(if (compact) RoundedCornerShape(4.dp) else CircleShape)
             .background(if (active) c.active else Color.Transparent)
             .cueClickable(interaction, PullsIndication, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
-            .alpha(if (!enabled) 0.3f else if (active) 1f else 0.65f),
+            .fade(if (!enabled) 0.3f else if (active) 1f else 0.65f),
         contentAlignment = Alignment.Center,
     ) {
         PhIcon(icon, tint = tint ?: if (active) c.activeText else c.text, size = if (compact) 16.dp else 20.dp, contentDescription = label)

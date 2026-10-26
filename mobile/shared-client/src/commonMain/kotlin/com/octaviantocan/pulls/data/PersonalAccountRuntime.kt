@@ -94,6 +94,18 @@ class PersonalAccountRuntime(
         workspaceRevision++
     }
 
+    /**
+     * Whether a saved private-repository login waits to be verified by [restore]: a host shows the signed-in side's
+     * place for it instead of Explore. Reads storage only; it is never a capability and mounts nothing.
+     *
+     * @returns true when an accepted private-repository record is saved for this origin.
+     */
+    fun savedPrivateLogin(): Boolean {
+        if (!current()) return false
+        val client = client ?: return false
+        return try { vault.accepted(client.origin)?.authority == PersonalAuthority.PrivateRepositories } catch (_: Exception) { false }
+    }
+
     /** Native admission probes storage without restoring a profile, writing a session or making a request. */
     fun verifyStorage(): Boolean {
         if (!current() || !configured) return false

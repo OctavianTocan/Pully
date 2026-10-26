@@ -61,7 +61,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -160,6 +159,13 @@ internal const val EDGE_SHARE = 0.5f
 @Composable
 expect fun Modifier.floatShadow(shape: Shape, level: PullsShadow = PullsShadow.Button): Modifier
 
+/**
+ * Draws what follows at [alpha] on a layer that is always there. Compose's own `alpha` drops its layer at 1, and a
+ * clipped fill before it then stops drawing when it goes from faded to full, as Finish signing in and Send did once
+ * enabled (recording 26 Oct 2026, 03:45 and 06:10). Use it for any alpha that changes.
+ */
+fun Modifier.fade(alpha: Float): Modifier = graphicsLayer { this.alpha = alpha }
+
 /** `.fl`: a 44dp circle that floats on the page with its own shadow; [flat] drops the fill and shadow, for the small actions inside a row. */
 @Composable
 fun FloatButton(
@@ -182,7 +188,7 @@ fun FloatButton(
             .background(if (flat) Color.Transparent else container)
             .semantics { contentDescription = label }
             .cueClickable(emphasis = emphasis, enabled = enabled, role = Role.Button, onClickLabel = label, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.4f),
+            .fade(if (enabled) 1f else 0.4f),
         contentAlignment = Alignment.Center,
         content = content,
     )
@@ -223,6 +229,8 @@ fun CapsuleTabs(
      * with the pages under a finger and as they glide, instead of running its own animation beside them (J15).
      */
     position: (() -> Float)? = null,
+    /** False for a tab that cannot be chosen yet, such as an engine not signed in: dimmed and not clickable. */
+    enabled: (index: Int) -> Boolean = { true },
 ) {
     val c = LocalPullsColors.current
     val shape = RoundedCornerShape(50)
@@ -240,11 +248,12 @@ fun CapsuleTabs(
         Box(pill.width(segment).fillMaxHeight().clip(shape).background(c.paper2))
         Row(Modifier.fillMaxSize()) {
             labels.forEachIndexed { index, label ->
+                val on = enabled(index)
                 Box(
                     Modifier.weight(1f).fillMaxHeight().clip(shape).then(
-                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), role = Role.Tab) { onSelect(index) }
-                        else Modifier.clickable(role = Role.Tab) { onSelect(index) },
-                    ),
+                        if (sound) Modifier.cueClickable(direction = directionOf(selected, index), enabled = on, role = Role.Tab) { onSelect(index) }
+                        else Modifier.clickable(enabled = on, role = Role.Tab) { onSelect(index) },
+                    ).fade(if (on) 1f else 0.4f),
                     contentAlignment = Alignment.Center,
                 ) {
                     // The mark and the word sit centred in the tab with room either side; a word too long for it ends in …
@@ -476,7 +485,7 @@ fun PullsSwitch(checked: Boolean, onChange: (Boolean) -> Unit, label: String, mo
         modifier.size(52.dp, 32.dp).clip(CircleShape).background(track)
             .semantics { contentDescription = label }
             .cueClickable(direction = directionOf(!checked), enabled = enabled, role = Role.Switch, onClickLabel = label) { onChange(!checked) }
-            .alpha(if (enabled) 1f else 0.5f),
+            .fade(if (enabled) 1f else 0.5f),
     ) {
         Box(Modifier.offset(x = thumb, y = 3.dp).size(26.dp).floatShadow(CircleShape, PullsShadow.Thumb).clip(CircleShape).background(Color.White))
     }
@@ -495,7 +504,7 @@ fun CtaButton(
     trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
-        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),
+        modifier.height(52.dp).clip(CircleShape).background(container).cueClickable(emphasis = Emphasis.Normal, enabled = enabled, role = Role.Button, onClick = onClick).fade(if (enabled) 1f else 0.5f).padding(horizontal = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -516,7 +525,7 @@ fun PillButton(
 ) {
     val c = LocalPullsColors.current
     Row(
-        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).alpha(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),
+        modifier.height(44.dp).clip(CircleShape).background(c.paper2).cueClickable(enabled = enabled, role = Role.Button, onClick = onClick).fade(if (enabled) 1f else 0.5f).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -591,7 +600,7 @@ fun SheetRow(
         modifier.fillMaxWidth().defaultMinSize(minHeight = 52.dp)
             .then(if (onClick != null) Modifier.cueClickable(emphasis = if (danger) Emphasis.Strong else Emphasis.Subtle, enabled = enabled, role = Role.Button, onClick = onClick) else Modifier)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(inset.toPx(), 0f), Size(size.width - inset.toPx(), 1.dp.toPx())) }
-            .alpha(if (enabled) 1f else 0.5f)
+            .fade(if (enabled) 1f else 0.5f)
             .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),

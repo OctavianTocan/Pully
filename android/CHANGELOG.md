@@ -21,6 +21,25 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.64.0
+
+#### 2026-10-26 14:16 UTC
+
+Your fixes from 26 Oct: sign-ins, buttons, Ask and a faster start.
+
+- Pully opens straight on your Inbox when you are signed in, with no glimpse of Explore first.
+- Buttons like Finish signing in and Send keep their colour once they can be pressed, instead of turning almost invisible.
+![Before, a washed-out Finish signing in button with only its text showing; now, the same button with its full dark fill](changelog/0.64.0/buttons.png)
+- Claude Code and Codex sign-ins have their own Providers group in Settings, right under AI, and show whether each is signed in straight away.
+![Settings with Model and Effort under AI, and a Providers group below with Claude Code signed in and Codex not signed in](changelog/0.64.0/providers.png)
+- Claude's sign-in opens inside Pully and picks up the code for you, Codex copies its code as it starts, and "Signed in" stays on one line.
+- In Select model, Claude and Codex are greyed out until you sign them in, instead of trying to load and failing. Claude lists its older models too, and Pi runs through your own proxy again.
+![Select model with the Claude and Codex tabs greyed out and Pi open, listing its models by provider](changelog/0.64.0/model-tabs.png)
+- Settings comes up as a solid sheet, without the see-through flash or the black bar at the bottom.
+- The Inbox's Ask opens at full height under the title "Ask about your PRs", and a chat button beside the search takes you back to your chat after you close it.
+- On a pull request the background and the top bar stay dimmed while you type a question.
+- When an answer fails, Ask now says why, instead of blaming a server restart.
+
 ## 0.63.0
 
 #### 2026-10-26 13:59 UTC

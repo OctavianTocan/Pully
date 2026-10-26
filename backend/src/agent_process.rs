@@ -953,6 +953,17 @@ pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
     remove_container(&job.name).await;
     result
 }
+/// Older Claude models Claude Code runs by full id: id, name, efforts and default effort.
+const OLDER_CLAUDE: &[(&str, &str, &[&str], &str)] = &[
+    ("claude-opus-5", "Opus 5", &["low", "medium", "high", "xhigh", "max"], "high"),
+    ("claude-sonnet-5", "Sonnet 5", &["low", "medium", "high", "xhigh", "max"], "high"),
+    ("claude-opus-4-8", "Opus 4.8", &["low", "medium", "high", "xhigh", "max"], "high"),
+    ("claude-opus-4-7", "Opus 4.7", &["low", "medium", "high", "xhigh", "max"], "xhigh"),
+    ("claude-opus-4-6", "Opus 4.6", &["low", "medium", "high", "max"], "high"),
+    ("claude-sonnet-4-6", "Sonnet 4.6", &["low", "medium", "high", "max"], "high"),
+    ("claude-haiku-4-5", "Haiku 4.5", &[], ""),
+];
+
 fn parse_catalog(binary: &str, body: &Value) -> Result<Value> {
     static NUMERIC_VERSION: OnceLock<regex::Regex> = OnceLock::new();
     static CONTEXT_SUFFIX: OnceLock<regex::Regex> = OnceLock::new();
@@ -1061,6 +1072,30 @@ fn parse_catalog(binary: &str, body: &Value) -> Result<Value> {
     if models.is_empty() {
         bail!("The CLI lists no available models");
     }
+    if binary == "claude" {
+        // Claude Code lists only its aliases, the newest of each tier; it still runs the older models by their full id,
+        // which go under "Older models" in the picker (recording 26 Oct 2026, 05:19).
+        let listed: std::collections::HashSet<String> = body["models"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|row| row["resolvedModel"].as_str())
+            .map(|resolved| {
+                let bare = CONTEXT_SUFFIX.get_or_init(|| regex::Regex::new(r"\[[^\]]*\]$").unwrap()).replace(resolved, "").into_owned();
+                DATE_SUFFIX.get_or_init(|| regex::Regex::new(r"-\d{8}$").unwrap()).replace(&bare, "").into_owned()
+            })
+            .collect();
+        for (id, name, efforts, default) in OLDER_CLAUDE {
+            if listed.contains(*id) || !seen.insert(*id) {
+                continue;
+            }
+            let mut model = json!({"id":id,"name":name,"efforts":efforts});
+            if !default.is_empty() {
+                model["defaultEffort"] = json!(default);
+            }
+            models.push(model);
+        }
+    }
     let mut catalog =
         json!({"engine":if binary == "claude" {"claude-code"} else {"codex"},"models":models});
     if binary == "claude" {
@@ -1147,6 +1182,12 @@ for(const invalid of [{regular:false},{symlink:true},{size:524289},{realpath:'/o
         assert_eq!(c["models"][0]["name"], "Opus 5.5");
         assert_eq!(c["models"][0]["defaultEffort"], "medium");
         assert_eq!(c["account"], "max");
+        // The older models Claude Code runs by full id follow its aliases, without one it already lists.
+        let ids: Vec<&str> = c["models"].as_array().unwrap().iter().filter_map(|m| m["id"].as_str()).collect();
+        assert_eq!(ids, ["opus", "claude-opus-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]);
+        assert_eq!(c["models"][4]["defaultEffort"], "xhigh");
+        let c=parse_catalog("claude",&json!({"models":[{"value":"claude-opus-4-8","displayName":"Opus 4.8","resolvedModel":"claude-opus-4-8[1m]"}]})).unwrap();
+        assert_eq!(c["models"].as_array().unwrap().iter().filter(|m| m["id"].as_str().is_some_and(|id| id.contains("4-8"))).count(), 1);
         let c=parse_catalog("codex",&json!({"models":[{"slug":"old","priority":3},{"slug":"hidden","priority":0,"visibility":"hide"},{"slug":"new","priority":1,"supported_reasoning_levels":[{"effort":"high"}],"default_reasoning_level":"high"}]})).unwrap();
         assert_eq!(c["models"][0]["id"], "new");
         assert_eq!(c["models"][0]["isDefault"], true);

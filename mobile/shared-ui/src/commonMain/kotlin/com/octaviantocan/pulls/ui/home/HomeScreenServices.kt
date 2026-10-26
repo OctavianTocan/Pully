@@ -34,6 +34,8 @@ interface HomeAskSurface {
     /** Retire private conversation/draft state before publishing replacement credentials. */
     fun invalidate()
     fun sendOrQueue(question: String)
+    /** True once this source's Inbox chat has a question in it, so a closed chat can be opened again from the search. */
+    val hasChat: Boolean get() = false
     @Composable fun Content(listed: List<ListedPull>, onOpen: (ListedPull) -> Unit, onClose: () -> Unit)
 }
 

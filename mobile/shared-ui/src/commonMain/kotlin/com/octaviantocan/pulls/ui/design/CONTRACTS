@@ -201,3 +201,10 @@ check their ownership. Finishing or failing the action MUST retire only its own
 message; a replacement shown by the callback MUST remain visible. Source: the
 existing toast Undo behavior retained by Tavi's 21 Oct 2026 same-app iOS decision,
 DESIGN.md rule 73 and the shared review confirmation ownership plan.
+
+@cc [owner:OctavianTocan,label:design;motion] sheet-paper-comes-up-solid
+A sheet's paper MUST come up opaque: only what is on it fades in through the panel
+reveal's cross-blur, never the page behind showing through the panel. Its window MUST NOT
+show a system dim on any frame, and the status bar icons MUST stay readable over the page
+while it opens. Source: Tavi's recording of 26 Oct 2026, 01:07 to 01:28 (Settings drew
+see-through and "some black thing glitches out").

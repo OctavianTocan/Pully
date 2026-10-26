@@ -6,6 +6,8 @@ request, and a question can be asked from it. There is no search icon in the hea
 keeps its ✕, and while the trimmed text ends in "?" the ✕ crossfades into the send circle,
 which asks it, and back when the "?" goes. Tavi decided this in the recording of 16 Oct
 12:10, 05:03 to 05:47 (no "Ask" button "anywhere"; N8), replacing the Ask in the pill.
+Once the Inbox chat has a question, the empty pill MUST show a chat button that opens it
+again, so a closed chat is never lost (recording 26 Oct 2026, 06:43 to 06:58).
 
 @cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
 While the search waits for its first letter with the keyboard up, the list behind dims to

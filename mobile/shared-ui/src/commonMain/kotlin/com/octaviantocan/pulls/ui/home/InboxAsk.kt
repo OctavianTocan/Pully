@@ -123,9 +123,11 @@ internal fun InboxAskSheet(ask: InboxAsk, listed: List<ListedPull>, onOpen: (Lis
     CompositionLocalProvider(LocalPullMentions provides mentions, LocalUriHandler provides guardedUri) {
         PullsSheet(
             onClose = { actions.read(onClose) },
-            title = "Ask about your pull requests",
+            title = "Ask about your PRs",
             full = true,
             scroll = scroll,
+            // Opens all the way up, as the PR's Ask does (recording 26 Oct 2026, 06:20 to 06:30).
+            tall = true,
             trailing = if (turns.isNotEmpty() && !busy && actions.canAsk) ({ FloatIcon(Lu.newChat, "New chat", actions::clear) }) else null,
             footer = if (mount.canAsk) ({
                 AskField(
