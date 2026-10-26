@@ -14,9 +14,16 @@ file, and android/scripts/publish-apk.sh puts it in latest.json.
 From 0.40.0 on every section shows what changed in pictures, a short GIF where it moves:
 `![what it shows](changelog/<version>/<name>.png)` on its own unindented line under the bullet
 it shows. The files live in android/changelog/<version>/, at most 2 MB each.
+
+From 26 Oct 2026 every section carries the date and time it was released, in UTC, on a line of its
+own right under the heading: `#### 2026-10-26 14:30 UTC` (`date -u '+%Y-%m-%d %H:%M UTC'`). The
+app shows it beside the version in the phone's own time. Builds from before then skip the line.
+Sections run newest first by date too.
 -->
 
 ## 0.62.0
+
+#### 2026-10-23 14:19 UTC
 
 Sign in to your own Claude Code and Codex for Pully's AI.
 
@@ -29,6 +36,8 @@ Sign in to your own Claude Code and Codex for Pully's AI.
 ![Claude Code signed in with the account's email and Max plan, and a Sign out button](changelog/0.62.0/signed-in.png)
 
 ## 0.61.0
+
+#### 2026-10-23 13:31 UTC
 
 Public pull requests open in Pully, and server sign-in works.
 
@@ -45,6 +54,8 @@ Public pull requests open in Pully, and server sign-in works.
 
 ## 0.60.0
 
+#### 2026-10-23 08:36 UTC
+
 Browse public GitHub projects without signing in.
 
 - A new install opens on Explore: popular public repositories, a search bar, and each project's open pull requests, with no sign-in needed. A pull request opens on GitHub.
@@ -56,6 +67,8 @@ Browse public GitHub projects without signing in.
 
 ## 0.59.0
 
+#### 2026-10-22 06:48 UTC
+
 A clear next step when Pully cannot connect.
 
 - A new installation explains connection problems and offers Server settings and Retry, with those settings also reachable from sign-in.
@@ -64,6 +77,8 @@ A clear next step when Pully cannot connect.
 - Changing servers clears the old sign-in form and keeps passwords, pending sign-ins and remembered account details with their original server.
 
 ## 0.58.0
+
+#### 2026-10-22 05:02 UTC
 
 Try optional features and Pully’s iPhone preview.
 
@@ -80,6 +95,8 @@ Try optional features and Pully’s iPhone preview.
 
 ## 0.57.0
 
+#### 2026-10-21 16:34 UTC
+
 Reviews recover after a lost connection.
 
 - Interrupted task updates show Reconnecting and resume without treating work on the server as failed.
@@ -88,6 +105,8 @@ Reviews recover after a lost connection.
 
 ## 0.56.0
 
+#### 2026-10-21 12:49 UTC
+
 The iPhone preview uses Pully's complete pull request rows.
 
 - Sample pulls share Android's status, checks, counts and review marks, with the same translations and English fallback.
@@ -95,12 +114,16 @@ The iPhone preview uses Pully's complete pull request rows.
 
 ## 0.55.0
 
+#### 2026-10-21 12:18 UTC
+
 Pully's iPhone preview starts with familiar pull request rows.
 
 - The internal iPhone preview shows sample pull requests using Pully's existing colors, fonts and row layout in light and dark.
 ![Labeled illustration of Android and the internal iPhone preview sharing Pully's look](changelog/0.55.0/shared-foundation-illustration.png)
 
 ## 0.54.1
+
+#### 2026-10-21 11:59 UTC
 
 Updates recover when a download or installation is interrupted.
 
@@ -112,6 +135,8 @@ Updates recover when a download or installation is interrupted.
 
 ## 0.54.0
 
+#### 2026-10-21 10:47 UTC
+
 Alerts for the checks and AI work you follow.
 
 - On a pull request, choose Notify when checks fail to hear about new failures. Stop following from the same place.
@@ -121,6 +146,8 @@ Alerts for the checks and AI work you follow.
 
 ## 0.53.1
 
+#### 2026-10-21 09:18 UTC
+
 Whole pull request details, safer updates.
 
 - Hold a pull request to read its complete title, repository and author, with its state and known change counts laid out below.
@@ -129,6 +156,8 @@ Whole pull request details, safer updates.
 - Concurrent update publications keep the APK and its update details together and cannot replace a newer build.
 
 ## 0.53.0
+
+#### 2026-10-20 22:41 UTC
 
 Clearer AI choices, faithful pull request states, calmer sheets.
 
@@ -142,6 +171,8 @@ Clearer AI choices, faithful pull request states, calmer sheets.
 - Updates reach your phone again, including the latest repository and AI review fixes.
 
 ## 0.52.0
+
+#### 2026-10-20 12:57 UTC
 
 GitHub links land on the comment, file or check they point to.
 
@@ -161,6 +192,8 @@ GitHub links land on the comment, file or check they point to.
 
 ## 0.51.0
 
+#### 2026-10-20 06:38 UTC
+
 Send feedback on Pully from Commands or Settings.
 
 ### New
@@ -172,6 +205,8 @@ Send feedback on Pully from Commands or Settings.
 
 ## 0.50.0
 
+#### 2026-10-17 20:29 UTC
+
 A stack's list now shows each pull request's number and author.
 
 ### Changed
@@ -180,6 +215,8 @@ A stack's list now shows each pull request's number and author.
 ![The stack's list with each pull request's number and author](changelog/0.50.0/stack-sheet.png)
 
 ## 0.49.0
+
+#### 2026-10-17 18:00 UTC
 
 Long titles get a second line, and a stack is one row in the Inbox.
 
@@ -192,6 +229,8 @@ Long titles get a second line, and a stack is one row in the Inbox.
 ![The sheet listing the stack's three pull requests](changelog/0.49.0/stack-sheet.png)
 
 ## 0.48.0
+
+#### 2026-10-17 14:07 UTC
 
 One bar at the foot of every page; descriptions read as you type.
 
@@ -212,6 +251,8 @@ One bar at the foot of every page; descriptions read as you type.
 
 ## 0.47.0
 
+#### 2026-10-17 12:13 UTC
+
 Pully remembers your Inbox tab, and every Ask bar works the same.
 
 ### Changed
@@ -226,6 +267,8 @@ Pully remembers your Inbox tab, and every Ask bar works the same.
 
 ## 0.46.0
 
+#### 2026-10-17 09:12 UTC
+
 A new server underneath, and AI findings post exactly as you picked.
 
 ### Fixed
@@ -238,6 +281,8 @@ A new server underneath, and AI findings post exactly as you picked.
 
 ## 0.45.0
 
+#### 2026-10-16 17:17 UTC
+
 Sign in to Pully with Google, no account to create first.
 
 ### New
@@ -249,6 +294,8 @@ Sign in to Pully with Google, no account to create first.
 
 ## 0.44.0
 
+#### 2026-10-16 14:29 UTC
+
 A pull request now shows its latest description the moment it opens.
 
 ### Fixed
@@ -258,6 +305,8 @@ A pull request now shows its latest description the moment it opens.
 - Tapping a link to the pull request already on screen reads it again, so a change made meanwhile shows without leaving the page.
 
 ## 0.43.0
+
+#### 2026-10-16 13:46 UTC
 
 Agents can post a diff to Pully and hand you a link to review.
 
@@ -273,6 +322,8 @@ Agents can post a diff to Pully and hand you a link to review.
 - Your look, fonts, code size, sounds and hidden repositories follow you to any phone signed in to the account.
 
 ## 0.42.0
+
+#### 2026-10-16 13:07 UTC
 
 Faster pull requests, a tour you can watch being written, AI costs.
 
@@ -299,6 +350,8 @@ Faster pull requests, a tour you can watch being written, AI costs.
 - The "No tour yet" sheet drops its explanation line and sits at the right gap.
 ## 0.41.0
 
+#### 2026-10-16 12:33 UTC
+
 The app is called Pully now.
 
 ### Changed
@@ -309,6 +362,8 @@ The app is called Pully now.
 - Nothing to reinstall: this update replaces the app you have, with your sign-in and settings kept.
 
 ## 0.40.0
+
+#### 2026-10-16 12:08 UTC
 
 New rows, one Ask bar and a tour that reads like code.
 
@@ -345,6 +400,8 @@ New rows, one Ask bar and a tour that reads like code.
 
 ## 0.39.0
 
+#### 2026-10-16 10:07 UTC
+
 Your GitHub year on Profile, plain sheets and a calmer Inbox.
 
 ### New
@@ -370,6 +427,8 @@ Your GitHub year on Profile, plain sheets and a calmer Inbox.
 
 ## 0.38.0
 
+#### 2026-10-16 09:24 UTC
+
 GitHub links open in Pulls: tap one, share it, or select it.
 
 ### New
@@ -386,6 +445,8 @@ GitHub links open in Pulls: tap one, share it, or select it.
 
 ## 0.37.0
 
+#### 2026-10-15 21:51 UTC
+
 Usage stats on your own server, and a Stats page in Settings.
 
 ### New
@@ -398,6 +459,8 @@ Usage stats on your own server, and a Stats page in Settings.
 
 ## 0.36.0
 
+#### 2026-10-15 20:50 UTC
+
 Open any past version of the app from a slider in Settings.
 
 ### New
@@ -408,6 +471,8 @@ Open any past version of the app from a slider in Settings.
 - Past versions have no icon of their own and never ask to update; this app stays on the newest version.
 
 ## 0.35.0
+
+#### 2026-10-15 14:51 UTC
 
 Chat history in Ask, tour previews, and smoother swipes and zoom.
 
@@ -443,6 +508,8 @@ Chat history in Ask, tour previews, and smoother swipes and zoom.
 
 ## 0.34.0
 
+#### 2026-10-15 14:39 UTC
+
 A new app icon: a beam of light across a grid of days.
 
 ### Changed
@@ -451,6 +518,8 @@ A new app icon: a beam of light across a grid of days.
 - Themed icons and the update notification show the beam on its own.
 
 ## 0.33.0
+
+#### 2026-10-15 12:44 UTC
 
 Colour themes, Commits and Checks as sheets, and a steadier diff.
 
@@ -482,6 +551,8 @@ Colour themes, Commits and Checks as sheets, and a steadier diff.
 
 ## 0.32.0
 
+#### 2026-10-15 11:43 UTC
+
 Pull requests show their kind and risk, and files their rating.
 
 - A pull request Jev has read says what kind of change it is and how risky, under its name in the Inbox and under the branch on its page.
@@ -490,6 +561,8 @@ Pull requests show their kind and risk, and files their rating.
 - The Inbox asks Jev about every pull request only while it is sorted by risk or grouped by kind.
 
 ## 0.31.0
+
+#### 2026-10-15 11:24 UTC
 
 Sheets open into pages, risky actions ask first, Commands anywhere.
 
@@ -519,6 +592,8 @@ Sheets open into pages, risky actions ask first, Commands anywhere.
 
 ## 0.30.0
 
+#### 2026-10-15 10:21 UTC
+
 Tours start from the tour icon, and sort sits next to search.
 
 - A pull request opens on its description, with no Analyze card above it.
@@ -526,6 +601,8 @@ Tours start from the tour icon, and sort sits next to search.
 - Sort is the round button next to the search at the bottom of the Inbox, always in reach.
 
 ## 0.29.0
+
+#### 2026-10-15 09:45 UTC
 
 Screens slide side by side, sheets bounce, and taps are felt.
 
@@ -546,6 +623,8 @@ Screens slide side by side, sheets bounce, and taps are felt.
 
 ## 0.28.0
 
+#### 2026-10-15 08:53 UTC
+
 Updates are required now, and tours you have opened load at once.
 
 - When a new version is out, Pulls opens on it: what it brings, and Update. The app waits until you update.
@@ -555,6 +634,8 @@ Updates are required now, and tours you have opened load at once.
 
 ## 0.27.0
 
+#### 2026-10-15 08:46 UTC
+
 Pi joins Claude Code and Codex: any model from your own API.
 
 - The model picker has a third tab, Pi. It lists every model your server's API offers, such as Claude, GPT and Gemini models through CLIProxyAPI, with the newest of each family first.
@@ -562,6 +643,8 @@ Pi joins Claude Code and Codex: any model from your own API.
 - Until the server is set up for it, the Pi tab says what the server needs.
 
 ## 0.26.0
+
+#### 2026-10-15 08:13 UTC
 
 Fixes for stacks, Jev groupings, AI reviews and huge pull requests.
 
@@ -573,6 +656,8 @@ Fixes for stacks, Jev groupings, AI reviews and huge pull requests.
 - A huge pull request that gets new commits while you read it never mixes in code from before.
 
 ## 0.25.0
+
+#### 2026-10-15 07:40 UTC
 
 Everything still missing from your walkthrough video is now in.
 
@@ -593,6 +678,8 @@ Everything still missing from your walkthrough video is now in.
 
 ## 0.24.0
 
+#### 2026-10-15 07:20 UTC
+
 Huge pull requests open at once.
 
 - The title, description and conversation show right away, even on pull requests with thousands of changed lines.
@@ -601,6 +688,8 @@ Huge pull requests open at once.
 
 ## 0.23.0
 
+#### 2026-10-15 07:15 UTC
+
 Group pull requests by kind and see the riskiest first.
 
 - When the server has Jev, TypeSafe's classifier, the Sort sheet adds Riskiest first and a Group by choice: by repository or by kind, such as fixes, features and refactors.
@@ -608,6 +697,8 @@ Group pull requests by kind and see the riskiest first.
 - In a pull request's files, the ones Jev thinks need a closer look say "Needs a look".
 
 ## 0.22.0
+
+#### 2026-10-15 07:09 UTC
 
 Swipes and pages now move the way your finger goes.
 
@@ -622,6 +713,8 @@ Swipes and pages now move the way your finger goes.
 
 ## 0.21.0
 
+#### 2026-10-15 07:01 UTC
+
 Review with AI now offers only the review skills chosen for it.
 
 - The More sheet has one Review with AI row. It opens a short list: General, then each review skill by its name and what it looks for.
@@ -630,12 +723,16 @@ Review with AI now offers only the review skills chosen for it.
 
 ## 0.20.0
 
+#### 2026-10-15 06:50 UTC
+
 See which pull requests are stacked on others.
 
 - A pull request that sits on another shows a stack mark on Home, with the number of the one under it.
 - On the pull request, a chip under the title says what it is stacked on. Tap it to see the whole stack, top to bottom, and open any other layer.
 
 ## 0.19.0
+
+#### 2026-10-15 06:44 UTC
 
 New versions float above the search and notify your phone.
 
@@ -646,6 +743,8 @@ New versions float above the search and notify your phone.
 
 ## 0.18.0
 
+#### 2026-10-15 06:35 UTC
+
 Sort the Inbox and fold its repositories.
 
 - A chip after the filters says how the Inbox is sorted. Tap it to sort by recently updated, least recently updated, PR number or largest change.
@@ -654,6 +753,8 @@ Sort the Inbox and fold its repositories.
 
 ## 0.17.0
 
+#### 2026-10-15 06:26 UTC
+
 Summary and Description are one tab.
 
 - A pull request's tabs are Summary, Commits and Conversation, all there from the start.
@@ -661,12 +762,16 @@ Summary and Description are one tab.
 
 ## 0.16.0
 
+#### 2026-10-15 02:52 UTC
+
 Ask a question from the Home search.
 
 - Type a question in the search on Home and tap Ask. Claude Code or Codex answers it from your open pull requests and the ones closed in the last month.
 - Pull requests the answer names open with a tap, and the conversation is kept.
 
 ## 0.15.0
+
+#### 2026-10-14 23:31 UTC
 
 Small fixes where the app still looked unlike the design.
 
@@ -677,6 +782,8 @@ Small fixes where the app still looked unlike the design.
 
 ## 0.14.0
 
+#### 2026-10-14 22:49 UTC
+
 AI answers show code like the diff, and what they mention opens.
 
 - Code in a tour, the brief or an answer uses the diff's code view, and flows are drawn.
@@ -685,6 +792,8 @@ AI answers show code like the diff, and what they mention opens.
 
 ## 0.13.0
 
+#### 2026-10-14 22:26 UTC
+
 The Tour and Ask, reworked from the walkthrough.
 
 - The Tour strip is a ring that fills as you scroll, and its sections open as a sheet.
@@ -692,6 +801,8 @@ The Tour and Ask, reworked from the walkthrough.
 - Tables in AI text keep readable columns and scroll sideways.
 
 ## 0.12.0
+
+#### 2026-10-14 21:48 UTC
 
 The Diff's file name sits between the arrows.
 
@@ -702,6 +813,8 @@ The Diff's file name sits between the arrows.
 
 ## 0.11.0
 
+#### 2026-10-14 16:53 UTC
+
 The Analyze card keeps one height, and the model list is shorter.
 
 - Tap the orb to stop an analysis.
@@ -709,12 +822,16 @@ The Analyze card keeps one height, and the model list is shorter.
 
 ## 0.10.0
 
+#### 2026-10-14 16:27 UTC
+
 Pull requests slide in and edit in place.
 
 - Edit a pull request's title and description in place.
 - Commits, Checks and Files are plain lists with whole titles.
 
 ## 0.9.0
+
+#### 2026-10-14 16:11 UTC
 
 Sheets rest at half height and lift to full.
 

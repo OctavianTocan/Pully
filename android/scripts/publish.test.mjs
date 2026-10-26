@@ -34,7 +34,7 @@ function fixture({ have = 65, code = 66, output, build = ':' } = {}) {
   writeFileSync(join(repo, 'scripts/release-track.mjs'), '// The fixture PATH invokes the actual production admission with synthetic CI responses.\n')
   copyFileSync(pastBuilder, join(android, 'scripts/build-past-ui.py'))
   writeFileSync(join(android, 'gradlew'), `#!/bin/sh\nset -e\n${build}\nmkdir -p app/build/outputs/apk/debug\ncat build-input.txt > app/build/outputs/apk/debug/app-debug.apk\n`, { mode: 0o755 })
-  writeFileSync(join(android, 'CHANGELOG.md'), '## 0.52.0\n\nLinks work.\n\n- A change.\n')
+  writeFileSync(join(android, 'CHANGELOG.md'), '## 0.52.0\n\n#### 2026-10-20 12:57 UTC\n\nLinks work.\n\n- A change.\n')
   writeFileSync(join(android, 'app/build.gradle.kts'), `versionCode = ${code}\nversionName = "0.52.0"\n`)
   const bytes = `new APK bytes ${code}`
   writeFileSync(join(android, 'build-input.txt'), bytes)
@@ -125,6 +125,8 @@ describe('APK publication safeguards', () => {
       assert.equal(readFileSync(join(f.out, 'pulls.apk'), 'utf8'), f.bytes)
       assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).sourceCommit, approved)
       assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).apkUrl, 'https://example.com/download/pully.apk')
+      // The notes are the summary, not the date line above it.
+      assert.equal(JSON.parse(readFileSync(join(f.out, 'latest.json'))).notes, 'Links work.')
       assert.equal(f.git('branch', '--show-current'), 'main')
       assert.deepEqual(JSON.parse(readFileSync(join(f.out, 'past/index.json'))).versions, [])
       await waitForHistory(f.home)
