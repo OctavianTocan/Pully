@@ -41,7 +41,9 @@ export function checkRelease({ beforeGradle, afterGradle, beforeChangelog, after
   if (current?.version !== name)
     problems.push(`The newest changelog section MUST be ${name}.`)
   const previous = parseChangelog(beforeChangelog).find(entry => entry.version === name)
-  if (JSON.stringify(current) === JSON.stringify(previous))
+  // A new release time alone is not new notes.
+  const words = entry => entry && JSON.stringify({ ...entry, released: undefined, releasedPlaced: undefined, releasedLines: undefined })
+  if (words(current) === words(previous))
     problems.push('The current release notes MUST change with the Android build. Describe what changed under the newest heading.')
   return problems
 }

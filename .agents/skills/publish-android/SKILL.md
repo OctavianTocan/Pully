@@ -39,8 +39,9 @@ Needs JDK 21 (the script uses `mise where java` unless `JAVA_HOME` is set), the 
 
 1. For a release promotion with APK changes, bump `versionCode` and `versionName` in `android/app/build.gradle.kts`. The app offers an update only
    when the published `versionCode` is higher than the installed one. Add the version's section at the top of
-   `android/CHANGELOG.md`: one summary sentence, then a bullet per change, in plain words for the person using
-   the app (`pnpm run android:design` fails without it). The app shows it after the update.
+   `android/CHANGELOG.md`: the release time on the line under the heading (`#### 2026-10-26 14:30 UTC`, from
+   `date -u '+%Y-%m-%d %H:%M UTC'` when you promote), one summary sentence, then a bullet per change, in plain words
+   for the person using the app (`pnpm run android:design` fails without them). The app shows it after the update.
 2. Promote the reviewed main commit through a pull request into `release`. Wait for the complete release-push
    checks to pass, fetch complete release history, then check out the clean exact `origin/release` commit on the build machine.
 3. Run `android/scripts/publish-apk.sh <public-base-url> [notes]` with the explicit publishing
