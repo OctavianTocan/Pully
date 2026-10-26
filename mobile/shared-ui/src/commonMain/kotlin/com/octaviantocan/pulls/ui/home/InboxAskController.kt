@@ -103,6 +103,7 @@ class InboxAsk(
     val observationError: String? get() = if (owned) observationProblem else null
     val input: String get() = if (owned) draft else ""
     val busy: Boolean get() = owned && (sent != null || followed?.running == true)
+    override val hasChat: Boolean get() = owned && (sent != null || !saved?.turns.isNullOrEmpty())
     val accepting: Boolean get() = canAsk && !busy && !clearing
 
     /** Source retirement is synchronous; dismissing a sheet uses its mount instead. */

@@ -47,12 +47,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.octaviantocan.pulls.core.ChangelogEntry
+import com.octaviantocan.pulls.core.changelogTime
 import com.octaviantocan.pulls.core.plainChangelogText
 import com.octaviantocan.pulls.ui.design.CtaButton
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -175,7 +177,8 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
 
 /**
  * Versions as the changelog writes them, each its own block as good release notes are (J6): the number in Mona Sans
- * as a small header, the newest one tagged New, the summary as the headline, then the bullets one to a line with a
+ * as a small header, the newest one tagged New, the date and time it came out at the header's far end in the phone's
+ * own zone (Tavi, 26 Oct 2026), the summary as the headline, then the bullets one to a line with a
  * dot and room between them, under their `### New` or `### Fixed` heading when the section has those. A hairline
  * parts one version from the next. No card around them: a sheet's body is its list (rule 79). Each picture or GIF
  * shows under the line it follows (Tavi, 16 Oct 10:49). The pictures of the versions this build carries come from its
@@ -194,9 +197,12 @@ internal fun ChangelogEntries(entries: List<ChangelogEntry>, modifier: Modifier 
                     .then(if (index > 0) Modifier.hairlineTop(c.borderMute).padding(top = 24.dp) else Modifier)
                     .padding(bottom = 28.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(entry.version, style = PullsType.num, color = c.muted)
                     if (index == 0) NewTag()
+                    entry.released?.let { released ->
+                        Text(changelogTime(released), Modifier.weight(1f), style = PullsType.sm, color = c.muted, textAlign = TextAlign.End, maxLines = 1)
+                    }
                 }
                 if (entry.summary.isNotBlank()) {
                     Text(plainChangelogText(entry.summary), Modifier.padding(top = 6.dp), style = PullsType.lg.copy(fontWeight = FontWeight.SemiBold), color = c.text)

@@ -36,7 +36,9 @@ class RpcClient(server: String, private val transport: RpcTransport, headers: Ma
             failure(ServerErrorKind.HtmlResponse, "The server returned a web page instead of Pully data. Try again or check Server settings.")
         if (text.isBlank()) failure(ServerErrorKind.Empty, "The server returned nothing. Try again.")
         val parsed = runCatching { Json.parseToJsonElement(text) as? JsonObject }.getOrNull()
-            ?: failure(if (status in 200..299) ServerErrorKind.InvalidResponse else ServerErrorKind.Http, "Pully could not read the server's response. Try again or check Server settings.")
+            ?: if (status in 200..299) failure(ServerErrorKind.InvalidResponse, "Pully could not read the server's response. Try again or check Server settings.")
+            // A failing server says how it failed, so the answer is not mistaken for a broken app (recording 26 Oct 2026, 07:35).
+            else failure(ServerErrorKind.Http, "The server failed with HTTP $status. Try again.")
         val error = parsed["error"]?.takeUnless { it == JsonNull }
         if (error != null || status !in 200..299) {
             val message = (error as? JsonPrimitive)?.takeIf { it.isString }?.content

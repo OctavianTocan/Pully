@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.ai
 
 import androidx.compose.foundation.layout.Arrangement
+import com.octaviantocan.pulls.ui.design.fade
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,7 +28,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -295,7 +295,7 @@ private fun FindingRow(session: ReviewSession, finding: CritiqueFinding, posted:
     val focus = rememberFindingFocusAction(session, finding)
     val location = lineRangeLabel(AskSelection(finding.path, finding.side, finding.startLine ?: finding.line, finding.line))
     Row(
-        Modifier.fillMaxWidth().alpha(if (posted) 0.65f else 1f)
+        Modifier.fillMaxWidth().fade(if (posted) 0.65f else 1f)
             .drawBehind { if (!first) drawRect(c.borderMute, Offset(ROW_INSET.toPx(), 0f), Size(size.width - ROW_INSET.toPx(), 1.dp.toPx())) }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

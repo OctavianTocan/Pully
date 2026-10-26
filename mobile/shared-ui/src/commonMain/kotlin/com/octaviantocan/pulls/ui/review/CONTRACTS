@@ -406,6 +406,12 @@ same: focusing it dims the page behind it, the review's header included (recordi
 13:54, 05:42 to 05:58; K12; "the top bar stays bright", recording of 16 Oct 12:10, 14:15
 to 14:26, N29).
 
+@cc [owner:OctavianTocan,label:product;design] pr-ask-dim-stays-while-typing
+The Overview's and the Tour's Ask bars MUST dim the page behind them and the review's
+header for as long as the bar is focused, while typing too; only Home's search lifts its
+dim once something is typed, because there the list is what the text filters. Source:
+Tavi's recording of 26 Oct 2026, 07:15 to 07:30.
+
 @cc [owner:OctavianTocan,label:product] tour-ask-bar-continues-the-chat
 Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button when the pull request
 has earlier chats, and the grey Send when it has none (recording of 17 Oct 13:26, 01:26 to

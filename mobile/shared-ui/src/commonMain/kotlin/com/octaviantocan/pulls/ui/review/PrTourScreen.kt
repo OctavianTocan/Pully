@@ -350,7 +350,7 @@ fun PrTourScreen(
             val canAsk = tour != null && capabilities.canAsk && onAsk != null
             LaunchedEffect(askFocused, askText.isEmpty(), canAsk, owner) { actions.read { latestDim(canAsk && askFocused, askText.isEmpty()) } }
             DisposableEffect(Unit) { onDispose { latestDim(false, true) } }
-            if (canAsk) SearchDim(askFocused, askText.isEmpty())
+            if (canAsk) SearchDim(askFocused, askText.isEmpty(), keepWhileTyping = true)
             if (writing && onProgress != null) key(session, owner) {
                 WritingLip(session, { actions.read { latestProgress?.invoke() } }, Modifier.align(Alignment.BottomCenter))
             }

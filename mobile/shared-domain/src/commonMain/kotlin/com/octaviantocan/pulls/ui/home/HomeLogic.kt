@@ -141,14 +141,18 @@ fun relativeTime(thenMs: Long, nowMs: Long): Pair<Long, TimeUnit> {
 // then a fresh list, with a generation guard against answers for an old state.
 // ---------------------------------------------------------------------------------------
 
-/** `my-pulls-cached`'s answer. [jev]: the server sorts pull requests with Jev (`classifier: "jev"`), so rows carry `jev`. */
-data class PullsSnapshot(val pulls: List<PullRow>, val fetchedAt: Long, val refreshing: Boolean = false, val jev: Boolean = false)
+/**
+ * `my-pulls-cached`'s answer. [jev]: the server sorts pull requests with Jev (`classifier: "jev"`), so rows carry `jev`.
+ * [partial]: the rows a first load on the server has found so far, with more to come; never kept as the device copy.
+ */
+data class PullsSnapshot(val pulls: List<PullRow>, val fetchedAt: Long, val refreshing: Boolean = false, val jev: Boolean = false, val partial: Boolean = false)
 
 fun JsonObject.asSnapshot(): PullsSnapshot? {
     val at = (this["fetchedAt"] as? JsonPrimitive)?.longOrNull ?: return null
     return PullsSnapshot(
         asPulls(), at, (this["refreshing"] as? JsonPrimitive)?.contentOrNull == "true",
         jev = (this["classifier"] as? JsonPrimitive)?.contentOrNull == "jev",
+        partial = (this["partial"] as? JsonPrimitive)?.contentOrNull == "true",
     )
 }
 

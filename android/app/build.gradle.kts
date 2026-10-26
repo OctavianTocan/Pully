@@ -53,8 +53,8 @@ android {
         applicationId = "com.octaviantocan.pulls"
         minSdk = 26
         targetSdk = 36
-        versionCode = 79
-        versionName = "0.62.0"
+        versionCode = 81
+        versionName = "0.64.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "PERSONAL_AUTH_ORIGIN", "\"$personalAuthOrigin\"")
         buildConfigField("String", "STAGING_ACCESS_CLIENT_ID", "\"$stagingAccessClientId\"")
@@ -199,6 +199,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")
     implementation("androidx.work:work-runtime:2.12.0")
+    // Claude's and OpenAI's sign-in pages open in a browser sheet over Pully (ProviderSignInTab).
+    implementation("androidx.browser:browser:1.8.0")
     // Google sign-in: Credential Manager and Google's ID token credential for it.
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")

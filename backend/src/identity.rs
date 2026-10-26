@@ -215,6 +215,13 @@ impl RequestIdentity {
     pub(crate) fn is_legacy(&self) -> bool {
         matches!(self, Self::LegacyPrivate)
     }
+    /// The GitHub user id of a current personal session, `None` for every other principal.
+    pub(crate) fn github_id(&self) -> Option<u64> {
+        match self {
+            Self::Account(credential) if self.ensure_current().is_ok() => Some(credential.github_id()),
+            _ => None,
+        }
+    }
     pub(crate) fn account_id(&self) -> Result<&str> {
         self.ensure_current()?;
         match self {

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'vitest'
 import * as bans from './bans.mjs'
 import * as book from './book.mjs'
-import { checkChangelog, compareVersions, parseChangelog, versionName } from './changelog.mjs'
+import { checkChangelog, compareVersions, parseChangelog, releasedAt, versionName } from './changelog.mjs'
 import { run } from './check.mjs'
 import { blank, composables, dpScale, excusedLines, fontFamilies, kotlinFiles, matching, paletteColors, SHARED_DESIGN, shortPath, splitTopLevel, typeRoles } from './kotlin.mjs'
 import * as motion from './motion.mjs'
@@ -648,6 +648,8 @@ describe('changelog', () => {
     '-->',
     '## 0.10.0',
     '',
+    '#### 2026-10-15 09:30 UTC',
+    '',
     'Pull requests slide in,',
     'and edit in place.',
     '',
@@ -656,7 +658,7 @@ describe('changelog', () => {
     '  with whole titles.',
     '',
     '## 0.9.0',
-    '',
+    '#### 2026-10-14 16:11 UTC',
     'Sheets rest at half height.',
     '',
     '* Profile hides a repository.',
@@ -666,6 +668,7 @@ describe('changelog', () => {
     const entries = parseChangelog(text)
     assert.deepEqual(entries.map(e => e.version), ['0.10.0', '0.9.0'])
     assert.equal(entries[0].summary, 'Pull requests slide in, and edit in place.')
+    assert.deepEqual(entries.map(e => e.released), ['2026-10-15 09:30 UTC', '2026-10-14 16:11 UTC'])
     assert.deepEqual(entries[0].items, ['Edit a title in place.', 'Commits are plain lists with whole titles.'])
     assert.equal(compareVersions('0.10.0', '0.9.2'), 1)
     assert.equal(compareVersions('1.2', '1.2.0'), 0)
@@ -685,9 +688,26 @@ describe('changelog', () => {
     assert.match(checkChangelog('## 0.1.0\n\nOld.\n\n- a\n\n## 0.2.0\n\nNew.\n\n- b\n', '0.2.0').join('\n'), /Newest first/)
   })
 
+  it('needs one real release time under each heading, newest first', () => {
+    const at = (stamp, version = '0.2.0') => `## ${version}\n\n${stamp}\n\nA summary.\n\n- a\n`
+    assert.deepEqual(checkChangelog(at('#### 2026-10-26 13:28 UTC'), '0.2.0'), [])
+    assert.equal(releasedAt('2026-10-26 13:28 UTC'), Date.UTC(2026, 9, 26, 13, 28))
+    assert.match(checkChangelog('## 0.2.0\n\nA summary.\n\n- a\n', '0.2.0').join('\n'), /needs the date and time it was released, in UTC, on the line under its heading: "#### \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC"/)
+    for (const stamp of ['#### 26 Oct 2026, 13:28', '#### 2026-10-26 13:28', '#### 2026-02-31 10:00 UTC', '#### 2026-10-26 24:00 UTC'])
+      assert.match(checkChangelog(at(stamp), '0.2.0').join('\n'), /must be a real date and time in UTC/, stamp)
+    assert.match(checkChangelog('## 0.2.0\n\nA summary.\n\n#### 2026-10-26 13:28 UTC\n\n- a\n', '0.2.0').join('\n'), /right under its heading/)
+    assert.match(checkChangelog(at('#### 2026-10-26 13:28 UTC\n#### 2026-10-26 13:29 UTC'), '0.2.0').join('\n'), /2 release lines/)
+    const newerFirst = `${at('#### 2026-10-26 13:28 UTC')}\n${at('#### 2026-10-25 09:00 UTC', '0.1.0')}`
+    assert.deepEqual(checkChangelog(newerFirst, '0.2.0'), [])
+    const olderFirst = `${at('#### 2026-10-24 13:28 UTC')}\n${at('#### 2026-10-25 09:00 UTC', '0.1.0')}`
+    assert.match(checkChangelog(olderFirst, '0.2.0').join('\n'), /0\.1\.0 was released at 2026-10-25 09:00 UTC, after 0\.2\.0 above it/)
+    // A `####` line is skipped by the summary as builds from before it skip it.
+    assert.equal(parseChangelog(at('#### 2026-10-26 13:28 UTC'))[0].summary, 'A summary.')
+  })
+
   it('needs pictures from 0.40.0 on, each named, present and small', () => {
     const sized = sizes => path => sizes[path]
-    const section = picture => `## 0.40.0\n\nNew rows.\n\n- Rows have a state tile.\n${picture}\n`
+    const section = picture => `## 0.40.0\n#### 2026-10-16 12:08 UTC\n\nNew rows.\n\n- Rows have a state tile.\n${picture}\n`
     const good = section('![The Inbox rows](changelog/0.40.0/inbox-rows.png)')
     assert.deepEqual(parseChangelog(good)[0].pictures, [{ alt: 'The Inbox rows', path: 'changelog/0.40.0/inbox-rows.png', placed: true }])
     const rows = { 'changelog/0.40.0/rows.png': 1 }
@@ -695,7 +715,7 @@ describe('changelog', () => {
     assert.match(checkChangelog('## 0.40.0\n\nNew rows.\n![Rows](changelog/0.40.0/rows.png)\n\n- a\n', '0.40.0', sized(rows)).join('\n'), /unindented line under a bullet/)
     assert.deepEqual(checkChangelog(good, '0.40.0', sized({ 'changelog/0.40.0/inbox-rows.png': 1000 })), [])
     assert.match(checkChangelog(section(''), '0.40.0', sized({})).join('\n'), /needs at least one picture/)
-    assert.deepEqual(checkChangelog('## 0.39.0\n\nOld.\n\n- a\n', '0.39.0', sized({})), [])
+    assert.deepEqual(checkChangelog('## 0.39.0\n#### 2026-10-16 10:07 UTC\nOld.\n\n- a\n', '0.39.0', sized({})), [])
     assert.match(checkChangelog(section('![Rows](pics/rows.png)'), '0.40.0', sized({})).join('\n'), /must be changelog\/0\.40\.0/)
     assert.match(checkChangelog(section('![](changelog/0.40.0/rows.png)'), '0.40.0', sized({ 'changelog/0.40.0/rows.png': 1 })).join('\n'), /needs words/)
     assert.match(checkChangelog(section('![Rows](changelog/0.40.0/rows.png)'), '0.40.0', sized({})).join('\n'), /is not in android/)

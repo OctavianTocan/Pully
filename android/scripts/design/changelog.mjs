@@ -5,6 +5,9 @@
 // Since 0.40.0 every section also shows what changed in pictures, or GIFs for what moves (Tavi,
 // 16 Oct 10:49): `![what it shows](changelog/<version>/<name>.png)` lines, unindented after a blank
 // line, with the files in android/changelog/<version>/, which the app bundles and the server serves.
+// Since 26 Oct 2026 every section also says when it was released (Tavi, 26 Oct 13:28: "add a date and
+// time to each changelog entry from now on"): `#### 2026-10-26 14:30 UTC` right under the heading. Builds
+// from before then skip any `#` line that is not `## ` or `### `, so the line hides from them.
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { ANDROID } from './kotlin.mjs'
@@ -25,9 +28,40 @@ const PICTURE_MAX_BYTES = 2 * 1024 * 1024
 const HEADING = /^##\s+(\S+)\s*$/
 const BULLET = /^\s*[-*]\s+(\S.*)$/
 const PICTURE = /^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/
+const RELEASED = /^#### (.*)$/
+const STAMP = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}) UTC$/
+
+/** A release line's time in milliseconds since 1970, or undefined when it is not a real `YYYY-MM-DD HH:MM UTC`. */
+export function releasedAt(stamp) {
+  const parts = STAMP.exec(stamp ?? '')
+  if (!parts)
+    return undefined
+  const [year, month, day, hour, minute] = parts.slice(1).map(Number)
+  const time = Date.UTC(year, month - 1, day, hour, minute)
+  // Date.UTC rolls 31 Feb over into March; a stamp that does not come back the same is not a real time.
+  return new Date(time).toISOString().slice(0, 16) === `${parts[1]}-${parts[2]}-${parts[3]}T${parts[4]}:${parts[5]}` ? time : undefined
+}
+
+/** Now as a release line wants it, for the message that asks for one. */
+const nowStamp = () => `${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC`
+
+/** Takes a section's `#### ` release line into it, and says whether `line` was one. Before any section it is not. */
+function readReleased(entry, line) {
+  const released = RELEASED.exec(line)
+  if (!entry || !released)
+    return false
+  entry.releasedLines++
+  if (entry.releasedLines === 1) {
+    entry.released = released[1].trim()
+    entry.releasedPlaced = !entry.summary && entry.items.length === 0 && entry.pictures.length === 0
+  }
+  return true
+}
 
 /**
- * The sections of a changelog in file order: `{ version, summary, items, pictures }`, each picture `{ alt, path, placed }`.
+ * The sections of a changelog in file order: `{ version, released, summary, items, pictures }`, each picture `{ alt, path, placed }`.
+ * `released` is the text of the section's `#### ` line, `releasedPlaced` whether it came before the summary, and
+ * `releasedLines` how many such lines the section has.
  * `placed` is whether the picture line is unindented and after a bullet, the only place a build from before 0.40.0
  * skips it: indented it joins the bullet's text, and above the bullets it joins the summary.
  * Comments and the `#` title are skipped.
@@ -38,10 +72,12 @@ export function parseChangelog(text) {
   for (const line of text.replace(/<!--[\s\S]*?-->/g, '').split('\n')) {
     const heading = HEADING.exec(line)
     if (heading) {
-      entry = { version: heading[1], summary: '', items: [], pictures: [] }
+      entry = { version: heading[1], released: undefined, releasedPlaced: false, releasedLines: 0, summary: '', items: [], pictures: [] }
       entries.push(entry)
       continue
     }
+    if (readReleased(entry, line))
+      continue
     if (!entry || !line.trim() || line.startsWith('#'))
       continue
     const picture = PICTURE.exec(line)
@@ -105,6 +141,20 @@ function pictureProblems(entry, sizeOf) {
   return problems
 }
 
+/** What is wrong with one section's release line: there, where it belongs, once, and a real time. */
+function releasedProblems(entry) {
+  if (entry.released === undefined)
+    return [`CHANGELOG.md: ${entry.version} needs the date and time it was released, in UTC, on the line under its heading: "#### ${nowStamp()}" (date -u '+%Y-%m-%d %H:%M UTC')`]
+  const problems = []
+  if (releasedAt(entry.released) === undefined)
+    problems.push(`CHANGELOG.md: ${entry.version}'s release line "#### ${entry.released}" must be a real date and time in UTC, written "#### YYYY-MM-DD HH:MM UTC"`)
+  if (!entry.releasedPlaced)
+    problems.push(`CHANGELOG.md: ${entry.version}'s release line must come right under its heading, before the summary`)
+  if (entry.releasedLines > 1)
+    problems.push(`CHANGELOG.md: ${entry.version} has ${entry.releasedLines} release lines. Keep one`)
+  return problems
+}
+
 /** Problems with a changelog for an app at `version`. `sizeOf` gives a picture's size in bytes, or undefined when it is missing. */
 export function checkChangelog(text, version, sizeOf = pictureSize) {
   const entries = parseChangelog(text)
@@ -123,6 +173,10 @@ export function checkChangelog(text, version, sizeOf = pictureSize) {
       problems.push(`CHANGELOG.md has a section for ${entry.version}, above the app's ${version}`)
     if (i > 0 && compareVersions(entries[i - 1].version, entry.version) <= 0)
       problems.push(`CHANGELOG.md: ${entry.version} comes after ${entries[i - 1].version}. Newest first`)
+    problems.push(...releasedProblems(entry))
+    const [newer, older] = [releasedAt(entries[i - 1]?.released), releasedAt(entry.released)]
+    if (newer !== undefined && older !== undefined && newer < older)
+      problems.push(`CHANGELOG.md: ${entry.version} was released at ${entry.released}, after ${entries[i - 1].version} above it at ${entries[i - 1].released}. Newest first`)
     if (!entry.summary)
       problems.push(`CHANGELOG.md: ${entry.version} needs a summary sentence under its heading, before the bullets`)
     else if (entry.summary.length > SUMMARY_MAX)

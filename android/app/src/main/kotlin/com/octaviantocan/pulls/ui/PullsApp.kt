@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -167,8 +168,12 @@ internal fun GuestPullsApp(
         )
     }
     DisposableEffect(session, personal, personalBrowse, githubAccountEntry) { onDispose { githubAccountEntry.close(); personalBrowse.close(); personal.close(); session.close() } }
+    // A saved login opens on the signed-in side, not on Explore, while it is checked: a still Inbox shape with no
+    // readers stands in until the account is verified or the check gives up (recording 26 Oct 2026, 00:17 to 00:35).
+    var awaitingSaved by remember(personal) { mutableStateOf(personal.savedPrivateLogin()) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         val available = personal.verifyStorage()
+        if (!available) awaitingSaved = false
         personalBrowse.foreground(true, available)
         com.octaviantocan.pulls.data.NativeWorkspaceBinding.active?.syncForeground()
         session.foreground()
@@ -180,6 +185,16 @@ internal fun GuestPullsApp(
     val personalView by personal.view.collectAsState()
     var exploring by remember(personal) { mutableStateOf(false) }
     val workspace = personalView.account?.let { personal.workspaceOwner() }
+    var sawChecking by remember(personal) { mutableStateOf(false) }
+    LaunchedEffect(personalView) {
+        if (personalView.checking) sawChecking = true
+        if (personalView.account != null || personalView.problem != null || (sawChecking && !personalView.checking)) awaitingSaved = false
+    }
+    LaunchedEffect(awaitingSaved) { if (awaitingSaved) { kotlinx.coroutines.delay(SAVED_LOGIN_WAIT_MS); awaitingSaved = false } }
+    if (workspace == null && awaitingSaved && !exploring && initialTarget == null) {
+        SignedInPlaceholder()
+        return
+    }
     if (workspace != null && !exploring) {
         key(workspace) {
             val binding = remember(workspace) {
@@ -273,6 +288,17 @@ internal fun GuestPullsApp(
             if (leaving) LeaveSheet(onStay = { leaving = false }, onLeave = { context.findActivity()?.finish() })
             ToastHost(toaster)
         }
+    }
+}
+
+/** How long a saved login may take to be verified before Explore shows instead. */
+private const val SAVED_LOGIN_WAIT_MS = 10_000L
+
+/** The Inbox's still shape while a saved login is checked: its page colour and skeleton rows, no readers or observers. */
+@Composable
+private fun SignedInPlaceholder() {
+    Box(Modifier.fillMaxSize().background(LocalPullsColors.current.base)) {
+        com.octaviantocan.pulls.ui.design.RowsSkeleton(Modifier.statusBarsPadding().padding(top = 128.dp))
     }
 }
 

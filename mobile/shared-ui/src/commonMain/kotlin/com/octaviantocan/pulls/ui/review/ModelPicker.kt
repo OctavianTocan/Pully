@@ -129,7 +129,17 @@ private fun ColumnScope.ModelPageBody(settings: AppSettings, services: ModelSett
             },
             Modifier.fillMaxWidth(),
             leading = { index -> EngineMark(ENGINES[index], size = 20.dp) },
+            enabled = { index -> !page.signedOut(ENGINES[index]) },
         )
+    }
+    if (page.signedOut(engine)) {
+        SheetCard {
+            Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${if (engine == "codex") "Codex" else "Claude Code"} is not signed in", style = PullsType.row.copy(fontWeight = FontWeight.Medium), color = c.text)
+                Text("Sign it in from Settings, Providers.", style = PullsType.sm, color = c.muted)
+            }
+        }
+        return
     }
     if ((catalog?.models?.size ?: 0) > MODEL_SEARCH_FROM) {
         SheetSearch(query, { page.query = it }, "Find a model", Modifier.padding(top = com.octaviantocan.pulls.ui.design.SheetTopGap))

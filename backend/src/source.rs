@@ -490,7 +490,11 @@ async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<
                         if args["revalidate"] != false {
                             let _ = lists::start_inbox_refresh(state, &args).await?;
                         }
-                        Ok(Value::Null)
+                        // A first load has no copy yet: hand out the rows the refresh has so far.
+                        match lists::inbox_partial(state, &args) {
+                            Some(partial) => crate::jev::apply_pulls(state, partial).await,
+                            None => Ok(Value::Null),
+                        }
                     }
                 }
             }

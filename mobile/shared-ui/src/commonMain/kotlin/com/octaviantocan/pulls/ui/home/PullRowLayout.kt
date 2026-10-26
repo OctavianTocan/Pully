@@ -1,6 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
 import androidx.compose.foundation.background
+import com.octaviantocan.pulls.ui.design.fade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -137,7 +137,7 @@ fun PullRowFrame(
     Row(
         modifier.fillMaxWidth()
             .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
-            .alpha(if (dimmed) 0.55f else 1f)
+            .fade(if (dimmed) 0.55f else 1f)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),

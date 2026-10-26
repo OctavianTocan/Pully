@@ -124,3 +124,11 @@ Home path, exercise Repo(Context) through NativeWorkspaceBinding and assert bind
 private-route retirement on sign-out. Shared Home data tests alone MUST NOT be claimed
 as that Android integration proof. Fixture transports and native storage/browser ports
 MAY isolate the host from external services. Source: Tavi's 25 Oct 2026 review-fix #10.
+
+@cc [owner:OctavianTocan,label:product;security] start-on-the-signed-in-side
+With a saved private-repository login, a cold start MUST NOT draw Explore while that login
+is checked: a still Inbox-shaped placeholder with no readers, observers or requests stands
+in until the account is verified (the workspace mounts), rejected, or the check gives up,
+and only then may Explore show. A link opened at start goes straight to its place. Source:
+Tavi's recording of 26 Oct 2026, 00:17 to 00:35 ("we should obviously already be loading
+into the logged in side").

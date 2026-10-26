@@ -46,6 +46,13 @@ impl worker::DurableObject for PersonalServer {
         if let Ok(value) = env.var("PULLS_REVIEW_ANALYTICS") {
             variables.insert("PULLS_REVIEW_ANALYTICS".into(), value.to_string());
         }
+        // Pi on the server's own proxy, for the one GitHub account PULLY_PI_GITHUB_ID names (backend CONTRACTS,
+        // personal-workspace-never-spends-operator-ai). Read here too, as this object may be the isolate's first.
+        for name in ["PULLS_REVIEW_PI_BASE_URL", "PULLS_REVIEW_PI_API_KEY", "PULLS_REVIEW_PI_MODEL", "PULLY_PI_GITHUB_ID"] {
+            if let Some(value) = env.secret(name).map(|s| s.to_string()).or_else(|_| env.var(name).map(|v| v.to_string())).ok() {
+                variables.insert(name.into(), value);
+            }
+        }
         pulls_review_server::rt::env::set(variables);
         let vault_keys = env
             .secret("PULLY_PERSONAL_VAULT_KEYS")

@@ -6,6 +6,8 @@ request, and a question can be asked from it. There is no search icon in the hea
 keeps its ✕, and while the trimmed text ends in "?" the ✕ crossfades into the send circle,
 which asks it, and back when the "?" goes. Tavi decided this in the recording of 16 Oct
 12:10, 05:03 to 05:47 (no "Ask" button "anywhere"; N8), replacing the Ask in the pill.
+Once the Inbox chat has a question, the empty pill MUST show a chat button that opens it
+again, so a closed chat is never lost (recording 26 Oct 2026, 06:43 to 06:58).
 
 @cc [owner:OctavianTocan,label:product;motion] home-search-dims-what-is-behind
 While the search waits for its first letter with the keyboard up, the list behind dims to
@@ -416,3 +418,12 @@ and a host which provides no authority MUST fail closed. The adapter MUST NOT in
 a second recognizer or infer native foreground from server verification. Source: the
 accepted 22 Oct 2026 actual limitation-sheet Back completion repair, preserving
 shared-inbox-verification-and-native-foreground-are-independent.
+
+@cc [owner:OctavianTocan,label:product] home-first-load-shows-rows-as-they-arrive
+With nothing on screen, the Inbox MUST show the rows the server's first load has found so
+far while the whole list is still coming, ending in a few skeleton rows and never in the
+empty note, instead of skeletons until every pull request is in. Those rows MUST NOT
+replace a complete list from the phone or the server, MUST NOT be kept as the phone's
+copy, and give way to the failure note when the load fails. Source: Tavi, 26 Oct 2026,
+on Staging 0.62.0: "I thought my PRs weren't actually loading ... it'd be a lot smarter
+if we showed some of them gradually as we load them".

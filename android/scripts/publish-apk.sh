@@ -106,7 +106,7 @@ def summary(text, version):
         if heading:
             inside = heading.group(1) == version
             continue
-        if not inside:
+        if not inside or line.startswith("#"):
             continue
         if re.match(r"^\s*[-*]\s+", line):
             break

@@ -1,10 +1,19 @@
 package com.octaviantocan.pulls.core
 
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
+
 /**
  * One version's section of `android/CHANGELOG.md`: its [summary] sentence and the [items] under it,
  * each a bullet's Markdown. [groups] are the same items under the section's own `### New`, `### Fixed`
  * headings, in order; a section without them is one group with no title. [pictures] are the section's
- * images and GIFs, each shown under the bullet it follows.
+ * images and GIFs, each shown under the bullet it follows. [released] is when the version came out, from the
+ * `#### 2026-10-26 14:30 UTC` line under its heading, or null for a section without one.
  */
 data class ChangelogEntry(
     val version: String,
@@ -12,6 +21,7 @@ data class ChangelogEntry(
     val items: List<String>,
     val groups: List<ChangelogGroup> = if (items.isEmpty()) emptyList() else listOf(ChangelogGroup(null, items)),
     val pictures: List<ChangelogPicture> = emptyList(),
+    val released: Instant? = null,
 ) {
     /** The pictures under the bullet at [item] in [items], or under the summary when [item] is -1. */
     fun picturesAfter(item: Int): List<ChangelogPicture> = pictures.filter { it.item == item }
@@ -32,6 +42,7 @@ private val HEADING = Regex("""^##\s+(\S+)\s*$""")
 private val GROUP = Regex("""^###\s+(.+?)\s*$""")
 private val BULLET = Regex("""^\s*[-*]\s+(.*)$""")
 private val COMMENT = Regex("""<!--.*?-->""", RegexOption.DOT_MATCHES_ALL)
+private val RELEASED = Regex("""^####\s+(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}) UTC\s*$""")
 private val PICTURE = Regex("""^\s*!\[([^\]]*)]\(([^)\s]+)\)\s*$""")
 
 /**
@@ -41,6 +52,8 @@ private val PICTURE = Regex("""^\s*!\[([^\]]*)]\(([^)\s]+)\)\s*$""")
  * as one list, so a section with groups still shows on a phone that has not updated yet. A picture line,
  * written unindented on its own line under a bullet, is skipped by builds from before 0.40.0 the same way
  * (changelog.mjs checks it sits there: indented it would join the bullet, above the bullets the summary).
+ * The `#### <date> <time> UTC` line under a heading is when that version was released (Tavi, 26 Oct 2026); builds
+ * from before it skip the line like any other `#` line, and a line that is not a real time leaves [ChangelogEntry.released] null.
  */
 fun parseChangelog(text: String): List<ChangelogEntry> {
     val entries = mutableListOf<ChangelogEntry>()
@@ -48,6 +61,7 @@ fun parseChangelog(text: String): List<ChangelogEntry> {
     val summary = StringBuilder()
     val items = mutableListOf<String>()
     val pictures = mutableListOf<ChangelogPicture>()
+    var released: Instant? = null
     // Where each group starts in [items], and its title.
     val starts = mutableListOf<Pair<String?, Int>>()
     fun close() {
@@ -55,7 +69,8 @@ fun parseChangelog(text: String): List<ChangelogEntry> {
         val bounds = if (starts.firstOrNull()?.second == 0) starts.toList() else listOf<Pair<String?, Int>>(null to 0) + starts
         val groups = bounds.mapIndexed { i, (title, from) -> ChangelogGroup(title, items.subList(from, bounds.getOrNull(i + 1)?.second ?: items.size).toList()) }
             .filter { it.items.isNotEmpty() }
-        entries += ChangelogEntry(v, summary.toString().trim(), items.toList(), groups, pictures.toList())
+        entries += ChangelogEntry(v, summary.toString().trim(), items.toList(), groups, pictures.toList(), released)
+        released = null
         summary.clear()
         items.clear()
         pictures.clear()
@@ -71,6 +86,11 @@ fun parseChangelog(text: String): List<ChangelogEntry> {
         val group = GROUP.matchEntire(line)
         if (version != null && group != null) {
             starts += group.groupValues[1] to items.size
+            continue
+        }
+        val stamp = RELEASED.matchEntire(line)
+        if (version != null && stamp != null && released == null) {
+            released = runCatching { LocalDateTime.parse("${stamp.groupValues[1]}T${stamp.groupValues[2]}").toInstant(ZoneOffset.UTC) }.getOrNull()
             continue
         }
         if (version == null || line.isBlank() || line.startsWith("#")) continue
@@ -119,3 +139,7 @@ fun plainChangelogText(markdown: String): String =
         .replace(Regex("""\[([^\]]+)]\([^)]*\)"""), "$1")
         .replace(Regex("""[*_`]+"""), "")
         .trim()
+
+/** When a version came out, as the reader's own calendar and clock write it: "26 Oct 2026, 14:28" in Britain. */
+fun changelogTime(released: Instant, zone: ZoneId = ZoneId.systemDefault(), locale: Locale = Locale.getDefault()): String =
+    DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(locale).withZone(zone).format(released)
