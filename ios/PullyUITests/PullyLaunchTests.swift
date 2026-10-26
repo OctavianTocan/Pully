@@ -665,7 +665,9 @@ final class PullyLaunchTests: XCTestCase {
     }
 
     private func waitForSelected(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
-        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in element.exists && element.isSelected }, object: nil)
+        let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (try? element.snapshot())?.isSelected == true
+        }, object: nil)
         return XCTWaiter.wait(for: [selected], timeout: timeout) == .completed
     }
 
@@ -673,14 +675,36 @@ final class PullyLaunchTests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: "inbox.filter.all").firstMatch
     }
 
+    /// Reads the All filter from one snapshot per poll. `exists`, `isHittable` and `isSelected` each snapshot the whole
+    /// Compose tree again, so three reads took most of the wait on the CI simulator: after Back from Settings the
+    /// recording showed All selected from about eight seconds in, yet the check timed out. Every poll is kept and
+    /// printed on failure, so a filter that really lost its selection reads differently from a slow tree.
     private func assertAllSelected(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        let screen = app.frame
+        var polls: [String] = []
+        let started = Date()
         let selected = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            let filter = self.allFilter(in: app)
-            return filter.exists && filter.isHittable && filter.isSelected
+            let at = String(format: "%.1fs", Date().timeIntervalSince(started))
+            guard let filter = try? self.allFilter(in: app).snapshot() else {
+                polls.append("\(at) missing")
+                return false
+            }
+            let onScreen = !filter.frame.isEmpty && screen.intersects(filter.frame)
+            polls.append("\(at) onScreen=\(onScreen) enabled=\(filter.isEnabled) selected=\(filter.isSelected)")
+            return onScreen && filter.isSelected
         }, object: nil)
         guard XCTWaiter.wait(for: [selected], timeout: presenceTimeout) == .completed else {
+            print("Inbox All filter polls:\n\(polls.joined(separator: "\n"))")
             attachDiagnostics(app, name: "Inbox All filter not selected")
-            XCTFail("The production All filter did not retain selected semantics", file: file, line: line)
+            XCTFail("The production All filter did not retain selected semantics; polls: \(polls.joined(separator: ", "))",
+                    file: file, line: line)
+            return
+        }
+        // Selected and on screen; the control must also still take a tap, read once rather than on every poll.
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in self.allFilter(in: app).isHittable }, object: nil)
+        guard XCTWaiter.wait(for: [hittable], timeout: presenceTimeout) == .completed else {
+            attachDiagnostics(app, name: "Inbox All filter not hittable")
+            XCTFail("The selected production All filter is not hittable", file: file, line: line)
             return
         }
     }
