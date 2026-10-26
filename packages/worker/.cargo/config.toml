@@ -1,0 +1,7 @@
+# The Worker's Rust stack. wasm-ld gives 1 MiB by default, and an Ask's task future overflows it
+# ("memory access out of bounds" in perform_task, 26 Oct 2026); Workers allow 128 MB per isolate.
+[target.wasm32-unknown-unknown]
+rustflags = [
+  "-C",
+  "link-arg=-zstack-size=8388608"
+]

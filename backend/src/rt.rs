@@ -137,15 +137,18 @@ mod wasm {
         }
     }
 
-    /// Runs `work` now: there is no thread to move it to, and the Worker's storage calls are
-    /// synchronous anyway.
+    /// @cc [owner:OctavianTocan,label:architecture] wasm-blocking-work-runs-after-its-caller
+    /// On the Worker, blocking work runs as a task of its own once the caller yields, as there is
+    /// no thread to move it to, and it MUST NOT run inside the call that queues it. Callers hold a
+    /// lock while they queue work that takes the same lock, as threads make that safe natively;
+    /// here it panics ("cannot recursively acquire mutex") and the whole Worker restarts. Source:
+    /// Tavi, 26 Oct 2026, every Ask on staging failed with a 500 and "the server restarted".
     pub fn spawn_blocking<F, R>(work: F) -> JoinHandle<R>
     where
         F: FnOnce() -> R + 'static,
         R: 'static,
     {
-        let value = work();
-        spawn(async move { value })
+        spawn(async move { work() })
     }
 
     /// Lets other tasks run before continuing.
