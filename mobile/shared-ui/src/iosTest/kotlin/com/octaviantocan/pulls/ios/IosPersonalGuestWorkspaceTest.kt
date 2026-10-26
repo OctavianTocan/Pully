@@ -57,7 +57,10 @@ class IosPersonalGuestWorkspaceTest {
         try {
             val mount = assertNotNull(workspace.personalBrowse)
             actions.activity!!.changed(true); runCurrent()
-            assertEquals(1, requests.size, "A verified profile alone starts no personal lists")
+            assertEquals(listOf("/session", "/account/capabilities"), requests.map { it.url.substringAfterLast("/v1").removePrefix("/github") },
+                "A restored repository account opens its Home but starts no personal lists")
+            val home = navigation.stack.single() as Screen.PersonalPulls
+            assertTrue(home.home)
             val browse = assertNotNull(mount.session)
             mount.openAccount(); runCurrent()
             val sheet = assertNotNull(mount.presentation)
@@ -65,11 +68,11 @@ class IosPersonalGuestWorkspaceTest {
             mount.dismiss(sheet)
             mount.openPulls(browse)
             val route = navigation.stack.last() as Screen.PersonalPulls
+            assertSame(home, route, "Pulls on the restored Home selects a relation instead of stacking a page")
             val rows = browse.pulls(route)
             rows.start(); runCurrent()
             assertTrue(rows.rows.single().repository.private)
-            assertSame(Screen.Explore, navigation.stack.first())
-            assertEquals(2, navigation.stack.size)
+            assertEquals(listOf<Screen>(home), navigation.stack.toList())
             actions.activity!!.changed(false)
             val count = requests.size
             mount.openRepositories(browse); rows.retry()
@@ -93,7 +96,7 @@ class IosPersonalGuestWorkspaceTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val actions = ActiveActions()
         var interrupt = true
-        var requests = 0
+        val requests = mutableListOf<String>()
         val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
             override fun read(): NativePersonalSessionRead {
                 if (interrupt) { interrupt = false; actions.activity!!.changed(false) }
@@ -101,7 +104,7 @@ class IosPersonalGuestWorkspaceTest {
             }
             override fun write(contents: ByteArray) = error("No write")
         }, "https://accounts.example", RpcTransport {
-            requests++
+            requests += it.url
             RpcResponse(200, """{"accountId":"account-42","githubId":42,"login":"reader","authority":"publicRead","sessionExpiresAt":9999999999,"accessExpiresAt":null,"refreshAvailable":false}""", "application/json")
         })
         val entry = NativeEntryState(false)
@@ -109,9 +112,9 @@ class IosPersonalGuestWorkspaceTest {
             backgroundScope, assertNotNull(entry.guestSource()), AppNavigation(rootScreen = Screen.Explore), IncomingLinkInbox(), { true }, store)
         try {
             actions.activity!!.changed(true); runCurrent()
-            assertEquals(0, requests, "The secure probe's reentrant pause must win before restoration starts")
+            assertTrue(requests.isEmpty(), "The secure probe's reentrant pause must win before restoration starts")
             actions.activity!!.changed(true); runCurrent()
-            assertEquals(1, requests)
+            assertEquals(1, requests.count { it.endsWith("/v1/session") })
         } finally { workspace.close(); runCurrent(); Dispatchers.resetMain() }
     }
 
@@ -158,19 +161,23 @@ class IosPersonalGuestWorkspaceTest {
             actions.home!!.started(); runCurrent()
             assertTrue(requests.isEmpty(), "Home started is not the native active signal")
             val retained = assertNotNull(actions.activity)
+            val restorations = { requests.count { it.url == "https://accounts.example/api/personal/v1/session" } }
             retained.changed(true); runCurrent()
-            assertEquals(1, requests.size)
+            assertEquals(1, restorations())
             retained.changed(false)
             actions.home!!.started(); runCurrent()
-            assertEquals(1, requests.size)
+            assertEquals(1, restorations())
             retained.changed(true); runCurrent()
-            assertEquals(2, requests.size)
+            assertEquals(2, restorations())
             assertEquals(0, writes)
             workspace.close()
             assertEquals(1, actions.activityCancellations)
+            val closed = requests.size
             retained.changed(true); runCurrent()
-            assertEquals(2, requests.size)
-            assertTrue(requests.all { it.url == "https://accounts.example/api/personal/v1/session" })
+            assertEquals(closed, requests.size)
+            // An older public account is offered completion, whose sheet reads the repository capabilities.
+            assertTrue(requests.all { it.url == "https://accounts.example/api/personal/v1/session" ||
+                it.url == "https://accounts.example/api/personal/v1/github/account/capabilities" })
             assertTrue(requests.all { it.headers.keys.none { name -> name.startsWith("CF-Access", true) || name.equals("X-Pully-Session", true) } })
         } finally { workspace.close(); runCurrent(); Dispatchers.resetMain() }
     }
