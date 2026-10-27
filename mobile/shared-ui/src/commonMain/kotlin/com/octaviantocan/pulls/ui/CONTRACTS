@@ -176,3 +176,11 @@ centred; the diff's code MUST take the page's whole width, with its split column
 from the page (LocalPageWidth), never from the screen. Every page MUST keep clear of a
 camera cutout or navigation bar at the side. A phone held upright MUST look exactly as
 before. Source: Tavi's message of 27 Oct 2026 12:55, DESIGN.md rules 207 and 209.
+
+@cc [owner:OctavianTocan,label:product;design] first-page-beside-the-list-has-no-back
+In an unfolded window the page directly above the list in the route stack, the pull
+request opened from the list, MUST NOT show a Back button in its header, its opening page
+or its load-failed page; the system back gesture MUST still empty the pane. A page that
+stacks above it in the right pane MUST show Back. A phone and a sideways window MUST keep
+Back as before. Source: Tavi's message of 27 Oct 2026 14:36 ("the Back arrow ... doesn't
+make a lot of sense when both pages are visible"), DESIGN.md rule 210.

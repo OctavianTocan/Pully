@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.ui.design.BlurSwitch
 import com.octaviantocan.pulls.ui.design.FootBarLayer
 import com.octaviantocan.pulls.ui.design.FootBars
+import com.octaviantocan.pulls.ui.design.LocalFirstBeside
 import com.octaviantocan.pulls.ui.design.LocalFootBars
 import com.octaviantocan.pulls.ui.design.LocalPageWidth
 import com.octaviantocan.pulls.ui.design.LocalPaneSpan
@@ -182,7 +183,8 @@ private fun TwoPanes(
                 val page = besideScreen?.let { PanePage(it, navigation.pageKey(it), besideAt) } ?: NothingBeside
                 BlurSwitch(page, Modifier.fillMaxSize(), order = { it.depth }, motion = motion.takeIf { besideScreen != null }) { layer ->
                     val screen = layer.screen
-                    if (screen == null) NothingOpen() else Layer(navigation, saved, screen, layer.key, content)
+                    if (screen == null) NothingOpen()
+                    else CompositionLocalProvider(LocalFirstBeside provides (layer.depth == listAt + 1)) { Layer(navigation, saved, screen, layer.key, content) }
                 }
             }
             FootBarLayer(besideBars, Modifier.align(Alignment.BottomCenter))

@@ -81,5 +81,12 @@ internal class PaneSpan(val left: Float, val width: Float)
 /** The pane a page is in, so a sheet it opens rises over that pane rather than across both (rule 208). */
 internal val LocalPaneSpan = compositionLocalOf<PaneSpan?> { null }
 
+/**
+ * True on the page that opened beside the list in an unfolded window, the first in its pane. Its header leaves Back out:
+ * with the list in sight there is nowhere for it to go that a tap on the list does not reach (rule 210). A page opened
+ * from inside it, a stack layer or a link, stacks in the pane and keeps its Back.
+ */
+val LocalFirstBeside = compositionLocalOf { false }
+
 /** Fills the width up to [ReadableWidth] and centres itself in anything wider (rule 207). */
 fun Modifier.readableWidth(): Modifier = fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = ReadableWidth).fillMaxWidth()
