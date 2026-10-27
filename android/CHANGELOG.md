@@ -21,6 +21,15 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.67.0
+
+#### 2026-10-27 15:18 UTC
+
+Back stays away beside your list, however many you open.
+
+- Unfolded, every pull request you open from the list now comes up without a Back arrow, not just the first one.
+![An unfolded foldable with the third pull request opened from the Inbox on the right, its header showing only the view buttons](changelog/0.67.0/third-no-back.png)
+
 ## 0.66.0
 
 #### 2026-10-27 14:43 UTC

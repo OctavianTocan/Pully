@@ -184,7 +184,12 @@ private fun TwoPanes(
                 BlurSwitch(page, Modifier.fillMaxSize(), order = { it.depth }, motion = motion.takeIf { besideScreen != null }) { layer ->
                     val screen = layer.screen
                     if (screen == null) NothingOpen()
-                    else CompositionLocalProvider(LocalFirstBeside provides (layer.depth == listAt + 1)) { Layer(navigation, saved, screen, layer.key, content) }
+                    // The shown page's depth from the stack as it is now: a page that replaced the one beside the list keeps
+                    // the layer it went on with (PanePage compares by key), whose depth counted the page it replaced.
+                    else {
+                        val depth = if (layer.key == page.key) page.depth else layer.depth
+                        CompositionLocalProvider(LocalFirstBeside provides (depth == listAt + 1)) { Layer(navigation, saved, screen, layer.key, content) }
+                    }
                 }
             }
             FootBarLayer(besideBars, Modifier.align(Alignment.BottomCenter))
