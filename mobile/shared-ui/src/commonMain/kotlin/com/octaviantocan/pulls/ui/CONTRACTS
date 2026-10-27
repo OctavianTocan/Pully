@@ -156,3 +156,23 @@ throughout every paused read or resume wait, including a second pause during its
 post-write saved-state read. Retirement MUST release the accepted change without
 requiring foreground resume or starting its queued question. Source: the accepted
 22 Oct 2026 independent frame-receipt read-wait review.
+
+@cc [owner:OctavianTocan,label:product;design;architecture] unfolded-window-reads-one-stack-as-two-panes
+In a window at least 600dp wide and 600dp tall, AppPages MUST show the last list page
+(Inbox, repository, Explore) on the left and the top page beside it when that page is
+above the list, reading the same route stack (shared-navigation-keeps-one-compose-stack);
+it MUST NOT keep a second stack. A page opened by a press in the list pane MUST replace
+the pages beside the list instead of stacking on them, so Back from the right pane
+reaches the list; a page opened from the right pane, Settings and the UI Book MUST stack
+as before. Each pane MUST have its own foot bar, the open row MUST be marked, and with
+nothing open the right pane MUST show only the one line saying what goes there. Source:
+Tavi's message of 27 Oct 2026 12:55 ("looks great both on foldables unfolded, and also
+in horizontal mode"), DESIGN.md rule 206.
+
+@cc [owner:OctavianTocan,label:design] wide-window-pages-keep-a-readable-column
+On a window 600dp or wider that does not show two panes, a list page and a pull
+request's header, overview and tour MUST sit in a column no wider than ReadableWidth,
+centred; the diff's code MUST take the page's whole width, with its split columns sized
+from the page (LocalPageWidth), never from the screen. Every page MUST keep clear of a
+camera cutout or navigation bar at the side. A phone held upright MUST look exactly as
+before. Source: Tavi's message of 27 Oct 2026 12:55, DESIGN.md rules 207 and 209.

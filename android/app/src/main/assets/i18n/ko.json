@@ -887,5 +887,8 @@
     "byFeature": "기능별",
     "byModel": "모델별",
     "runsCount": "{n}회"
+  },
+  "panes": {
+    "nothingOpen": "연 풀 리퀘스트가 여기에 표시됩니다."
   }
 }

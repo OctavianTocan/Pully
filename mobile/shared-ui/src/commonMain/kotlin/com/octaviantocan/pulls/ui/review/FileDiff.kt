@@ -362,8 +362,8 @@ private fun LineCell(ui: DiffUi, file: ReviewFile, line: DiffLine, digits: Int, 
                 // Deep nesting would leave a sliver for the code: the indent stops at a third of the
                 // column. Rows are measured intrinsically, so read the width from the window, not a
                 // SubcomposeLayout (BoxWithConstraints throws under intrinsic measurement).
-                val window = with(density) { diffScreenWidthDp().dp.toPx() }
-                val column = if (effectiveSplit(ui.session.settings.layout, file, diffScreenWidthDp())) window / 2f else window
+                val window = with(density) { diffWidthDp().dp.toPx() }
+                val column = if (effectiveSplit(ui.session.settings.layout, file, diffWidthDp())) window / 2f else window
                 val indent = with(density) { minOf(space * columns.toFloat(), column / 3f).toSp() }
                 Text(
                     if (lead > 0 && lead <= code.length) code.subSequence(lead, code.length) else code,

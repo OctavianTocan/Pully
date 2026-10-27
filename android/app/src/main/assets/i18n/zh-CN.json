@@ -887,5 +887,8 @@
     "byFeature": "按功能",
     "byModel": "按模型",
     "runsCount": "{n} 次运行"
+  },
+  "panes": {
+    "nothingOpen": "你打开的拉取请求会显示在这里。"
   }
 }

@@ -66,6 +66,7 @@ fun TourRowContent(entry: TourEntry, pull: PullRow?, now: Long) {
     val c = LocalPullsColors.current
     PullRowFrame(
         AnnotatedString(entry.prTitle),
+        open = isOpenBeside(entry.owner, entry.repo, entry.number),
         tile = {
             RowTile(c.sunken) {
                 when {

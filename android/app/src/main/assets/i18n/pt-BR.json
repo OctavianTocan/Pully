@@ -887,5 +887,8 @@
     "byFeature": "Por recurso",
     "byModel": "Por modelo",
     "runsCount": "{n} execução | {n} execuções"
+  },
+  "panes": {
+    "nothingOpen": "O pull request que você abrir aparece aqui."
   }
 }

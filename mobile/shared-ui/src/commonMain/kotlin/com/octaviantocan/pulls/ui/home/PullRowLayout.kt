@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.home
 
+import androidx.compose.runtime.compositionLocalOf
+import com.octaviantocan.pulls.core.OpenTarget
 import androidx.compose.foundation.background
 import com.octaviantocan.pulls.ui.design.fade
 import androidx.compose.foundation.layout.Arrangement
@@ -116,12 +118,25 @@ fun RowTile(fill: Color, modifier: Modifier = Modifier, content: @Composable () 
 }
 
 /**
+ * The pull request open beside the list in an unfolded window, whose row is marked so the list says which one is open
+ * (rule 206). Null on a phone and sideways, where the list and the pull request are never on screen together.
+ */
+val LocalOpenBeside = compositionLocalOf<OpenTarget?> { null }
+
+/** Whether the pull request [owner]/[repo]#[number] is the one open beside the list (rule 206). */
+@Composable
+fun isOpenBeside(owner: String, repo: String, number: Int): Boolean {
+    val open = LocalOpenBeside.current as? OpenTarget.Pull ?: return false
+    return open.number == number && open.owner.equals(owner, ignoreCase = true) && open.repo.equals(repo, ignoreCase = true)
+}
+
+/**
  * The frame every pull request row shares: [tile], then the [title] on at most two lines, cut with an ellipsis where it
  * runs longer ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to
  * 00:25; Q1, rule 2; "I meant the title should also be in two rows", Tavi 17 Oct 17:14, rule 201), [under] for what a
  * page adds (a repository's labels), and the one [meta] line. The tile stays centred on the row whether the title takes
  * one line or two. A hairline over the row starts and ends on the page's 16dp margins, so the first row's is the
- * heading's underline (rule 75).
+ * heading's underline (rule 75). An [open] row, the one open beside the list, sits on the hover tint (rule 206).
  */
 @Composable
 fun PullRowFrame(
@@ -129,6 +144,7 @@ fun PullRowFrame(
     tile: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     dimmed: Boolean = false,
+    open: Boolean = false,
     under: (@Composable () -> Unit)? = null,
     meta: @Composable RowScope.() -> Unit,
 ) {
@@ -136,6 +152,7 @@ fun PullRowFrame(
     val inset = with(LocalDensity.current) { 16.dp.toPx() }
     Row(
         modifier.fillMaxWidth()
+            .then(if (open) Modifier.background(c.hover) else Modifier)
             .drawBehind { drawRect(c.borderMute, Offset(inset, 0f), Size(size.width - 2 * inset, 1.dp.toPx())) }
             .fade(if (dimmed) 0.55f else 1f)
             .padding(horizontal = 16.dp, vertical = 12.dp),

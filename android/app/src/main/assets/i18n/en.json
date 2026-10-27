@@ -1157,5 +1157,8 @@
       "Timeout": "Your repositories took too long to respond. Try again.",
       "Unreachable": "Pully could not reach your repositories. Check your connection and try again."
     }
+  },
+  "panes": {
+    "nothingOpen": "A pull request you open shows here."
   }
 }

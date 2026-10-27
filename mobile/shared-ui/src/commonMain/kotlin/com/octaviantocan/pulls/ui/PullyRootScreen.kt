@@ -155,9 +155,7 @@ fun PullyRootScreen(
                         if (openingEpoch != account.sourceEpoch) return
                         serverServices().let { server = it }
                     }
-                    BoxWithConstraints(Modifier.fillMaxSize().background(colors.base).themeWipe()) {
-                        val wide = maxWidth >= 768.dp
-                        if (PullsType.wide != wide) PullsType.wide = wide
+                    Box(Modifier.fillMaxSize().background(colors.base).themeWipe()) {
                         Column(Modifier.fillMaxSize()) {
                             Row(
                                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = PullsSpace.x4, vertical = PullsSpace.x2),

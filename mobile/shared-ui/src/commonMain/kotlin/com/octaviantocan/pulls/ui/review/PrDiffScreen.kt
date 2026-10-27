@@ -161,7 +161,7 @@ fun PrDiffScreen(
     val files = fileSections(session, ui).flatMap { it.files }
     val index = files.indexOfFirst { it.path == path }.let { if (it < 0) 0 else it }
     val file = files.getOrNull(index)
-    val width = diffScreenWidthDp()
+    val width = diffWidthDp()
     SideEffect { if (ui.widthDp != width) ui.widthDp = width }
     // Each file the diff rests on counts once per visit, by its extension only, once its lines are in (`file.view`).
     val shown = file?.takeIf { !it.patchOmitted }

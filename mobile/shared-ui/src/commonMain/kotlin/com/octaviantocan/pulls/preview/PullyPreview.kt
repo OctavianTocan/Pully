@@ -32,9 +32,7 @@ fun PullyPreview(services: HomeScreenServices, limitation: HomePreviewFeature?, 
     PullsMaterialTheme(colors, messages) {
         CompositionLocalProvider(LocalToaster provides toaster, LocalSharedBackDispatcher provides backs) {
             HomeBackEffect(services.native, motion, backs, enabled = navigation.stack.size > 1) { navigation.nav.back() }
-            BoxWithConstraints(Modifier.fillMaxSize().background(colors.base)) {
-                val wide = maxWidth >= 768.dp
-                if (PullsType.wide != wide) PullsType.wide = wide
+            Box(Modifier.fillMaxSize().background(colors.base)) {
                 Column(Modifier.fillMaxSize()) {
                     Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = PullsSpace.x4, vertical = PullsSpace.x2), verticalArrangement = Arrangement.spacedBy(PullsSpace.x1)) {
                         Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.lg, color = colors.text)

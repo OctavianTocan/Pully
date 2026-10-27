@@ -77,7 +77,7 @@ private fun StackTile(ink: Color, modifier: Modifier) {
 fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, repo: String? = null, risk: Boolean = false) {
     val c = LocalPullsColors.current
     val requested = pull.requestedFromMe ?: (pull.role == "review-requested")
-    PullRowFrame(AnnotatedString(pull.title), tile = { StateTile(pull.pullState()) }, dimmed = dimmed) {
+    PullRowFrame(AnnotatedString(pull.title), tile = { StateTile(pull.pullState()) }, dimmed = dimmed, open = isOpenBeside(pull.owner, pull.repo, pull.number)) {
         RowNumber(pull.number)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (pull.stack != null) StackTag(pull, risk = risk) else if (risk) RiskTag(pull)

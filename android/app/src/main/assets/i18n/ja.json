@@ -887,5 +887,8 @@
     "byFeature": "機能別",
     "byModel": "モデル別",
     "runsCount": "{n} 回"
+  },
+  "panes": {
+    "nothingOpen": "開いたプルリクエストがここに表示されます。"
   }
 }

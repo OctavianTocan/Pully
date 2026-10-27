@@ -887,5 +887,8 @@
     "byFeature": "Nach Funktion",
     "byModel": "Nach Modell",
     "runsCount": "{n} Lauf | {n} Läufe"
+  },
+  "panes": {
+    "nothingOpen": "Ein Pull Request, den du öffnest, erscheint hier."
   }
 }
