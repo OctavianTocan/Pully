@@ -21,6 +21,15 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.68.0
+
+#### 2026-10-27 15:29 UTC
+
+No Back flicker when you switch pull requests on a foldable.
+
+- Unfolded, tapping another row in your list swaps the pull request beside it without a Back arrow flickering on for a moment.
+![An unfolded foldable with the Inbox on the left and the newly tapped pull request on the right, its header showing only the view buttons](changelog/0.68.0/switch-no-back.png)
+
 ## 0.67.0
 
 #### 2026-10-27 15:18 UTC
