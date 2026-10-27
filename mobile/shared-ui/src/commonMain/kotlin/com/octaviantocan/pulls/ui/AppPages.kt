@@ -188,10 +188,12 @@ private fun TwoPanes(
                     val screen = layer.screen
                     if (screen == null) NothingOpen()
                     // The shown page's depth from the stack as it is now: a page that replaced the one beside the list keeps
-                    // the layer it went on with (PanePage compares by key), whose depth counted the page it replaced.
+                    // the layer it went on with (PanePage compares by key), whose depth counted the page it replaced. A page on
+                    // its way out keeps the header it had, so its Back does not come on while it blurs away.
                     else {
-                        val depth = if (layer.key == page.key) page.depth - replacing else layer.depth
-                        CompositionLocalProvider(LocalFirstBeside provides (depth == listAt + 1)) { Layer(navigation, saved, screen, layer.key, content) }
+                        val held = remember { booleanArrayOf(layer.depth == listAt + 1) }
+                        if (layer.key == page.key) held[0] = page.depth - replacing == listAt + 1
+                        CompositionLocalProvider(LocalFirstBeside provides held[0]) { Layer(navigation, saved, screen, layer.key, content) }
                     }
                 }
             }
