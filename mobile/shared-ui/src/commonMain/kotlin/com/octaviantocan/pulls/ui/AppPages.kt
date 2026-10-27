@@ -162,6 +162,9 @@ private fun TwoPanes(
         gone.asReversed().forEach { navigation.stack.removeAt(it) }
         seen[0] = navigation.stack.size
     }
+    // Pages the effect above is about to take out from under the top one: until it has, the top already counts as
+    // replacing them, so its Back does not flash on for the frame between.
+    val replacing = screens.lastOrNull()?.takeIf { pressedList[0] && screens.size > seen[0] }?.let { replacedBeside(screens, it).size } ?: 0
     val listSpan = remember { mutableStateOf<PaneSpan?>(null) }
     val besideSpan = remember { mutableStateOf<PaneSpan?>(null) }
     val listBars = remember { FootBars() }
@@ -187,7 +190,7 @@ private fun TwoPanes(
                     // The shown page's depth from the stack as it is now: a page that replaced the one beside the list keeps
                     // the layer it went on with (PanePage compares by key), whose depth counted the page it replaced.
                     else {
-                        val depth = if (layer.key == page.key) page.depth else layer.depth
+                        val depth = if (layer.key == page.key) page.depth - replacing else layer.depth
                         CompositionLocalProvider(LocalFirstBeside provides (depth == listAt + 1)) { Layer(navigation, saved, screen, layer.key, content) }
                     }
                 }
