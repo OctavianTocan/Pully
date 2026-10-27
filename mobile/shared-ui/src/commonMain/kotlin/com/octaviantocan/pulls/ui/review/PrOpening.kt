@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.ui.design.headerTopPadding
+import com.octaviantocan.pulls.ui.design.LocalFirstBeside
 import com.octaviantocan.pulls.ui.design.readableWidth
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -52,7 +53,7 @@ fun PrOpening(target: OpenTarget, preview: PullPreview?, onBack: () -> Unit, onA
     Box(Modifier.fillMaxSize().background(c.base)) {
         Column(Modifier.fillMaxSize().readableWidth()) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
+                if (!LocalFirstBeside.current) FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp)
                 Spacer(Modifier.weight(1f))
                 SectionCapsule(selected = 0, live = false, onOverview = {}, onChanges = null, onTour = null, onCorner = null, corner = CapsuleCorner.More)
             }

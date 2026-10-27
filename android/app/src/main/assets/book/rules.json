@@ -1906,5 +1906,14 @@
       "review"
     ],
     "text": "Held sideways, the camera cutout and the three-button navigation bar move to the sides of the screen. Pages keep clear of both on either side, the diff's full-width code included, while the page colour still runs under them.\n\nCheck: sideways with three-button navigation, no row, code line or button is under the bar or the camera."
+  },
+  {
+    "n": 210,
+    "title": "Beside the list, a pull request has no Back.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "In an unfolded window (rule 206) the pull request opened from the list leaves the Back button out of its header: the list it would go back to is already in sight, and a tap on another row replaces it. The capsule keeps its place on the right, and the header keeps its height. The phone's back gesture still empties the pane. A page opened from inside that one, a stack layer or a link, stacks in the right pane and has its Back, since there is somewhere in the pane to go back to. On a phone and sideways nothing changes.\n\nCheck: at 841 by 701, open a pull request from the Inbox: its header has the capsule and no Back; open a stack layer from its Stack sheet: that page has Back, and it goes to the first."
   }
 ]

@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.design.BlurSwitch
+import com.octaviantocan.pulls.ui.design.LocalFirstBeside
 import com.octaviantocan.pulls.ui.design.readableWidth
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalMessages
@@ -354,7 +355,8 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                     // In the readable column on a wide window, over the code as well as the words, so it never moves (rule 207).
                     Box(Modifier.readableWidth()) {
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
-                            FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
+                            // Beside the list in an unfolded window the list is where Back would go, so it is left out (rule 210).
+                            if (!LocalFirstBeside.current) FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
                             Spacer(Modifier.weight(1f))
                             SectionCapsule(
                                 selected = view.ordinal, live = tourComing(session),
@@ -477,7 +479,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
 @Composable
 private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().readableWidth().statusBarsPadding()) {
-        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) { FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp) }
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) { if (!LocalFirstBeside.current) FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp) }
         Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }
 }
