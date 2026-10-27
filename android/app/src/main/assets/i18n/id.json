@@ -887,5 +887,8 @@
     "byFeature": "Per fitur",
     "byModel": "Per model",
     "runsCount": "{n} proses"
+  },
+  "panes": {
+    "nothingOpen": "Pull request yang kamu buka tampil di sini."
   }
 }

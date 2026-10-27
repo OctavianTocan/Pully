@@ -53,7 +53,8 @@
     "FootFree": "Hands a page's own bar, the diff's file bar, to the foot host in the pill's place (rule 196); it draws only what the page gives it.",
     "rememberMessages": "Loads the shared web locale catalog from native bundled resources; it provides translation state, not a visual component.",
     "ModalWindow": "A required native window adapter for the existing ModalReveal motion surface, not a second component. The existing modal callers draw the unchanged surface and close control.",
-    "rememberTextCopy": "Returns the native clipboard effect for an explicit copy tap; it draws no UI. The existing code-well copy control owns its appearance and copied toast."
+    "rememberTextCopy": "Returns the native clipboard effect for an explicit copy tap; it draws no UI. The existing code-well copy control owns its appearance and copied toast.",
+    "rememberWindowShape": "A reading of the window's size as a phone, sideways or unfolded shape (rules 206 to 209), not a component. Sheets and headers read it; the layouts it picks are drawn in DESIGN.md's Layout section."
   },
   "components": {
     "toast": "ToastHost is one host for the whole app and draws at the bottom of the screen, so it cannot be measured inline. Its page shows the real one."

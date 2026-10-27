@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -676,6 +677,8 @@ val BarLift = 24.dp
  * consistent throughout all of them", recording of 17 Oct 13:26, 00:49 to 01:26, P3). It rises with the keyboard.
  */
 fun Modifier.floatingBar(): Modifier = imePadding().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = BarLift)
+    // As wide as the readable column it sits under, never across a sideways phone (rule 207).
+    .widthIn(max = ReadableWidth - 32.dp)
 
 /**
  * A heading over a card on a sheet, the one kind every sheet uses: the Settings sheet's small muted words and nothing

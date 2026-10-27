@@ -21,6 +21,24 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.65.0
+
+#### 2026-10-27 13:32 UTC
+
+Pully fits an unfolded foldable and a phone held sideways.
+
+- On an unfolded foldable your Inbox stays on the left and the pull request you open sits beside it, with the row you opened marked.
+![An unfolded foldable with the Inbox on the left, the Idempotency keys row marked, and that pull request open on the right](changelog/0.65.0/unfolded.png)
+- Tapping another row swaps the pull request beside the list, so Back takes you to the list rather than through every one you looked at. With nothing open the right side says so quietly.
+![The Inbox on the left and a quiet line on the right saying a pull request you open shows here](changelog/0.65.0/unfolded-empty.png)
+- Sheets like More rise over the side they belong to, not across both.
+![The More sheet risen over the pull request on the right while the Inbox stays in place on the left](changelog/0.65.0/unfolded-sheet.png)
+- Held sideways, a phone shows each page in a comfortable column in the middle, with the top bar closer to the top so more of the page fits.
+![A phone held sideways showing a pull request's summary in a centred column under a compact top bar](changelog/0.65.0/sideways.png)
+- The code in Changes still uses the whole width sideways, and sheets open at their full height there.
+![A phone held sideways showing a diff across the whole width](changelog/0.65.0/sideways-code.png)
+- Nothing hides under the camera cutout or the navigation bar at the side.
+
 ## 0.64.0
 
 #### 2026-10-26 14:16 UTC

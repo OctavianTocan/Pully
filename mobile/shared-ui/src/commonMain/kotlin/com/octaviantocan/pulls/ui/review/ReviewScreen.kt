@@ -40,6 +40,7 @@ import com.octaviantocan.pulls.ui.Nav
 import com.octaviantocan.pulls.ui.ai.AskReference
 import com.octaviantocan.pulls.ui.ai.tourComing
 import com.octaviantocan.pulls.ui.design.BlurSwitch
+import com.octaviantocan.pulls.ui.design.readableWidth
 import com.octaviantocan.pulls.ui.design.FloatIcon
 import com.octaviantocan.pulls.ui.design.LocalMessages
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
@@ -350,7 +351,8 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                     // One header over the three views, drawn once: the same pixels on each while only what is under it slides
                     // (rule 93), and the capsule's pill slides to the view you go to. Its corner is Aa on the diff and ⋯ elsewhere;
                     // on the Tour, ⋯ is the tour's own sheet (N23).
-                    Box(Modifier.fillMaxWidth()) {
+                    // In the readable column on a wide window, over the code as well as the words, so it never moves (rule 207).
+                    Box(Modifier.readableWidth()) {
                         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = headerTopPadding()), verticalAlignment = Alignment.CenterVertically) {
                             FloatIcon(Lu.back, "Back", ::back, iconSize = 22.dp)
                             Spacer(Modifier.weight(1f))
@@ -374,7 +376,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                     ReviewFramePull(services.commands, Modifier.weight(1f).fillMaxWidth()) {
                     BlurSwitch(view, Modifier.fillMaxSize(), order = { it.ordinal }, motion = viewMotion) { page ->
                         when (page) {
-                            PrView.Overview -> PrOverviewScreen(
+                            PrView.Overview -> Box(Modifier.fillMaxSize().readableWidth()) { PrOverviewScreen(
                                 session, ui, top, data, head, overviewScroll, pane, { pane = it },
                                 onDiff = { path -> if (path == null) toChanges() else openDiff(path) },
                                 onAsk = { question -> openAsk(forTour = false, initial = question) },
@@ -387,14 +389,15 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                                 onOpenRepo = { owner, repo -> if (services.current()) nav.openRepo(owner, repo) },
                                 askDraft = askDraft,
                                 onAskDim = { focused, empty -> askDim = focused to empty },
-                            )
+                            ) }
+                            // The code takes the whole width: turning the phone sideways is how a long line is read whole.
                             PrView.Diff -> PrDiffScreen(
                                 session, ui, diffPath, commitLabel(session.selection, data?.overview), { diffPath = it },
                                 onOverview = ::toOverview,
                                 onFiles = { sheet = "files" },
                                 onAsk = if (aiPolicy.canAsk && services.actions != null) ({ reference -> openAsk(forTour = false, reference = reference) }) else null,
                             )
-                            PrView.Tour -> kept.SaveableStateProvider(PrView.Tour.name) {
+                            PrView.Tour -> kept.SaveableStateProvider(PrView.Tour.name) { Box(Modifier.fillMaxSize().readableWidth()) {
                                 PrTourScreen(
                                     session, head,
                                     resumeAt = remember { pull?.let { tours.get("${it.owner}/${it.repo}#${it.number}")?.resumeAt } ?: 0 },
@@ -413,7 +416,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
                                             sheet = "tourmore"
                                         }
                                     }) else null,
-                                )
+                                ) }
                             }
                         }
                     }
@@ -473,7 +476,7 @@ private fun ReviewScreenContent(target: OpenTarget, nav: Nav, services: ReviewFr
 /** A page with only a back button over [content]: while the pull request loads or when it cannot. */
 @Composable
 private fun Placeholder(onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    Column(Modifier.fillMaxSize().readableWidth().statusBarsPadding()) {
         Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)) { FloatIcon(Lu.back, "Back", onBack, iconSize = 22.dp) }
         Column(Modifier.fillMaxWidth().padding(top = 48.dp), horizontalAlignment = Alignment.CenterHorizontally, content = content)
     }

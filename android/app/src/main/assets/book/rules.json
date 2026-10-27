@@ -1870,5 +1870,41 @@
       "review"
     ],
     "text": "Tavi: \"Let's add a date and time to each changelog entry from now on. Ensure that's how they work.\" Every section of `android/CHANGELOG.md` has the date and time its version was released, in UTC, on a line of its own right under the heading (`#### 2026-10-26 14:30 UTC`). The update screen, What's new and Settings' What's new show it at the far end of the version's header, across from the number and the New tag, in the phone's own time zone and the way its language writes a date and a time (\"26 Oct 2026, 14:30\"), muted and small so the summary stays the headline. Versions run newest first by date as well as by number. The sections written before 26 October carry the time their version landed on main.\n\nCheck: open What's new: each version shows its date and time at the right of its header, in your own time."
+  },
+  {
+    "n": 206,
+    "title": "Unfolded, the list and the pull request sit side by side.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "On a window at least 600dp wide and 600dp tall (a foldable opened, a tablet), the list page (the Inbox, a repository, Explore) stays on the left, a little under half the width and between 340 and 420dp, and the pull request it opens shows beside it, at about a phone's width, behind a hairline. Each pane is a whole phone page with its own header and its own foot bar. Before anything is open the right pane says, in one muted line, that a pull request you open shows there. Opening another pull request from the list replaces the one beside it rather than stacking on it, so Back from the right pane goes to the list, never through every pull request tapped before; a pull request opened from inside another (a stack layer, a link) still stacks. The row whose pull request is open sits on the hover tint. The diff's columns fit the pane they are in. It is one route stack read as two panes, so folding the phone shut shows the same place as one page.\n\nCheck: at 841 by 701, open a pull request from the Inbox, then another: the second replaces the first, the Inbox does not move, its row is marked, and Back leaves the Inbox with the right pane saying what goes there."
+  },
+  {
+    "n": 207,
+    "title": "Sideways, one page in a readable column; the code takes the width.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "On a window 600dp or more wide but under 600dp tall (a phone held sideways), one page shows at a time, as on a phone, but its rows, words and headers sit in a column no wider than 600dp, centred, so nothing stretches across the screen: the Inbox's tabs, chips, rows and search pill, a pull request's header, overview and tour, and the foot bar. The diff's code is the exception and takes the whole width, because reading a long line whole is why the phone was turned. The header sits 8dp under the status bar rather than 48dp from the top, since height is what a sideways phone lacks. Type keeps its phone sizes.\n\nCheck: at 891 by 411, the Inbox and the overview are a centred column with the page colour either side, the search pill is as wide as the column, the diff's code runs edge to edge under a header that stays in the column, and scrolling the overview leaves room to read."
+  },
+  {
+    "n": 208,
+    "title": "A sheet rises over the page that opened it, no wider than a column.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "A sheet is never wider than 600dp: on a wide window it is centred at the foot, and in an unfolded window it rises over the pane whose page opened it (the pull request's ⋯ over the right pane, the Inbox's Sort over the list) while the scrim still dims everything (rule 5). Sideways, half the window is too little to read, so a sheet rests at its tall height instead of half way.\n\nCheck: open the pull request's ⋯ unfolded and sideways: it sits over the pull request, no wider than the column, and sideways it opens tall."
+  },
+  {
+    "n": 209,
+    "title": "Nothing sits under a camera cutout or a side navigation bar.",
+    "source": "answers",
+    "checkedBy": [
+      "review"
+    ],
+    "text": "Held sideways, the camera cutout and the three-button navigation bar move to the sides of the screen. Pages keep clear of both on either side, the diff's full-width code included, while the page colour still runs under them.\n\nCheck: sideways with three-button navigation, no row, code line or button is under the bar or the camera."
   }
 ]

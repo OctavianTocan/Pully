@@ -208,3 +208,11 @@ reveal's cross-blur, never the page behind showing through the panel. Its window
 show a system dim on any frame, and the status bar icons MUST stay readable over the page
 while it opens. Source: Tavi's recording of 26 Oct 2026, 01:07 to 01:28 (Settings drew
 see-through and "some black thing glitches out").
+
+@cc [owner:OctavianTocan,label:design] sheets-and-foot-bars-stay-column-wide
+A sheet's panel and the foot bar MUST be no wider than ReadableWidth (less the bar's
+margins). In an unfolded window a sheet MUST rise over the pane whose page opened it,
+while its scrim still dims the whole window (rule 5). In a window under 600dp tall and
+600dp or more wide, a sheet MUST rest at its tall height, and a page header MUST sit 8dp
+under the status bar instead of 48dp from the top. Source: Tavi's message of 27 Oct 2026
+12:55, DESIGN.md rules 207 and 208.

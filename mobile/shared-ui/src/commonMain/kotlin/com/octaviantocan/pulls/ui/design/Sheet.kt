@@ -10,6 +10,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
@@ -74,6 +76,7 @@ import com.octaviantocan.pulls.sound.NativeGestureFeedback
 import com.octaviantocan.pulls.sound.cueClickable
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -601,7 +604,9 @@ internal fun SheetPanel(
     position.expandable = detents
     position.fills = full
     position.window = if (window > 0) window.toFloat() else with(density) { screen.toPx() }
-    position.updateHalf(position.window / 2f)
+    // Sideways, half the window is too little to read, so a sheet rests at its tall height (rule 208).
+    val sideways = rememberWindowShape() == WindowShape.Sideways
+    position.updateHalf(if (sideways) position.window else position.window / 2f)
     // Half the window can change with no change to the panel (split screen): a sheet at its normal height moves to its new rest.
     LaunchedEffect(position.half, detents) { position.follow(scope, motion) }
     val latestDismiss by rememberUpdatedState(dismiss)
@@ -636,7 +641,8 @@ internal fun SheetPanel(
                 .cueClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = "Close", role = Role.Button) { dismiss() },
         )
         Box(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tall)
+            // No wider than a readable column, centred at the foot of a wide window, or of the pane whose page opened it (rule 208).
+            panelPlace(LocalPaneSpan.current).height(tall)
                 .onSizeChanged { position.measured(it.height, scope, motion) }
                 .graphicsLayer { translationY = position.shift(size.height) }
                 .clip(shape).background(c.paper)
@@ -656,10 +662,22 @@ internal fun SheetPanel(
                     }
                 }) {
                 Box(Modifier.padding(top = 10.dp, bottom = 14.dp).align(Alignment.CenterHorizontally).size(36.dp, 4.dp).clip(CircleShape).background(c.grabber))
-                CompositionLocalProvider(LocalSheetSettled provides position.settled, LocalSheet provides control) { body() }
+                // What the panel holds is as wide as the panel, whatever page it opened over.
+                val panelWidth = with(density) { LocalWindowInfo.current.containerSize.width.toDp() }.takeIf { it > 0.dp }?.coerceAtMost(ReadableWidth)
+                CompositionLocalProvider(LocalSheetSettled provides position.settled, LocalSheet provides control, LocalPageWidth provides panelWidth) { body() }
             }
         }
     }
+}
+
+/** Where the panel sits along the foot of the window: centred under [span], the pane that opened it, or the window. */
+@Composable
+private fun BoxScope.panelPlace(span: PaneSpan?): Modifier {
+    if (span == null) return Modifier.align(Alignment.BottomCenter).widthIn(max = ReadableWidth).fillMaxWidth()
+    val width = with(LocalDensity.current) { minOf(span.width, ReadableWidth.toPx()) }
+    return Modifier.align(Alignment.BottomStart)
+        .offset { IntOffset((span.left + (span.width - width) / 2f).roundToInt(), 0) }
+        .width(with(LocalDensity.current) { width.toDp() })
 }
 
 /** False while a sheet slides in, drags or leaves, true once its panel rests. */

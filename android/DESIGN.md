@@ -370,7 +370,7 @@ Colour themes (K18). This palette is the theme named Pully, and the default. Set
 
 ## Typography
 
-Geist carries interface text, Mona Sans carries numbers and file names, and Geist Mono carries code and branch names. Sizes come from `PullsType`. `xs` and `sm` step down one notch from 768dp up, so each has a `-wide` twin in the front matter. `xxl` is a page title (26, rule 12), `xl` a section heading, `lg` a sheet title, `row` and `body` a row title and body copy, `read` the reading size of summaries and tour text, `base` inputs, `sm` lists and meta.
+Geist carries interface text, Mona Sans carries numbers and file names, and Geist Mono carries code and branch names. Sizes come from `PullsType`. `xs` and `sm` step down one notch on the web from 768px up, so each has a `-wide` twin in the front matter; the phone app keeps its sizes on every window, because no column of it is wider than the readable width (rule 207). `xxl` is a page title (26, rule 12), `xl` a section heading, `lg` a sheet title, `row` and `body` a row title and body copy, `read` the reading size of summaries and tour text, `base` inputs, `sm` lists and meta.
 
 Rule 14 sets the floor at 15 and bans uppercase and tracked labels. Phone meta today is partly below that: `xs` is 13, and `compact`, `mini` and `micro` are 12, 11 and 10. The raw-values check counts every use of those roles so the number can only fall. Letter-spacing exists only in `xxl`. No uppercase labels, no eyebrows.
 
@@ -378,7 +378,9 @@ Rule 14 sets the floor at 15 and bans uppercase and tracked labels. Phone meta t
 
 Phone first. The render size for a check is 390 by 844 (rule 25), and nothing sits inside the 16dp margin except full-bleed bands such as the diff and sheet backgrounds. The kit's touch target is 44dp (`TOUCH`): round buttons and capsules are 44, chips are 36, CTA buttons 52, sheet rows 52 and quick actions 72.
 
-Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 in places, which the scale does not list, and the checks do not count them. From 768dp up (a folded phone opened), `xs` and `sm` step down one notch and modals become centered dialogs. A sub-page keeps its context: the PR title and number stay in its header (rule 23).
+Spacing steps are 4, 8, 12, 16, 24 and 32. The code also uses 6, 10, 14 and 18 in places, which the scale does not list, and the checks do not count them. A sub-page keeps its context: the PR title and number stay in its header (rule 23).
+
+The window has one of three shapes (`WindowShape` in `ui/design/WindowShape.kt`), and every page is the same page in each; only where it sits changes. A window narrower than 600dp is a **phone**: the layout above. A window 600dp wide or more but under 600dp tall is a phone held **sideways**: one page at a time in a column no wider than 600dp (`ReadableWidth`), centred, while the diff's code takes the whole width; headers sit 8dp under the status bar instead of 48dp from the top, and sheets rest at their tall height (rules 207 and 208). A window at least 600dp both ways is **unfolded**, a foldable opened or a tablet: the list (Inbox, a repository, Explore) on the left, a little under half the width and between 340 and 420dp, a hairline, and the pull request it opened beside it, each pane with its own header and foot bar, the open row marked and a sheet rising over the pane that opened it (rules 206 and 208). Nothing in any shape sits under a camera cutout or a navigation bar at the side (rule 209). Render checks for the wide shapes are 841 by 701 and 707 by 841 (unfolded) and 891 by 411 (sideways).
 
 ## Elevation & Depth
 
@@ -2114,6 +2116,42 @@ Check: open What's new: each version shows its date and time at the right of its
 
 Source: answers. Checked by: review.
 
+### Rules 206 to 209, from Tavi's message of 2026-10-27
+
+Tavi's message of 27 Oct at 12:55: "Now let's figure out how to make it so that the app looks great both on foldables unfolded, and also in horizontal mode on normal phone." The phone held upright stays the shape everything is designed at (rule 25); these rules say where the same pages go when the window is wider.
+
+#### 206. Unfolded, the list and the pull request sit side by side.
+
+On a window at least 600dp wide and 600dp tall (a foldable opened, a tablet), the list page (the Inbox, a repository, Explore) stays on the left, a little under half the width and between 340 and 420dp, and the pull request it opens shows beside it, at about a phone's width, behind a hairline. Each pane is a whole phone page with its own header and its own foot bar. Before anything is open the right pane says, in one muted line, that a pull request you open shows there. Opening another pull request from the list replaces the one beside it rather than stacking on it, so Back from the right pane goes to the list, never through every pull request tapped before; a pull request opened from inside another (a stack layer, a link) still stacks. The row whose pull request is open sits on the hover tint. The diff's columns fit the pane they are in. It is one route stack read as two panes, so folding the phone shut shows the same place as one page.
+
+Check: at 841 by 701, open a pull request from the Inbox, then another: the second replaces the first, the Inbox does not move, its row is marked, and Back leaves the Inbox with the right pane saying what goes there.
+
+Source: answers. Checked by: review.
+
+#### 207. Sideways, one page in a readable column; the code takes the width.
+
+On a window 600dp or more wide but under 600dp tall (a phone held sideways), one page shows at a time, as on a phone, but its rows, words and headers sit in a column no wider than 600dp, centred, so nothing stretches across the screen: the Inbox's tabs, chips, rows and search pill, a pull request's header, overview and tour, and the foot bar. The diff's code is the exception and takes the whole width, because reading a long line whole is why the phone was turned. The header sits 8dp under the status bar rather than 48dp from the top, since height is what a sideways phone lacks. Type keeps its phone sizes.
+
+Check: at 891 by 411, the Inbox and the overview are a centred column with the page colour either side, the search pill is as wide as the column, the diff's code runs edge to edge under a header that stays in the column, and scrolling the overview leaves room to read.
+
+Source: answers. Checked by: review.
+
+#### 208. A sheet rises over the page that opened it, no wider than a column.
+
+A sheet is never wider than 600dp: on a wide window it is centred at the foot, and in an unfolded window it rises over the pane whose page opened it (the pull request's ⋯ over the right pane, the Inbox's Sort over the list) while the scrim still dims everything (rule 5). Sideways, half the window is too little to read, so a sheet rests at its tall height instead of half way.
+
+Check: open the pull request's ⋯ unfolded and sideways: it sits over the pull request, no wider than the column, and sideways it opens tall.
+
+Source: answers. Checked by: review.
+
+#### 209. Nothing sits under a camera cutout or a side navigation bar.
+
+Held sideways, the camera cutout and the three-button navigation bar move to the sides of the screen. Pages keep clear of both on either side, the diff's full-width code included, while the page colour still runs under them.
+
+Check: sideways with three-button navigation, no row, code line or button is under the bar or the camera.
+
+Source: answers. Checked by: review.
+
 ### Keep as is
 
 These were liked in the walkthrough and must not regress:
@@ -2203,8 +2241,10 @@ Run before showing any new screen.
 62. Open a sheet, share a pull request link to Pully, then go back: the sheet slid down, the pull request opened, and Back lands on the Inbox with no sheet; Back again asks before Pully closes (rules 175 and 176).
 63. Generate a tour and pull its sheet down: a lip stays at the foot of the Tour, the section strip fills in as sections are written, unwritten cards shimmer, and every finished step in the log opens (rules 183 to 185).
 64. Restart Pully and open Profile, Stats and the first Inbox row: each shows at once, with no skeleton (rules 178 and 187).
+65. Render every new screen at 841 by 701 and 707 by 841 as well as 390 by 844: the list and the pull request sit side by side, each a whole page, and the open row is marked (rule 206).
+66. Render it at 891 by 411: one readable column, the code edge to edge, the header close under the status bar and sheets resting tall (rules 207 and 208).
 
-The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31), the checks from the second walkthrough (32 to 43) the checks from his comments and notes of the same day (44 to 47) the check from his answer on the search pill (48), the checks from his ideas for Home (49 and 51), the check from his message on updates (50) the check from his message on motion (52), the check for Jev (53), the check for huge pull requests (54) the checks from the audit of the second walkthrough (55 to 61) and the checks from the walkthrough of 0.39.0 (62 to 64). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
+The checklist is the canvas checklist (1 to 10, with the three Row W checks as 11 to 13) followed by the walkthrough checks (14 to 22) the Perplexity checks (23 to 27) the checks from Tavi's answers (28 to 31), the checks from the second walkthrough (32 to 43) the checks from his comments and notes of the same day (44 to 47) the check from his answer on the search pill (48), the checks from his ideas for Home (49 and 51), the check from his message on updates (50) the check from his message on motion (52), the check for Jev (53), the check for huge pull requests (54) the checks from the audit of the second walkthrough (55 to 61) the checks from the walkthrough of 0.39.0 (62 to 64) and the checks for wide windows (65 and 66). The canvas notes number Row W's checks 10 to 12, which collides with its own check 10, so they are renumbered here.
 
 ## Enforcement
 
@@ -2281,3 +2321,4 @@ Every difference between this file and the rendered app, and how it was settled.
 - **2026-10-16, every rule checked against what came after it (no version). Asked by Tavi.** He asked whether every rule from his recordings had made it into the rules file, the contracts, this file and the UI Book. Each of rules 1 to 145, the Keep as is list and the checklist was read against the later rounds (F, H, J, K, L and M points), the contracts and the code, and the text that no longer held was rewritten: 40 rules (among them 6, 17, 28, 29, 30, 32, 42, 53, 56, 57, 61, 71, 77, 79, 80, 83, 84, 89, 91, 95, 96, 101, 105, 113, 119, 121, 135 and 136) and 13 checks. A canvas rule keeps its old words in a "The canvas said" note. His 0.33.0 recording (L1 to L36) had become contracts but no rules; its lessons are now in the rules they belong to (49, 53, 87, 95, 101, 119, 128, 131, 134, 137, 143 and 144), not new numbers, because the 0.38.0 round takes 146 on. Rule 71 is reversed on his word (L33: no grey bars under a live indicator), so Ask's last hint bars are gone from the code. The rules 115 to 129 got their own heading.
 - **2026-10-17, the walkthrough of 0.47.0 (rules 2, 191, 192 and 195 to 200, 0.48.0). Asked by Tavi.** His recording of 17 Oct 14:45 has seven points, Q1 to Q7, all built. Reversed on his word: PR titles in list rows wrap (rule 2), now one line with an ellipsis; the Overview's bar that opened the conversation on a tap (N28), now opening itself. My readings: the short Ask pill is centred and as wide as the word needs with room around it; the Inbox and a repository's search are different bars, so the words fade between them; the tapped place maps to the editor by its share of the text's height and lands at the start of that word. Q7, the diff's swipe back to the file the diff opened on, was a bug (the gesture kept the first file), not a rule. Open edges: checked by compiling, unit tests and Robolectric films on fake data, not on a phone, so the feel of the pill's width easing and of the live Markdown under a real keyboard needs a hand on the phone.
 - **2026-10-26, every version says when it came out (rule 205, no version). Asked by Tavi.** He asked for a date and time on each changelog entry from now on. A section now carries `#### <date> <time> UTC` under its heading; the app shows it in the phone's zone and language at the far end of the version's header on the update screen and in What's new, and the `changelog` check, the release check and core's `ChangelogTest` fail on a section without one, with a time that does not exist, out of order, or placed below the summary. My readings: the time is written in UTC so a writer in any zone puts down the same thing; the 56 sections before it take the time their `versionName` first landed on main, from git; a `####` line, not a comment or the heading line, because builds from before this one skip it without losing the section or its summary, and `publish-apk.sh` now skips it too when it takes the notification's summary. A new time alone does not count as new notes for a release. Open edges: checked by compiling and unit tests, not on a phone.
+- **2026-10-27, foldables and sideways phones (rules 206 to 209, 0.65.0). Asked by Tavi the same day.** Rendered at 891 by 411 the app stretched every row, tab and pill across the screen, the overview's pinned head left no room for its words, and a sheet spread the whole width resting at a sliver; unfolded at 841 by 701 the Inbox and a pull request were each a stretched phone page. `AppPages` now reads the window's shape: unfolded it lays the one route stack out as two panes (the last list page, and the top page beside it), each with its own `FootBars`, the page width the diff sizes its columns from (`LocalPageWidth`) and its span, so a sheet rises over its pane; a page opened from the list replaces the one beside it. Sideways and on anything wider than 600dp a list page, a pull request's header, overview and tour sit in a 600dp column (`readableWidth`), the diff's code keeps the whole width, the header comes up under the status bar and a sheet rests tall. Every page keeps clear of a side cutout or navigation bar. `PullsType.wide` is no longer set on the phone, since no column reaches 768dp. Rendered with Robolectric at 411 by 891, 891 by 411, 841 by 701 and 707 by 841; the phone renders are pixel for pixel what they were.

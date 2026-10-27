@@ -202,7 +202,7 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
                     else -> {
                         if (store.items.isNotEmpty()) {
                             items(rows, key = { it.number }) { pr ->
-                                RepoPullRow(pr, now, Modifier.animateItem()) { nav.openFrom(OpenTarget.Pull(owner, repo, pr.number, "github.com"), "repo", false) }
+                                RepoPullRow(pr, now, Modifier.animateItem(), open = isOpenBeside(owner, repo, pr.number)) { nav.openFrom(OpenTarget.Pull(owner, repo, pr.number, "github.com"), "repo", false) }
                             }
                             if (rows.isEmpty() && !isSearching) item {
                                 Text(t("pulls.noMatches"), Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 48.dp), style = PullsType.sm, color = c.muted, textAlign = TextAlign.Center)
@@ -238,12 +238,13 @@ private fun RepoScreenBody(owner: String, repo: String, nav: Nav, startOnTours: 
  * one line in fixed columns. Its labels are not shown, so the row is no taller than any other (Tavi's pick, 17 Oct; Q1).
  */
 @Composable
-private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, onClick: () -> Unit) {
+private fun RepoPullRow(pr: RepoPull, now: Long, modifier: Modifier, open: Boolean, onClick: () -> Unit) {
     val c = LocalPullsColors.current
     PullRowFrame(
         AnnotatedString(pr.title),
         tile = { StateTile(pullStateOf(pr.state)) },
         modifier = modifier.cueClickable(role = Role.Button, onClickLabel = pr.title, onClick = onClick),
+        open = open,
     ) {
         RowNumber(pr.number)
         Text(pr.author?.login ?: "ghost", Modifier.weight(1f), style = PullsType.sm, color = c.muted, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
