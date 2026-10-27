@@ -21,6 +21,15 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.69.0
+
+#### 2026-10-27 15:39 UTC
+
+The pull request you leave on a foldable keeps its header as it goes.
+
+- Unfolded, when you tap another row the pull request on its way out no longer shows a Back arrow while it fades.
+![An unfolded foldable with the Inbox on the left and a pull request on the right whose header has only the view buttons](changelog/0.69.0/steady-header.png)
+
 ## 0.68.0
 
 #### 2026-10-27 15:29 UTC
