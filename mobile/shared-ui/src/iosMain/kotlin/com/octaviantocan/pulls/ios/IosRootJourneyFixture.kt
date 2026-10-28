@@ -50,5 +50,6 @@ fun rootJourneyFixtureApplication(homeActions: NativeHomeActions, accountStorage
             check(defaults.synchronize()) { "The sample journey state could not be saved." }
         }
     }, fixtureIdentifier = identifier, scenario = scenario) else RootJourneyTransport.readOnly(identifier)
+    transport.rejected = { NSLog("Pully route stack: fixture rejected " + it.replace("%", "%%")) }
     return IosPullyApp(homeActions, accountStorage, defaults, transport)
 }

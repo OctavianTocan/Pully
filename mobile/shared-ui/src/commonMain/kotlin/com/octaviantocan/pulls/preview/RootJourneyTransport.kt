@@ -9,7 +9,13 @@ import kotlinx.serialization.json.*
 internal class RootJourneyTransport private constructor(private val work: RootJourneyWork?, val fixtureIdentifier: String?) : RpcTransport {
     constructor() : this(null, null)
     val fullJourney: Boolean get() = work != null
-    override suspend fun execute(request: RpcRequest): RpcResponse {
+    /** Verify branch only: says why the fixture rejected a request, which the client reports as unreachable. */
+    var rejected: ((String) -> Unit)? = null
+    override suspend fun execute(request: RpcRequest): RpcResponse = try { executeChecked(request) } catch (e: Exception) {
+        if (e !is kotlinx.coroutines.CancellationException) rejected?.invoke(request.body.take(300) + " -> " + e.message)
+        throw e
+    }
+    private suspend fun executeChecked(request: RpcRequest): RpcResponse {
         require(request.url == "$PREVIEW_SERVER/api/rpc") { "The root fixture cannot leave its fixed sample server." }
         require(request.headers.isEmpty() || request.headers == mapOf("X-Pully-Session" to SESSION)) { "The root fixture cannot accept real credentials." }
         require(request.body.length <= 64_000) { "The sample RPC envelope is too large." }
