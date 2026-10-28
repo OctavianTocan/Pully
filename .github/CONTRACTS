@@ -1,5 +1,0 @@
-@cc [owner:OctavianTocan,label:architecture] pully-ci-runner-placement
-Pully Linux workflow jobs MUST run on the repository's pully-linux self-hosted runners.
-The iOS verification job MAY run on GitHub-hosted macOS and MUST NOT be required for
-merging or publishing a release. Source: Octavian's runner and optional iOS decisions,
-28 Oct 2026.
