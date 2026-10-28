@@ -51,3 +51,8 @@ The Tour progress ring MUST follow the existing reading-line interpolation and f
 at the page end, including a short last stop. A missing or empty stop list MUST remain
 at zero. Source: existing tour-strip-is-calm, DESIGN.md rule 97, preserved by Tavi's
 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:product] overview-html-shows-what-github-shows
+The description's HTML MUST drop what GitHub hides from readers (`sr-only` text and the
+`js-render-enrichment-loader` "Loading" of a diagram) and MUST read an alert
+(`div.markdown-alert`) as a quote whose first line is its title in bold. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".

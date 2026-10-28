@@ -148,10 +148,12 @@ animated dismissal. It MUST NOT register a second native gesture observer.
 Both hosts MUST use the existing Markdown and MarkdownPreview Compose layout,
 table sizing and alignment, code blocks, inline styling and mention resolution.
 Images MUST retain their original-size probe, density-sharp reload, dark-picture
-selection and link-or-image tap destination. Raw HTML MUST remain reduced to inert
-text or line breaks; it MUST NOT execute or introduce a WebView. Source: existing
-kit-one-markdown, DESIGN.md rules 53, 95, 96, 124 and 158, L14/L15, and Tavi's
-21 Oct 2026 maximum-reuse iOS decision.
+selection and link-or-image tap destination. Raw HTML MUST remain inert: it is read
+as the Markdown nodes it stands for (github-html-reads-as-github) and MUST NOT execute
+or introduce a WebView. Source: existing kit-one-markdown, DESIGN.md rules 53, 95, 96,
+124 and 158, L14/L15, and Tavi's 21 Oct 2026 maximum-reuse iOS decision; Tavi's
+28 Oct 2026 request to fix Markdown rendering widened raw HTML from text and breaks
+to the nodes GitHub shows.
 
 @cc [owner:OctavianTocan,label:design;architecture] shared-palettes-retain-canonical-colors-and-notices
 Both hosts MUST use the same Pully and generated OpenCode palette registry, including
@@ -216,3 +218,11 @@ while its scrim still dims the whole window (rule 5). In a window under 600dp ta
 600dp or more wide, a sheet MUST rest at its tall height, and a page header MUST sit 8dp
 under the status bar instead of 48dp from the top. Source: Tavi's message of 27 Oct 2026
 12:55, DESIGN.md rules 207 and 208.
+
+@cc [owner:OctavianTocan,label:design] markdown-quote-bar-spans-the-quote
+A block quote MUST draw its bar down the whole height of the quoted text, never as a
+dot beside its first line. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description"; the 0.69.0 render showed a dot.
+
+@cc [owner:OctavianTocan,label:product;design] markdown-failed-picture-keeps-its-words
+A picture that fails to load MUST show its alt text (or "Image") faded and underlined,
+still tappable, never vanish to nothing. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".

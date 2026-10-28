@@ -11,3 +11,13 @@ Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 95 and 96.
 Semantic nodes and parsing MUST have no Compose, Android, transport or native UI
 dependencies. Parser objects MUST NOT escape into the shared renderer or feature
 state. Source: Tavi's 21 Oct 2026 chosen shared-domain/shared-presentation boundaries.
+
+@cc [owner:OctavianTocan,label:product;security] github-html-reads-as-github
+After parsing, raw HTML in Markdown (review comments, bot summaries) MUST be read as
+GitHub shows it: an HTML block as the Markdown it holds, a `<details>` around Markdown
+blocks as one fold with its summary as the title (open when it says `open`), and
+inline `<img>`, `<picture>`, `<a href>`, `<b>`, `<i>`, `<s>`, `<code>` and `<br>` as
+images, links, emphasis, code and breaks. Comments and other tags MUST drop away with
+their text kept. Nothing MAY run as script. A `> [!NOTE]` alert (and TIP, IMPORTANT,
+WARNING, CAUTION) MUST keep its quote with its title in bold on its own line. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description";
+Devin's "Learn more" fold showed loose over text that never folded, and its badge vanished.

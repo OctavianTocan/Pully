@@ -23,6 +23,15 @@ sealed class Node {
         nodes.add(0, child)
     }
 
+    /** Replaces every child with [list], in order, each one's sibling link set afresh. */
+    internal fun replaceChildren(list: List<Node>) {
+        nodes.clear()
+        for (node in list) {
+            node.next = null
+            append(node)
+        }
+    }
+
     internal fun linkifyAutolinks() {
         val original = nodes.toList()
         nodes.clear()
@@ -58,6 +67,11 @@ class HardLineBreak : Node()
 class HtmlInline(val literal: String) : Node()
 class HtmlBlock(val literal: String) : Node()
 class TaskListItemMarker(val isChecked: Boolean) : Node()
+/**
+ * A `<details>` disclosure that raw HTML in Markdown opened and closed around Markdown blocks (GitHub comments write
+ * them so); its children are those blocks. No parser makes one: [liftHtml] does.
+ */
+class DetailsBlock(val summary: String, val open: Boolean) : Node()
 class TableBlock : Node()
 class TableHead : Node()
 class TableBody : Node()

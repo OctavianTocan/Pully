@@ -1,5 +1,6 @@
 package com.octaviantocan.pulls.ui.review
 
+import com.octaviantocan.pulls.core.githubBlobLink
 import com.octaviantocan.pulls.data.AskThread
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.DiffLine
@@ -97,9 +98,9 @@ fun diffEntries(file: ReviewFile, full: FullFile? = null, expanded: Set<Int>? = 
     return result
 }
 
-/** `content.split('\n')` without the empty line a trailing newline leaves. */
+/** `content.split('\n')` without the empty line a trailing newline leaves, and without a CRLF file's `\r`, as patch lines are read. */
 fun splitFileLines(text: String): List<String> {
-    val parts = text.split('\n')
+    val parts = text.split('\n').map { it.removeSuffix("\r") }
     return if (parts.isNotEmpty() && parts.last().isEmpty()) parts.dropLast(1) else parts
 }
 
@@ -202,6 +203,28 @@ fun splitEntries(entries: List<DiffEntry>): List<SplitEntry> {
 @Suppress("UNUSED_PARAMETER")
 fun effectiveSplit(layout: String, file: ReviewFile, widthDp: Int): Boolean =
     layout == "split" && file.additions > 0 && file.deletions > 0
+
+// --- Pictures of binary files ---
+
+/** One side of a changed picture: [before] for the base's, and where GitHub serves it. */
+data class ImageSide(val before: Boolean, val url: String)
+
+private val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico")
+
+/**
+ * The pictures a binary image file shows in place of its patch, as GitHub's diff does: the base's (none for an added
+ * file) and the head's (none for a removed one), each from the commit the pull request compares. Empty for any other
+ * file, for a diff with no GitHub repository ([owner] null, a local or pasted diff), or when a commit is not known.
+ */
+fun imageSides(owner: String?, repo: String?, refKind: String, baseSha: String, headSha: String, file: ReviewFile): List<ImageSide> {
+    if (owner == null || repo == null || refKind == "local" || refKind == "paste") return emptyList()
+    if (file.path.substringAfterLast('/').substringAfterLast('.', "").lowercase() !in IMAGE_EXTENSIONS) return emptyList()
+    fun side(before: Boolean, sha: String, path: String) = sha.takeIf { it.isNotBlank() }?.let { ImageSide(before, githubBlobLink(owner, repo, it, path) + "?raw=true") }
+    return listOfNotNull(
+        if (file.status == "added") null else side(true, baseSha, file.previousPath ?: file.path),
+        if (file.status == "removed") null else side(false, headSha, file.path),
+    )
+}
 
 // --- Noisy files (`noisy-files.ts` + core `GENERATED_PATTERNS`) ---
 

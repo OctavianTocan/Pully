@@ -21,6 +21,23 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.70.0
+
+#### 2026-10-28 14:03 UTC
+
+Diffs show every line, and comments read the way GitHub shows them.
+
+- Removed lines starting with `--` and added lines starting with `++` no longer vanish from a diff, and the line numbers after them are right again.
+- A moved file names where it came from, and an empty or unchanged file says so instead of showing a blank page.
+![A diff with its dash lines, moved files and an empty file](changelog/0.70.0/diff-lines.png)
+- A changed picture shows the picture itself, before and after, instead of "Binary file not shown."
+![A changed picture shown in the diff](changelog/0.70.0/picture-diff.png)
+- When unchanged lines or a large file fail to load, the diff says so and lets you try again.
+- Folds in bot comments fold, their badges and pictures show, and notes such as Important or Warning keep their box.
+![A bot comment with its folds and a note](changelog/0.70.0/comment-folds.png)
+- Quotes have a bar down their side again, the stray "Loading" under diagrams is gone, and a picture that can't load shows its name.
+![Quotes, a fold and a picture that could not load](changelog/0.70.0/quotes.png)
+
 ## 0.69.0
 
 #### 2026-10-27 15:39 UTC

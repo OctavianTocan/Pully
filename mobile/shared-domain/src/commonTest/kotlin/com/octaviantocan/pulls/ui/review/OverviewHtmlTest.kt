@@ -11,3 +11,13 @@ class OverviewHtmlTest {
         assertEquals("\\&unknown;", htmlToMarkdown("<p>&unknown;</p>"))
     }
 }
+
+class GithubAlertHtmlTest {
+    @Test
+    fun anAlertIsAQuoteWithItsTitleAndAHiddenLoaderSaysNothing() {
+        val html = """<div class="markdown-alert markdown-alert-caution" dir="auto"><p class="markdown-alert-title" dir="auto"><svg><path d="M0"></path></svg>Caution</p>
+<p dir="auto">The pull request is closed.</p>
+</div><section><pre lang="mermaid">graph TD</pre><span class="js-render-enrichment-loader"><span class="sr-only">Loading</span></span></section>"""
+        assertEquals("> **Caution**\n>\n> The pull request is closed.\n\n```\ngraph TD\n```", htmlToMarkdown(html))
+    }
+}

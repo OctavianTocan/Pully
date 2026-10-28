@@ -370,10 +370,11 @@ private fun parseHunks(json: List<JsonElement>): Pair<List<DiffLine>, List<Hunk>
         var gap = if (oldStart > 0) oldStart - nextOld else newStart - nextNew
         var old = oldStart
         var new = newStart
-        for (line in hunk.str("patch").lineSequence()) {
+        // A hunk's patch is its body only, so a removed `-- comment` (`--- comment`) or an added `++i` (`+++i`) is a
+        // line of code, never a file header. Lines split on `\n` alone, with a CRLF file's `\r` dropped, as the full file's are.
+        for (line in hunk.str("patch").split('\n').map { it.removeSuffix("\r") }) {
             val parsed = when {
                 line.startsWith("@@") || line.startsWith("\\") -> null
-                line.startsWith("+++") || line.startsWith("---") -> null
                 line.startsWith("+") -> DiffLine('+', line.drop(1), newLine = new, oldLine = null).also { new += 1 }
                 line.startsWith("-") -> DiffLine('-', line.drop(1), newLine = null, oldLine = old).also { old += 1 }
                 line.startsWith(" ") -> DiffLine(' ', line.drop(1), newLine = new, oldLine = old).also { old += 1; new += 1 }
