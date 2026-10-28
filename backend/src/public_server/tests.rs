@@ -1,4 +1,5 @@
 use super::*;
+mod granted;
 mod personal_review;
 mod review_regressions;
 mod workspace;

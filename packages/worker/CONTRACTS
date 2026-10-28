@@ -10,8 +10,9 @@ The Worker MUST NOT have a `workers.dev` or preview URL. A route or custom domai
 together with the Cloudflare Access policy in front of it, with Tavi's go-ahead for the hostname,
 because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-account`). The
 staging server's custom domain comes only from the `PULLY_STAGING_HOST` repository variable
-(`scripts/staging-config.mjs`), which the operator sets after its Access application exists;
-`wrangler.jsonc` itself keeps no route. Source for staging: Tavi, 24 Oct 2026 20:46, a staging
+(`scripts/staging-config.mjs`), which the operator sets after its Access application exists,
+and the stable server's only from `PULLY_STABLE_HOST` (`scripts/stable-config.mjs`), set the
+same way; `wrangler.jsonc` itself keeps no route. Source for staging: Tavi, 24 Oct 2026 20:46, a staging
 app that updates when we merge to main. Only `/api/public/` and `/api/personal/` MAY bypass
 Access, as they do in front of production's separate public listener: those routes refuse
 Access credentials and cookies and answer only to their own GitHub sign-in (backend
@@ -20,14 +21,58 @@ Access credentials and cookies and answer only to their own GitHub sign-in (back
 @cc [owner:OctavianTocan,label:security;architecture] hosted-personal-in-its-own-object
 Public browsing and personal GitHub sign-in and the personal workspace (`/api/public/`, `/api/personal/`,
 `/workspace/`) MUST be answered
-by the server's own `public_server` router in the `PersonalServer` Durable Object, never by
-`PullyServer`, as the native server answers them on a separate listener with separate storage
-(backend `public-host-starts-before-legacy-authority`). Its sign-in store and each personal
-account's store MUST be separate scopes of that object's SQLite, so no store reads another's
-records (backend `tenant-state-does-not-adopt-legacy-data`). Sign-in is the GitHub CLI's device
-flow, and the vault keys come only from the `PULLY_PERSONAL_VAULT_KEYS` secret; without it
-GitHub sign-in is reported as not configured. Source: Tavi, 25 Oct 2026, his server agent's
-finding that Connect GitHub did not work on staging.
+by the server's own `public_server` router in the `PersonalServer` Durable Object and the account
+objects it hands requests to, never by `PullyServer`, as the native server answers them on a
+separate listener with separate storage (backend `public-host-starts-before-legacy-authority`).
+`PersonalServer` keeps the sign-in store in its SQLite and MUST NOT keep account data: its
+factory for account stores refuses every account. Each personal account's reads and workspace
+MUST be answered by that account's own `AccountServer` object, named by the backend's
+`account_key`, whose stores are scopes of its own SQLite, so no account's object can read
+another's records (backend `tenant-state-does-not-adopt-legacy-data`). Sign-in is the GitHub
+CLI's device flow, and the vault keys come only from the `PULLY_PERSONAL_VAULT_KEYS` secret;
+without it GitHub sign-in is reported as not configured. Source: Tavi, 25 Oct 2026, his server
+agent's finding that Connect GitHub did not work on staging; one object per account from Tavi,
+28 Oct 2026: "Why would we save anything to files instead of to the DO for each user? We have
+proper user sepparation, no?"
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-account-object-acts-only-on-forwarded-grants
+Only `PersonalServer` MAY reach an `AccountServer`: the Worker MUST NOT route any request to it.
+`PersonalServer` resolves the caller's bearer through the vault (for `/workspace/`, as a
+confirmed session) and forwards the request with that grant in `x-pully-grant`, replacing any
+the caller sent; a bearer that does not resolve gets `PersonalServer`'s own refusal. The
+account object MUST act only on a grant for its own account whose session hash is the request's
+own bearer's, MUST send sign-out back to `PersonalServer`, and MUST get its background session
+from `PersonalServer` each round. `PersonalServer` MUST tell the account object when a granted
+session ends (sign-out, disconnect, expiry, a newer credential), and the account object MUST
+then revoke what it holds for that credential revision, as the vault revokes captured
+authority (backend `personal-session-is-bound-to-one-stable-user`); without a notice it MUST
+revoke, at its next admission or background round, a credential not granted again for ten
+minutes. Source: Tavi, 28 Oct 2026, one object
+per account (`hosted-personal-in-its-own-object`).
+
+@cc [owner:OctavianTocan,label:product;architecture] hosted-account-refreshes-its-own-pulls
+Each `AccountServer` MUST refresh its account's open pull requests with the server's own
+`warm_round` on its alarm, every `WARM_EVERY`, while the account has a confirmed session with
+repository access, and MUST stop setting the alarm when it has none; a later request starts it
+again. Source: Tavi, 28 Oct 2026, asking why stable is not on Workers and why only 150 pull
+requests are refreshed.
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-import-is-off-unless-its-token-is-set
+The `/import/v1/` route that copies the VPS data in (`scripts/import-vps.mjs`) MUST answer 404
+unless the `PULLY_IMPORT_TOKEN` secret is set, and then MUST answer only a POST carrying that
+token, compared without early exit. It MUST NOT replace a record or analytics day the Worker
+already has, except the sign-in store, which is copied whole; an account store MUST be written
+only to the object of an account the copied sign-in store knows. Running it touches the VPS
+data, so it waits for Tavi's go-ahead (coordinator relay, 28 Oct 2026: "switching the public
+address and anything that touches the VPS data is a one-way door").
+
+@cc [owner:OctavianTocan,label:security;architecture] hosted-stable-only-from-the-verified-release
+The stable server MUST be deployed only by `.github/workflows/stable.yml`, as its own Worker
+(`pully-stable`) with its own objects and Android bucket, from a release push whose CI passed
+and that `scripts/release-track.mjs` admits (its `publication-needs-exact-verified-release`).
+It MUST skip until `PULLY_STABLE_HOST` is set, which waits for Tavi's go-ahead to move that host
+(`hosted-server-only-behind-access`). Source: Tavi, 28 Oct 2026: "Why does the stable server
+not run on workers too? [...] We should be using Cloudflare for that too, no?"
 
 @cc [owner:OctavianTocan,label:architecture] hosted-data-in-durable-object-sqlite
 The server's records MUST live in the `PullyServer` Durable Object's SQLite storage through
@@ -80,14 +125,15 @@ missing required tools MUST fail before the build or upload. Source: Tavi, 24 Oc
 staging after the first publication exposed the hosted runner's multiple SDK versions.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-personal-workspace-keeps-stable-owned-state-and-agent-remote
-The PersonalServer object MUST route /workspace/* through the backend's canonical
-personal-session workspace router, and MUST install the own-login AgentHome remote even
-when PullyServer has never started in the isolate. Each immutable personal account's
-saved tours, settings, reviews and analytics MUST survive object restart in its own
-SQLite scope. Live jobs and private caches MUST remain captured-binding state; a new
-binding MUST NOT adopt them. Workspace state and analytics MUST use records, never
+The account's `AccountServer` object MUST route /workspace/* through the backend's canonical
+personal-session workspace router, and `PersonalServer` and `AccountServer` MUST each install
+the own-login AgentHome remote even when PullyServer has never started in the isolate. Each
+immutable personal account's saved tours, settings, reviews and analytics MUST survive object
+restart in its own object's SQLite. Live jobs and private caches MUST remain captured-binding
+state; a new binding MUST NOT adopt them. Workspace state and analytics MUST use records, never
 wasm filesystem calls. No account MAY select another's store, job registry or CLI home.
-Source: Tavi25Oct2026, full production workspace through one own GitHub app login.
+Source: Tavi25Oct2026, full production workspace through one own GitHub app login; the
+account's own object from Tavi, 28 Oct 2026 (`hosted-personal-in-its-own-object`).
 
 @cc [owner:OctavianTocan,label:architecture;security] hosted-workspace-record-prefixes-use-scoped-ranges
 ScopedRecords prefix lookups MUST constrain both the account scope and the literal encoded

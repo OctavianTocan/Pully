@@ -33,7 +33,7 @@ jobs:
       - name: Fast integration policy and publication safeguards
         run: |
           set -e
-          for suite in scripts/release-track.test.mjs scripts/release-policy.test.mjs android/scripts/release.test.mjs android/scripts/publish.test.mjs packages/worker/scripts/publish-staging-android.test.mjs scripts/pulls-review-update.test.mjs; do
+          for suite in scripts/release-track.test.mjs scripts/release-policy.test.mjs android/scripts/release.test.mjs android/scripts/publish.test.mjs packages/worker/scripts/publish-staging-android.test.mjs packages/worker/scripts/import-vps.test.mjs scripts/pulls-review-update.test.mjs; do
             node "$suite"
           done
       - name: Explain the retained required context

@@ -20,18 +20,28 @@ impl PersonalVault {
         session: &str,
         provider: Arc<dyn GitHubProvider>,
     ) -> Result<AuthenticatedSession> {
-        let (this, session) = (self.clone(), session.to_owned());
-        crate::rt::spawn(async move { this.refresh_owned(session, provider).await })
+        let hash = session_hash(session)?;
+        self.resolve_or_refresh_hash(hash, provider).await
+    }
+
+    /// [`Self::resolve_or_refresh`] for a session known by its hash: the server's own
+    /// background work for an account, never a request's input.
+    pub(in crate::personal_auth) async fn resolve_or_refresh_hash(
+        &self,
+        hash: String,
+        provider: Arc<dyn GitHubProvider>,
+    ) -> Result<AuthenticatedSession> {
+        let this = self.clone();
+        crate::rt::spawn(async move { this.refresh_owned(hash, provider).await })
             .await
             .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?
     }
 
     async fn refresh_owned(
         &self,
-        session: String,
+        hash: String,
         provider: Arc<dyn GitHubProvider>,
     ) -> Result<AuthenticatedSession> {
-        let hash = session_hash(&session)?;
         let this = self.clone();
         let first_hash = hash.clone();
         let refresh_lock = blocking(move || {
@@ -49,12 +59,13 @@ impl PersonalVault {
         .await?;
         let _serial = refresh_lock.lock().await;
         let this = self.clone();
+        let snapshot_hash = hash.clone();
         let snapshot = blocking(move || {
             let _runtime = this
                 .runtime
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Personal authorization is unavailable"))?;
-            this.snapshot(hash, true)
+            this.snapshot(snapshot_hash, true)
         })
         .await?;
         if snapshot
@@ -63,7 +74,7 @@ impl PersonalVault {
             .expires_at
             .is_none_or(|at| at > self.clock.now().saturating_add(60))
         {
-            return self.resolve(&session, provider.as_ref()).await;
+            return self.resolve_hash(hash, provider.as_ref()).await;
         }
         let Some(refresh) = snapshot
             .credentials
@@ -173,7 +184,7 @@ impl PersonalVault {
         })
         .await?;
         drop(gate);
-        self.resolve(&session, provider.as_ref()).await
+        self.resolve_hash(hash, provider.as_ref()).await
     }
 
     pub(super) async fn invalidate_account(&self, snapshot: Snapshot) -> Result<()> {
