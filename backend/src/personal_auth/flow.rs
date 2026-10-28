@@ -27,7 +27,7 @@ const POLL_SECONDS: u64 = 2;
 const MAX_ATTEMPTS: usize = 128;
 const STARTS_PER_MINUTE: usize = 32;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum AuthError {
     InvalidRequest,
@@ -125,7 +125,7 @@ pub(crate) struct PersonalAuth(Arc<Inner>);
 
 /// Canonical resolved authority, never reconstructed from the public session status.
 #[derive(Clone)]
-pub(crate) struct CurrentPersonalSession(Arc<super::vault::AuthenticatedSession>);
+pub(crate) struct CurrentPersonalSession(pub(super) Arc<super::vault::AuthenticatedSession>);
 impl CurrentPersonalSession {
     pub(crate) fn identity(&self) -> anyhow::Result<crate::identity::RequestIdentity> {
         self.0.identity()
@@ -695,6 +695,54 @@ impl PersonalAuth {
                 .map_err(|_| AuthError::Unavailable)?;
         }
         Ok(CancelReply { cancelled: true })
+    }
+
+    /// The caller's session as a grant for the account's own object: `authenticate`, or
+    /// `workspace_session` when `workspace`.
+    pub(crate) async fn grant_session(
+        &self,
+        session: &str,
+        workspace: bool,
+    ) -> Result<(CurrentPersonalSession, super::SessionGrant)> {
+        let current = if workspace {
+            self.workspace_session(session).await?
+        } else {
+            self.authenticate(session).await?
+        };
+        let grant = current
+            .grant(workspace)
+            .map_err(|_| AuthError::Unauthorized)?;
+        Ok((current, grant))
+    }
+    /// Every account the vault knows.
+    pub(crate) async fn account_ids(&self) -> anyhow::Result<Vec<String>> {
+        self.0.vault.account_ids().await
+    }
+    /// A grant for the server's own background work on `account_id`, from its newest
+    /// confirmed session with repository access; `None` when nobody is signed in to it.
+    pub(crate) async fn account_grant(
+        &self,
+        account_id: &str,
+    ) -> Result<Option<(CurrentPersonalSession, super::SessionGrant)>> {
+        let Some(hash) = self
+            .0
+            .vault
+            .account_session(account_id)
+            .await
+            .map_err(vault_error)?
+        else {
+            return Ok(None);
+        };
+        let resolved = self
+            .0
+            .vault
+            .resolve_or_refresh_hash(hash, self.0.provider.clone())
+            .await
+            .map_err(vault_error)?;
+        resolved.identity().map_err(|_| AuthError::Unauthorized)?;
+        let current = CurrentPersonalSession(Arc::new(resolved));
+        let grant = current.grant(true).map_err(|_| AuthError::Unauthorized)?;
+        Ok(Some((current, grant)))
     }
 
     pub(crate) async fn sign_out(&self, session: &str) -> Result<()> {

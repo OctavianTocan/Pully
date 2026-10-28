@@ -6,7 +6,8 @@ mod workspace;
 use crate::{
     identity::{RequestIdentity, TenantStates},
     personal_auth::{
-        personal_bearer, AuthError, CurrentPersonalSession, GitHubAuthority, PersonalAuth,
+        personal_bearer, AuthError, CurrentPersonalSession, GitHubAuthority, GrantedSessions,
+        PersonalAuth,
     },
     public_api::github::valid_segment,
     store::blocking,
@@ -112,8 +113,42 @@ impl IntoResponse for ReadError {
         response
     }
 }
+/// Where a request's personal session comes from: the vault in this process, or, in an
+/// account's own Durable Object, the grant the sign-in object forwarded with the request.
+pub(super) enum Sessions {
+    Local(PersonalAuth),
+    Granted(Arc<GrantedSessions>),
+}
+impl Sessions {
+    async fn authenticate(
+        &self,
+        bearer: &str,
+        headers: &HeaderMap,
+    ) -> std::result::Result<CurrentPersonalSession, AuthError> {
+        match self {
+            Self::Local(auth) => auth.authenticate(bearer).await,
+            Self::Granted(granted) => granted.authenticate(bearer, headers, false),
+        }
+    }
+    async fn workspace_session(
+        &self,
+        bearer: &str,
+        headers: &HeaderMap,
+    ) -> std::result::Result<CurrentPersonalSession, AuthError> {
+        match self {
+            Self::Local(auth) => auth.workspace_session(bearer).await,
+            Self::Granted(granted) => granted.authenticate(bearer, headers, true),
+        }
+    }
+    async fn sign_out(&self, bearer: &str) -> std::result::Result<(), AuthError> {
+        match self {
+            Self::Local(auth) => auth.sign_out(bearer).await,
+            Self::Granted(granted) => granted.sign_out(bearer).await,
+        }
+    }
+}
 struct Inner {
-    auth: PersonalAuth,
+    auth: Sessions,
     tenants: TenantStates,
     clients: Mutex<HashMap<PathBuf, Arc<github::PersonalGitHub>>>,
     http: reqwest::Client,
@@ -122,6 +157,17 @@ struct Inner {
     review_requests: Arc<tokio::sync::Semaphore>,
 }
 pub(super) fn router(auth: PersonalAuth, tenants: TenantStates) -> anyhow::Result<Router> {
+    sessions_router(Sessions::Local(auth), tenants)
+}
+/// The personal reads and workspace of one account's own object, over the grants the sign-in
+/// object forwards to it.
+pub(super) fn account_router(
+    granted: Arc<GrantedSessions>,
+    tenants: TenantStates,
+) -> anyhow::Result<Router> {
+    sessions_router(Sessions::Granted(granted), tenants)
+}
+fn sessions_router(auth: Sessions, tenants: TenantStates) -> anyhow::Result<Router> {
     let http = crate::net::client()
         .no_proxy()
         .connect_timeout(Duration::from_secs(10))
@@ -153,6 +199,22 @@ pub(super) async fn fixture_router(
 #[cfg(test)]
 pub(super) fn fixture_router_with_tenants(
     auth: PersonalAuth,
+    tenants: TenantStates,
+    origin: url::Url,
+) -> anyhow::Result<Router> {
+    fixture_sessions_router(Sessions::Local(auth), tenants, origin)
+}
+#[cfg(test)]
+pub(super) fn fixture_account_router(
+    granted: Arc<GrantedSessions>,
+    tenants: TenantStates,
+    origin: url::Url,
+) -> anyhow::Result<Router> {
+    fixture_sessions_router(Sessions::Granted(granted), tenants, origin)
+}
+#[cfg(test)]
+fn fixture_sessions_router(
+    auth: Sessions,
     tenants: TenantStates,
     origin: url::Url,
 ) -> anyhow::Result<Router> {
@@ -286,9 +348,10 @@ impl Context {
 }
 impl Inner {
     async fn context(&self, headers: &HeaderMap, scope: ReadScope) -> Result<Context> {
+        let bearer = personal_bearer(headers).map_err(|_| ReadError::new(Code::Unauthorized))?;
         let session = self
             .auth
-            .authenticate(personal_bearer(headers).map_err(|_| ReadError::new(Code::Unauthorized))?)
+            .authenticate(bearer, headers)
             .await
             .map_err(|error| {
                 ReadError::new(match error {

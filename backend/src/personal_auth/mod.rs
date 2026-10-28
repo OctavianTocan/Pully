@@ -1,6 +1,7 @@
 //! Personal GitHub authorization primitives. No listener or legacy RPC exposes this module.
 mod crypto;
 mod flow;
+mod grant;
 mod host;
 mod http;
 mod provider;
@@ -9,6 +10,8 @@ pub(crate) mod wire;
 
 pub(crate) use crypto::{VaultContext, VaultEnvelope, VaultKeys, VaultPurpose};
 pub(crate) use flow::{AuthError, CurrentPersonalSession, PersonalAuth};
+pub(crate) use grant::{account_key, GrantedSessions, SessionGrant};
+pub use grant::{SessionAuthority, GRANT_HEADER};
 pub(crate) use host::{PersonalAuthHost, PersonalAuthHostConfig};
 pub(crate) use http::bearer as personal_bearer;
 pub(crate) use http::{configured_router, unconfigured_router};

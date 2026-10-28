@@ -95,7 +95,7 @@ struct Credentials {
     verified: bool,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SessionStatus {
     pub account_id: String,
@@ -114,12 +114,12 @@ pub(super) struct IssuedSession {
 }
 
 pub(super) struct AuthenticatedSession {
-    credential: GitHubCredential,
-    hash: String,
-    revision: u64,
-    generation: u64,
-    deadline: u64,
-    clock: Arc<dyn AuthClock>,
+    pub(super) credential: GitHubCredential,
+    pub(super) hash: String,
+    pub(super) revision: u64,
+    pub(super) generation: u64,
+    pub(super) deadline: u64,
+    pub(super) clock: Arc<dyn AuthClock>,
     pub status: SessionStatus,
 }
 impl AuthenticatedSession {
@@ -430,12 +430,53 @@ impl PersonalVault {
         .await
     }
 
+    /// Every account the vault knows, signed in or not.
+    pub(super) async fn account_ids(&self) -> Result<Vec<String>> {
+        let this = self.clone();
+        blocking(move || {
+            let database = decode(this.store.get(STATE_KEY).map_err(safe_storage)?)?;
+            Ok(database.accounts.into_keys().collect())
+        })
+        .await
+    }
+
+    /// The session the server's background work for `account_id` acts through: its newest
+    /// confirmed, unexpired session with repository access. `None` when it has none, so an
+    /// account nobody is signed in to is never refreshed.
+    pub(super) async fn account_session(&self, account_id: &str) -> Result<Option<String>> {
+        let (this, account_id) = (self.clone(), account_id.to_owned());
+        blocking(move || {
+            let database = decode(this.store.get(STATE_KEY).map_err(safe_storage)?)?;
+            let now = this.clock.now();
+            Ok(database
+                .sessions
+                .iter()
+                .filter(|(_, session)| {
+                    session.account_id == account_id
+                        && session.confirm_by.is_none()
+                        && session.authority == GitHubAuthority::PrivateRepositories
+                        && session.deadline() > now
+                })
+                .max_by_key(|(_, session)| session.expires_at)
+                .map(|(hash, _)| hash.clone()))
+        })
+        .await
+    }
+
+    #[cfg(test)]
     pub(super) async fn resolve(
         &self,
         session: &str,
         provider: &dyn GitHubProvider,
     ) -> Result<AuthenticatedSession> {
-        let hash = session_hash(session)?;
+        self.resolve_hash(session_hash(session)?, provider).await
+    }
+
+    pub(super) async fn resolve_hash(
+        &self,
+        hash: String,
+        provider: &dyn GitHubProvider,
+    ) -> Result<AuthenticatedSession> {
         let this = self.clone();
         let first_hash = hash.clone();
         let (snapshot, cached) = blocking(move || {
@@ -821,6 +862,10 @@ fn deadline(snapshot: &Snapshot) -> u64 {
         .expires_at
         .unwrap_or(snapshot.session.deadline())
         .min(snapshot.session.deadline())
+}
+/// The vault key of a bearer, or `None` when it is not a well-formed Pully session.
+pub(super) fn bearer_hash(session: &str) -> Option<String> {
+    session_hash(session).ok()
 }
 fn session_hash(session: &str) -> Result<String> {
     ensure!(

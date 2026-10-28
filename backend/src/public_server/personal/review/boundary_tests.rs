@@ -252,7 +252,7 @@ impl Fixture {
             .unwrap()
             .into_parts();
         let inner = Arc::new(Inner {
-            auth: auth.unwrap(),
+            auth: super::super::Sessions::Local(auth.unwrap()),
             tenants: TenantStates::new(root.join("tenants"), 256).unwrap(),
             clients: Default::default(),
             http: reqwest::Client::builder()
