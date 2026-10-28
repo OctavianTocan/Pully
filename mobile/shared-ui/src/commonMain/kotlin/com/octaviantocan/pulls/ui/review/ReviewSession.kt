@@ -332,6 +332,8 @@ class ReviewSession(
             opened = before.opened
             overview = before.overview
             overviewStored = before.overview != null
+            before.reviews?.let { reviewData = it }
+            before.stack?.let { stack = it.stack }
         }
     }
     val key: String? get() = opened?.key
@@ -402,7 +404,8 @@ class ReviewSession(
                     showDiff(it)
                     shownSelection = null
                 }
-                remember(RememberedReview(it, overview ?: remembered()?.overview))
+                val kept = remembered()
+                remember(RememberedReview(it, overview ?: kept?.overview, reviewData ?: kept?.reviews, kept?.stack))
                 if (selection != shownSelection) {
                     selectCommits(selection)
                     return@launch
@@ -697,7 +700,10 @@ class ReviewSession(
         val request = ++reviewSequence
         observations.scope.launch {
             val answer = runCatching { repo.reviewData(pull) }.getOrNull()
-            if (isActive && active() && request == reviewSequence) answer?.let { reviewData = it }
+            if (isActive && active() && request == reviewSequence) answer?.let { fresh ->
+                reviewData = fresh
+                remembered()?.let { kept -> remember(kept.copy(reviews = fresh)) }
+            }
         }
     }
 

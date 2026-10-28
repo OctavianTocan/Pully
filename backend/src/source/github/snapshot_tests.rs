@@ -50,11 +50,13 @@ pub(super) fn response(
         .try_with(|replies| {
             assert_eq!(method, &reqwest::Method::GET);
             assert!(body.is_none());
-            let reply = replies
-                .borrow_mut()
-                .pop_front()
-                .expect("unexpected GitHub request");
-            assert_eq!(path, reply.path);
+            // Reads that go out together may arrive in any order; each path's replies keep theirs.
+            let mut replies = replies.borrow_mut();
+            let index = replies
+                .iter()
+                .position(|reply| reply.path == path)
+                .unwrap_or_else(|| panic!("unexpected GitHub request {path}"));
+            let reply = replies.remove(index).unwrap();
             assert_eq!(accept, reply.accept);
             Ok((reply.code, json!({}), reply.text))
         })
@@ -62,13 +64,22 @@ pub(super) fn response(
 }
 
 async fn replay<T>(replies: Vec<Reply>, future: impl Future<Output = T>) -> T {
+    replay_with(replies, true, future).await
+}
+
+/// `all_used: false` is for a refused snapshot: a read that went out beside the one that
+/// failed may or may not have been asked for when the refusal ended the others.
+async fn replay_with<T>(replies: Vec<Reply>, all_used: bool, future: impl Future<Output = T>) -> T {
     RESPONSES
         .scope(RefCell::new(replies.into()), async {
             let result = crate::rt::timeout(Duration::from_secs(10), future)
                 .await
                 .expect("offline GitHub fixture timed out");
-            RESPONSES
-                .with(|replies| assert!(replies.borrow().is_empty(), "unused GitHub responses"));
+            if all_used {
+                RESPONSES.with(|replies| {
+                    assert!(replies.borrow().is_empty(), "unused GitHub responses")
+                });
+            }
             result
         })
         .await
@@ -166,8 +177,9 @@ async fn refused(reference: Value, replies: Vec<Reply>, expected: &str) {
             )
             .unwrap()
         });
-        let error = replay(
+        let error = replay_with(
             replies.clone(),
+            false,
             super::super::open(&f.state, &reference, &json!({"fresh":true})),
         )
         .await
@@ -238,6 +250,8 @@ async fn missing_pr_files_or_commits_refuses_publication() {
         Reply::json(PR, pr),
         Reply::json(compare_path(), json!({"merge_base_commit":{"sha":MERGE}})),
         Reply::json(format!("{PR}/files?per_page=100&page=1"), json!([])),
+        // The commits are asked for alongside the files.
+        Reply::json(format!("{PR}/commits?per_page=100&page=1"), json!([])),
     ];
     refused(
         reference(),
@@ -333,6 +347,10 @@ async fn compare_commit_and_pagination_caps_refuse_publication() {
             json!(vec![json!({}); 100]),
         ));
     }
+    replies.push(Reply::json(
+        format!("{PR}/commits?per_page=100&page=1"),
+        json!([]),
+    ));
     refused(
         reference(),
         replies,

@@ -34,6 +34,8 @@ import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.composed
 import androidx.compose.foundation.gestures.detectTapGestures
+import com.octaviantocan.pulls.data.PullPage
+import com.octaviantocan.pulls.ui.review.PageRequest
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.gestures.draggable
@@ -313,13 +315,15 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
             }
     }
 
-    // The top of the Inbox starts loading once it has shown, so the pull requests he is most likely to open are there
-    // when he taps them (O20).
-    val warmTop = remember(sorted) { sorted.take(ReviewSession.WARM_TOP).map { OpenTarget.Pull(it.owner, it.repo, it.number, "github.com") } }
-    HomeReadEffect(observations, warmTop, services) {
-        if (!services.capabilities.reviewRoutes || reviewSessions == null || warmTop.isEmpty()) return@HomeReadEffect
+    // Once the Inbox has shown, the page of every row on it is read and kept on the phone, top first, so whichever he
+    // taps opens at once; a row whose pull request has not changed since is not read again (O20; Tavi, 28 Oct 2026).
+    val pages = remember(sorted) {
+        sorted.map { PageRequest(OpenTarget.Pull(it.owner, it.repo, it.number, "github.com"), PullPage.version(it.headSha, it.updatedAt)) }
+    }
+    HomeReadEffect(observations, pages, services) {
+        if (!services.capabilities.reviewRoutes || reviewSessions == null || pages.isEmpty()) return@HomeReadEffect
         kotlinx.coroutines.delay(800)
-        warmTop.forEach { if (services.data.current) reviewSessions.warm(repo, it) }
+        if (services.data.current) reviewSessions.prefetch(repo, pages)
     }
 
     fun openPull(pull: PullRow) = nav.openFrom(OpenTarget.Pull(pull.owner, pull.repo, pull.number, "github.com"), if (needle.isEmpty()) "inbox" else "search", false)

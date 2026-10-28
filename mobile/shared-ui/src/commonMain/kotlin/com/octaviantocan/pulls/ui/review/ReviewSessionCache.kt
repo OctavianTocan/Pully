@@ -4,23 +4,29 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.OpenTarget
+import com.octaviantocan.pulls.data.KeptStack
 import com.octaviantocan.pulls.data.OpenedReview
 import com.octaviantocan.pulls.data.Outbox
+import com.octaviantocan.pulls.data.PullPage
 import com.octaviantocan.pulls.data.Repo
+import com.octaviantocan.pulls.data.ReviewData
 import com.octaviantocan.pulls.data.RpcSource
+import com.octaviantocan.pulls.data.pullPage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
 
 /**
  * Application-owned, main-dispatcher cache. A native identity change calls [clear];
  * every read/write also verifies the current opaque RPC source before exposing data.
+ * [pages] hands the current account its store of pages kept on the phone, or null when the host keeps none.
  */
-class ReviewSessionCache(private val scope: CoroutineScope) {
+class ReviewSessionCache(private val scope: CoroutineScope, private val pages: () -> PageCopies? = { null }) {
     /** Hosts remount the entire private route after invalidation, including sheets and saved child state. */
     var routeGeneration by mutableLongStateOf(0L)
         private set
@@ -28,6 +34,8 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
     private val recent = linkedMapOf<String, RememberedReview>()
     private val warming = linkedMapOf<String, Deferred<OpenedReview>>()
     private val requests = linkedMapOf<String, Job>()
+    private var copies: PageCopies? = null
+    private var prefetching: Job? = null
     private val sessions = mutableSetOf<ReviewSession>()
     private val presentation = mutableMapOf<SessionStateKey<*>, Any>()
     private var observing = true
@@ -69,6 +77,7 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
             val replacing = source != null || sessions.isNotEmpty()
             clearState()
             source = next
+            copies = if (next != null) runCatching { pages() }.getOrNull() else null
             if (replacing) routeGeneration++
         }
         return next
@@ -89,6 +98,7 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
         observationGeneration++
         warming.values.toList().forEach { it.cancel() }
         requests.values.toList().forEach { it.cancel() }
+        prefetching?.cancel()
         warming.clear()
         requests.clear()
         sessions.toList().forEach { it.pauseObservations() }
@@ -110,6 +120,9 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
 
     private fun clearState() {
         source = null
+        copies = null
+        prefetching?.cancel()
+        prefetching = null
         outbox.clear()
         writer = null
         warming.values.toList().forEach { it.cancel() }
@@ -125,7 +138,11 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
 
     internal fun remembered(repo: Repo, expected: RpcSource?, name: String): RememberedReview? {
         if (expected == null || !current(repo, expected)) return null
-        return recent.remove(name)?.also { recent[name] = it }
+        recent.remove(name)?.let { kept -> recent[name] = kept; return kept }
+        // A page read before the tap, on this run or an earlier one.
+        val kept = runCatching { copies?.read(name) }.getOrNull()?.remembered() ?: return null
+        remember(repo, expected, name, kept)
+        return kept
     }
 
     internal fun remember(repo: Repo, expected: RpcSource?, name: String, value: RememberedReview) {
@@ -175,10 +192,65 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
         request.invokeOnCompletion { if (requests[name] === request) requests.remove(name) }
     }
 
+    /**
+     * Reads the pages of [pulls] in order, two at a time, and keeps each on the phone, so any of them opens at once
+     * (`pages-are-read-before-the-tap`). A page kept at the row's version is not read again; a newer list replaces the
+     * one being read. A host that keeps no pages warms the first [WARM_TOP] in memory instead.
+     */
+    fun prefetch(repo: Repo, pulls: List<PageRequest>) {
+        val expected = capture(repo) ?: return
+        if (!observing) return
+        val store = copies ?: return pulls.take(WARM_TOP).forEach { warm(repo, it.pull) }
+        val generation = observationGeneration
+        val wanted = ArrayDeque(pulls.take(PAGE_LIMIT).filter { request ->
+            request.version == null || runCatching { store.version(request.pull.label) }.getOrNull() != request.version
+        })
+        prefetching?.cancel()
+        if (wanted.isEmpty()) return
+        fun still() = observing && generation == observationGeneration && current(repo, expected) && copies === store
+        prefetching = scope.launch {
+            coroutineScope {
+                repeat(PREFETCH_AT_ONCE) {
+                    launch {
+                        while (still()) {
+                            val request = wanted.removeFirstOrNull() ?: break
+                            val page = try {
+                                repo.pullPage(request.pull, request.version)
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (_: Exception) {
+                                // The page reads it when tapped; the next list tries again.
+                                continue
+                            }
+                            if (!still()) break
+                            runCatching { store.write(request.pull.label, page) }
+                            // A copy kept in memory is older than this one.
+                            recent.remove(request.pull.label)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     companion object {
         const val LIMIT = 12
         const val WARM_TOP = 4
+        /** How many Inbox rows have their pages read before they are tapped. */
+        const val PAGE_LIMIT = 40
+        const val PREFETCH_AT_ONCE = 2
     }
 }
 
-internal data class RememberedReview(val opened: OpenedReview, val overview: JsonObject?)
+/** A pull request the Inbox shows, at the version its row has ([PullPage.version]). */
+data class PageRequest(val pull: OpenTarget.Pull, val version: String?)
+
+internal data class RememberedReview(
+    val opened: OpenedReview,
+    val overview: JsonObject?,
+    val reviews: ReviewData? = null,
+    val stack: KeptStack? = null,
+)
+
+private fun PullPage.remembered(): RememberedReview? =
+    opened()?.let { opened -> RememberedReview(opened, overview(), reviews(), stack()) }
