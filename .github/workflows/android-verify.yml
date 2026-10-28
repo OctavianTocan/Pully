@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   android-release-verify:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
