@@ -16,7 +16,8 @@ const temporary = []
 afterEach(async () => {
   for (const path of temporary.splice(0)) {
     await waitForHistory(path)
-    rmSync(path, { recursive: true, force: true })
+    // The publisher's background history step can still be deleting its checkout here; retry instead of failing.
+    rmSync(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
 })
 
