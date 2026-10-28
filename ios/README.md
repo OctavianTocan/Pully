@@ -104,8 +104,10 @@ No device, signed archive, TestFlight or App Store validation is implied by this
 Native credential/configuration and Google token adapters live in
 [`NativeServices`](NativeServices/README.md). They retain the shared Kotlin RPC client
 and keep credentials in app-private Keychain storage. The separate fixture screen
-does not expose sign-in. Native Google availability requires a real iOS client and
-registered callback scheme; the adapter documents the exact missing configuration.
+does not expose sign-in. Native Google availability requires a real iOS client: set its public ID in the
+`PULLY_GOOGLE_IOS_CLIENT_ID` build setting and its dot-reversed ID in
+`PULLY_GOOGLE_IOS_CALLBACK_SCHEME` (the project's defaults leave Google off). The
+Info.plist's `GIDClientID` and second URL scheme come from those two settings.
 The app bundles its UserDefaults required-reason declaration and retains the SDK's
 own privacy resource. Store privacy/signing review remains later release work.
 
