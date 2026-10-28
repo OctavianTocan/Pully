@@ -1,5 +1,5 @@
 <p align="center">
-  <img alt="Pully on an unfolded phone: the Inbox beside an open pull request" src="./android/changelog/0.65.0/unfolded.png" width="720">
+  <img alt="Pully on an unfolded phone: tapping pull requests in the Inbox opens each one beside it" src="./docs/media/unfolded.gif" width="560">
 </p>
 
 # Pully
@@ -11,6 +11,38 @@ or have Claude Code or Codex review it, all from an Android app built for one-ha
 > [!NOTE]
 > Pully is a personal project under active development. The Android app is the product and the
 > iPhone app runs the same shared screens on real data; the web app trails behind both.
+
+## See it
+
+<table>
+  <tr>
+    <th>Inbox</th>
+    <th>Open a pull request</th>
+    <th>Diff</th>
+  </tr>
+  <tr>
+    <td><img alt="The Inbox scrolling, then filtered to pull requests you wrote and back" src="./docs/media/inbox.gif" width="260"></td>
+    <td><img alt="Tapping a pull request in the Inbox opens it at once, then scrolling to its files" src="./docs/media/open-pull.gif" width="260"></td>
+    <td><img alt="The diff of a pull request, scrolled, then the next file" src="./docs/media/diff.gif" width="260"></td>
+  </tr>
+  <tr>
+    <th>Tour</th>
+    <th>Ask</th>
+    <th>Review with AI</th>
+  </tr>
+  <tr>
+    <td><img alt="The Tour walking through a change stop by stop" src="./docs/media/tour.gif" width="260"></td>
+    <td><img alt="Asking a question about a pull request and the answer coming in" src="./docs/media/ask.gif" width="260"></td>
+    <td><img alt="Starting a General review and its findings appearing on the pull request" src="./docs/media/review.gif" width="260"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img alt="Pully on a phone held sideways: the diff side by side, then another pull request" src="./docs/media/sideways.gif" width="720">
+</p>
+
+The pull requests in these clips are made up. They were filmed from the Android app against a
+stand-in server.
 
 ## What it does
 
