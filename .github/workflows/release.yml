@@ -7,7 +7,7 @@ on:
 
 jobs:
   release-source:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     permissions:
       contents: read
     steps:
@@ -22,10 +22,22 @@ jobs:
 
   release:
     needs: release-source
-    uses: sxzz/workflows/.github/workflows/release.yml@main
-    with:
-      publish: true
-      build: pnpm --filter '!@pulls.review/app' -r run build
+    runs-on: [self-hosted, linux, x64, pully-linux]
     permissions:
       contents: write
       id-token: write
+    steps:
+      - name: Setup JS
+        uses: sxzz/workflows/setup-js@main
+        with:
+          fetch-all: true
+          cache: false
+      - name: Generate GitHub Changelog
+        run: pnpx changelogithub
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build
+        run: pnpm --filter '!@pulls.review/app' -r run build
+      - name: Publish to NPM
+        run: pnpm -r publish --access public --no-git-checks

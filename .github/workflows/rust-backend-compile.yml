@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   backend-release-verify:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 15
     env:
       CARGO_BUILD_JOBS: 2

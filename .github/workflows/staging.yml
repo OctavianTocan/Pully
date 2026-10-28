@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   staging:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 60
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

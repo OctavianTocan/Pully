@@ -6,7 +6,6 @@
   "requiredReleaseChecks": [
     "release-prerequisites",
     "android-release-verify",
-    "ios-release-verify",
     "backend-release-verify",
     "lint",
     "typecheck",

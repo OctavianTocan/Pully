@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   analyze:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     steps:
       # Without a key there is nothing to analyze with, so the job skips instead of failing.
       # The secret is only given to this step and to Analyze, never to the install or the build.
