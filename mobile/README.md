@@ -20,16 +20,11 @@ its Tours retain their persisted-entry adapter over the shared frame and check m
 browser and remaining JVM-specific policies. Shared domain code has no Compose,
 Android or Java dependency.
 
-The iOS app is an **internal preview with fixture rows**, rendering the actual
-production row function and models rather than a second presentation of them.
-Both hosts load the same 12 locale files, with the existing plural/interpolation
-rules and English fallback. Shared status marks honor native reduced-motion
-settings. The iOS fixture controller does not yet connect the shared client/session
-to an account or expose review, diff, AI, settings or notification flows. Native
-Keychain/configuration/Google adapters and UserDefaults storage are implemented for
-that wiring; their presence does not make the fixture a full Pully client. The next
-slices share existing screens in the order
-specified by the accepted iOS implementation plan; they must keep Android working.
+The iOS app hosts the same shared account, Home, review, AI and Settings screens on the
+configured server's real data (see [the iOS host guide](../ios/README.md)); its Debug UI
+tests alone select a labelled fixture with sample rows. Both hosts load the same 12 locale
+files, with the existing plural/interpolation rules and English fallback. Shared status
+marks honor native reduced-motion settings.
 
 ## Toolchain
 

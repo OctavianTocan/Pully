@@ -150,6 +150,42 @@ impl VerifiedGitHubIdentity {
 }
 
 impl GitHubCredential {
+    /// The credential an account's own Durable Object acts through for a session the sign-in
+    /// object resolved (`personal_auth::grant`): the same account, GitHub user, token and
+    /// binding revision, so the account's state is the one that binding would have.
+    pub(crate) fn granted(
+        account_id: &str,
+        github_id: u64,
+        token: &str,
+        revision: uuid::Uuid,
+    ) -> Result<Self> {
+        ensure!(
+            !token.is_empty() && token.len() <= 4096 && token.bytes().all(|v| v.is_ascii_graphic()),
+            "Invalid GitHub credential"
+        );
+        let mut credential = VerifiedGitHubIdentity {
+            github_id,
+            login: String::new(),
+            token: token.to_owned(),
+        }
+        .bind(&Account {
+            id: account_id.to_owned(),
+            email: String::new(),
+        })?;
+        Arc::get_mut(&mut credential.0)
+            .expect("new credential")
+            .revision = revision;
+        Ok(credential)
+    }
+    /// What [`Self::granted`] needs to make this credential again elsewhere: account, GitHub
+    /// user, token and binding revision. Only the sign-in object's grant reads it.
+    pub(crate) fn grant_parts(&self) -> Result<(&str, u64, &str, uuid::Uuid)> {
+        ensure!(
+            self.0.active.load(Ordering::SeqCst),
+            "Your GitHub connection needs sign-in again"
+        );
+        Ok((&self.0.account_id, self.0.github_id, &self.0.token, self.0.revision))
+    }
     pub(crate) fn revoke(&self) {
         self.0.active.store(false, Ordering::SeqCst);
         self.0.revoked.send_replace(true);
@@ -267,6 +303,7 @@ impl RequestIdentity {
 pub(crate) type TenantStores = Arc<dyn Fn(&str) -> Result<Store> + Send + Sync>;
 
 /// One bounded owner for each tenant's caches, jobs, model catalog and analytics in this server lifetime.
+#[derive(Clone)]
 pub(crate) struct TenantStates {
     stores: TenantStores,
     limit: usize,

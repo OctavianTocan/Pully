@@ -5,14 +5,16 @@ authentication, storage, links, input, navigation and device services. Source: T
 21 Oct 2026, chosen Compose Multiplatform implementation with maximum Android reuse.
 
 @cc [owner:OctavianTocan,label:product] ios-preview-is-explicit
-The iOS app MUST identify itself as an internal preview until the complete account,
-review and AI journeys are connected and validated. The ordinary live host MAY read
-its configured server only through the actual shared account/client and secure native
-adapters; a restored session MUST be verified first. Deterministic nonprivate fixtures
-MUST require an explicit Debug launch switch, with a fixture label, and MUST NOT replace
+The live iOS app MUST present itself as Pully, with no preview title or bar over its
+pages: signed in, Home, Repo and Review carry their own headers as on Android, and
+Settings opens from Home's cog and from Commands. It MUST read its configured server
+only through the actual shared account/client and secure native adapters, and a
+restored session MUST be verified first. Deterministic nonprivate fixtures MUST
+require an explicit Debug launch switch, with a fixture label, and MUST NOT replace
 live server/account errors. Unsupported mutation, review and AI controls MUST remain
-unavailable before work starts. Source: Tavi's 21 Oct 2026 full iOS implementation and
-the accepted staged live-account/Home activation after the first fixture milestone.
+unavailable before work starts. Source: Tavi's 21 Oct 2026 full iOS implementation;
+Tavi, 28 Oct 2026, on the How Pully works explainer ("Our iPhone app should be 100%
+up to date"), which retired the internal-preview title.
 
 @cc [owner:OctavianTocan,label:architecture;design] ios-bundled-locales-match-web
 The iOS app bundle's `i18n/` JSON locale set and each file's bytes MUST equal
@@ -165,8 +167,8 @@ native release activation. Source: Tavi's personal GitHub request and the accept
 @cc [owner:OctavianTocan,label:security;architecture] ios-scene-composes-separate-native-account-authorities
 The ordinary scene MUST supply its private Share handoff and the application-wide
 personal Keychain vault to the same retained shared application. The personal vault
-MUST remain confined to the public workspace and MUST NOT authorize private Share,
-legacy account, Home or AI work. Strict Debug fixtures MUST receive neither ordinary
+MUST NOT authorize private Share or legacy account work; its Home and AI work goes only
+through `ios-github-login-opens-the-whole-app`. Strict Debug fixtures MUST receive neither ordinary
 adapter. An absent trusted personal origin and unavailable App Group MUST keep their
 respective features unavailable without blocking ordinary entry. Source: Tavi's
 complete iOS request and the accepted 22 Oct 2026 native account/Share composition.
@@ -180,3 +182,27 @@ an actual shared field. They MUST NOT read a test-runner pasteboard, dispatch an
 in-app test action or replace a control with a hittable text/container proxy. Every
 existing native journey assertion MUST remain intact. Source: Tavi's accepted
 22 Oct 2026 native interaction closure under the original maximum-reuse iOS plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-access-sign-in-keeps-the-token-native
+When the configured server stops at Cloudflare Access, the iPhone MUST offer Android's
+connection setup screen with its Access sign-in, which opens the server's own Access
+login in a native web page. Only the server host's `CF_Authorization` cookie MAY be
+read; the token MUST go straight to the app-private Keychain for that server, be sent
+as `cf-access-token` only when no service token is saved, and MUST NOT reach shared
+Kotlin, logs or diagnostics. A token for the same Access email MUST keep the source; a
+first token or another email is a new identity. Source: Tavi, 28 Oct 2026, "Our iPhone
+app should be 100% up to date", and Android's in-app Access sign-in from the 23 Oct 2026
+fresh-install recording (01:19 to 01:33).
+
+@cc [owner:OctavianTocan,label:product;security;architecture] ios-github-login-opens-the-whole-app
+A verified GitHub login with the private-repositories grant MUST open the whole app on
+the iPhone (Home, Repo, Review, Tours, Ask, Settings and AI) as Android's GuestPullsApp
+does under `github-one-login-full-workspace`, with no server sign-in or Access. Every
+request MUST go through that login's own workspace owner and bearer, and the bearer MUST
+NOT reach the server sign-in's storage, Share or logs. Its pages, tours, settings and model
+choice MUST be kept under the account's immutable id. Open Review, Repo and Settings pages
+MUST stay above Home when it mounts; signing out or the owner retiring MUST return to
+Explore, and Explore MUST offer the way back while the login stays. A saved login MUST show
+the Inbox's still shape while it is checked, up to Android's wait. Source: Tavi, 28 Oct 2026,
+"Our iPhone app should be 100% up to date", which changed the earlier rule that kept the
+GitHub login to Explore.

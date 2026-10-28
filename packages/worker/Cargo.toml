@@ -18,6 +18,9 @@ ai-kit = { path = "../../ai-kit", features = [ "worker" ] }
 tower-service = "0.3"
 worker = { version = "0.8", features = [ "http" ] }
 anyhow = "1"
+base64 = "0.22"
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
 futures-util = "0.3"
 send_wrapper = { version = "0.6", features = [ "futures" ] }
 tokio = { version = "1", default-features = false, features = [ "sync" ] }

@@ -236,8 +236,8 @@ class ReviewSessionCache(private val scope: CoroutineScope, private val pages: (
     companion object {
         const val LIMIT = 12
         const val WARM_TOP = 4
-        /** How many Inbox rows have their pages read before they are tapped. */
-        const val PAGE_LIMIT = 40
+        /** How many Inbox rows have their pages read before they are tapped: the 150 the server keeps fresh. */
+        const val PAGE_LIMIT = 150
         const val PREFETCH_AT_ONCE = 2
     }
 }

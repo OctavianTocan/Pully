@@ -77,10 +77,7 @@ internal fun iosReviewFrameServices(
         },
         nowMillis = { Clock.System.now().toEpochMilliseconds() },
         track = { name, props -> if (current()) analytics.track(name, *props) },
-        back = object : ReviewFrameBack {
-            @Composable override fun Page(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) = SharedPageBack(motion, enabled, onBack)
-            @Composable override fun Priority(enabled: Boolean, onBack: () -> Unit) { if (enabled) SharedBackHandler(onBack) }
-        },
+        back = SharedReviewFrameBack,
         // The same incoming-link owner reopens the existing shared stack.
         reopened = {
             val arrival = incoming.reopened.takeIf { current() }
@@ -90,4 +87,10 @@ internal fun iosReviewFrameServices(
         commands = SharedReviewFrameCommands(home.native) { current() && ready() },
         canReadTour = true,
     )
+}
+
+/** Review Back on iPhone: the shared page motion and the leading-edge swipe, for signed-in and public pages alike. */
+internal object SharedReviewFrameBack : ReviewFrameBack {
+    @Composable override fun Page(motion: PageMotion, enabled: Boolean, onBack: () -> Unit) = SharedPageBack(motion, enabled, onBack)
+    @Composable override fun Priority(enabled: Boolean, onBack: () -> Unit) { if (enabled) SharedBackHandler(onBack) }
 }

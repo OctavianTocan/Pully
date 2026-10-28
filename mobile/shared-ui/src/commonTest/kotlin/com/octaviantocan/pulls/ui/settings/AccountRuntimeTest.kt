@@ -273,6 +273,23 @@ class AccountRuntimeTest {
     }
 
     @Test
+    fun aServerProblemSaysWhatKindItIsButASavedCredentialProblemDoesNot() = runTest {
+        val h = Harness(this)
+        h.reply = { RpcResponse(503, "") }
+        h.runtime.start()
+        runCurrent()
+        assertEquals(AccountPhase.Problem, h.runtime.state.phase)
+        assertEquals(com.octaviantocan.pulls.data.ConnectionProblem.Unavailable, h.runtime.state.connection)
+
+        val locked = Harness(this)
+        locked.storage.problem = "Unlock the device and try again."
+        locked.runtime.start()
+        runCurrent()
+        assertEquals(AccountPhase.Problem, locked.runtime.state.phase)
+        assertNull(locked.runtime.state.connection)
+    }
+
+    @Test
     fun unavailableSecureStorageNeverStartsAnAnonymousRequest() = runTest {
         val h = Harness(this)
         h.storage.problem = "Unlock the device and try again."

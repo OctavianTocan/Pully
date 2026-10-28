@@ -984,7 +984,14 @@ extension PullyLaunchTests {
     }
 
     private func openJourneySettings(in app: XCUIApplication) {
-        requireJourneyButton("Settings", in: app).tap()
+        // Home carries the Settings cog; any other page reaches Settings through Commands, as on Android.
+        if let cog = visibleJourneyButton("Settings", in: app) {
+            cog.tap()
+        } else {
+            pullToOpenJourneyCommands(in: app)
+            requireEditor(in: app).typeText("Settings")
+            requireJourneyButton("Settings", in: app).tap()
+        }
         _ = revealJourneyButton("Agent keys", contains: true, in: app)
     }
 

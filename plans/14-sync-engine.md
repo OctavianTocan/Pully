@@ -83,9 +83,11 @@ worst 9.8 s), and the overview, reviews and stack were read from GitHub on every
   from it. The warm round reads them again only when a pull request's `updatedAt` moved. A
   diff the server does not have reads the comparison, files and commits together: 2.4 s
   became 1.4 s for the same reads in a test against GitHub.
-- **Phone** (`pages-are-read-before-the-tap`): once the Inbox shows, the first forty rows'
+- **Phone** (`pages-are-read-before-the-tap`): once the Inbox shows, the first 150 rows'
   pages (`PullPage`: diff, overview, reviews, stack) are read two at a time and kept;
-  Android keeps them in files of the account's own (`FilePageCopies`, sixty pages, 48 MB).
+  Android and iPhone keep them in files of the account's own (`FilePageCopies`,
+  `IosPageCopies`; 400 pages, 200 MB;
+  forty rows, sixty pages and 48 MB until Tavi asked for more on 28 Oct, 17:30).
   A page opens from its copy in the first frame: reading and drawing the largest one seen,
   450 KB with 86 files, took 14 ms (median, laptop JVM). Only rows whose head or `updatedAt`
   moved are read again.

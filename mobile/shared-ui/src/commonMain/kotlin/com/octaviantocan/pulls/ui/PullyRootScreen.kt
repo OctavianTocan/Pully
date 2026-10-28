@@ -8,14 +8,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.ui.ai.AiCapabilities
 import com.octaviantocan.pulls.ui.ai.LocalAiCapabilities
 import com.octaviantocan.pulls.ui.design.*
 import com.octaviantocan.pulls.ui.home.*
+import com.octaviantocan.pulls.ui.onboarding.ConnectionSetupScreen
 import com.octaviantocan.pulls.ui.review.LocalReviewCapabilities
 import com.octaviantocan.pulls.ui.review.LocalReviewActionReadiness
 import com.octaviantocan.pulls.ui.review.ReviewActionReadiness
@@ -29,7 +28,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PullyRootScreen(
     root: PullyRootState,
-    account: AccountRuntime,
+    account: RootAccount,
     settings: AppSettings,
     native: NativeHomeActions,
     createHome: (RootSource) -> HomeScreenServices,
@@ -157,23 +156,24 @@ fun PullyRootScreen(
                     }
                     Box(Modifier.fillMaxSize().background(colors.base).themeWipe()) {
                         Column(Modifier.fillMaxSize()) {
-                            Row(
+                            // Signed in, the app is the app: Home, Repo and Review carry their own headers, as on Android
+                            // (Tavi, 28 Oct 2026). The bar stays only where there is no page of its own to reach Server
+                            // from, and for the Debug fixture's label.
+                            val signInPage = signIn?.getOrNull()
+                            // A server that cannot be reached, or stops at Cloudflare Access, gets Android's setup
+                            // screen with its own Server, Retry and Access sign-in buttons.
+                            val connection = state.connection.takeIf { state.phase == AccountPhase.Problem }
+                            if (fixture || readySettings == null && signInPage == null && connection == null) Row(
                                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = PullsSpace.x4, vertical = PullsSpace.x2),
                                 horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Column {
-                                    Text(t("mobilePreview.title"), Modifier.semantics { heading() }, style = PullsType.lg, color = colors.text)
-                                    if (fixture) Text(t("mobilePreview.fixtureData"), style = PullsType.sm, color = colors.muted)
-                                }
-                                Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
-                                    if (onExplore != null && readySettings == null && signIn?.getOrNull() == null)
-                                        PillButton(t("explore.browse"), onExplore)
-                                    FloatIcon(Lu.cog, if (readySettings != null) "Settings" else "Server", {
-                                        try {
-                                            if (readySettings != null) {
-                                                if (readySettings.current()) navigation.nav.settings()
-                                            } else openServer()
-                                        } catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
+                                if (fixture) Text(t("mobilePreview.fixtureData"), style = PullsType.sm, color = colors.muted) else Spacer(Modifier)
+                                if (readySettings == null) Row(horizontalArrangement = Arrangement.spacedBy(PullsSpace.x2)) {
+                                    if (onExplore != null && signInPage == null) PillButton(t("explore.browse"), onExplore)
+                                    FloatIcon(Lu.cog, "Server", {
+                                        try { openServer() }
+                                        catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
                                     }, flat = true)
                                 }
                             }
@@ -185,7 +185,28 @@ fun PullyRootScreen(
                                         if (services != null) SignInPage(services, ::SignInArtwork, onServerSettings = ::openServer, onExplore = onExplore)
                                         else RootAccountProblem(signIn?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }
                                     }
-                                    AccountPhase.Problem -> RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
+                                    AccountPhase.Problem -> if (connection != null) {
+                                        var signingIn by remember { mutableStateOf(false) }
+                                        val accessTitle = t("connection.accessSignIn")
+                                        val accessHint = t("connection.accessHint")
+                                        ConnectionSetupScreen(
+                                            checking = signingIn, problem = connection, onRetry = account::refresh,
+                                            onServerSettings = {
+                                                try { openServer() }
+                                                catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
+                                            },
+                                            onExplore = onExplore,
+                                            onAccessSignIn = {
+                                                if (!signingIn) scope.launch {
+                                                    signingIn = true
+                                                    try { account.accessSignIn(accessTitle, accessHint) }
+                                                    catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                                                    catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not sign in to Access.") }
+                                                    finally { signingIn = false }
+                                                }
+                                            },
+                                        )
+                                    } else RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
                                     AccountPhase.Ready -> {
                                         val services = home?.getOrNull()
                                         if (services == null || readySettings == null) RootAccountProblem(home?.exceptionOrNull()?.message ?: settingsServices?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }

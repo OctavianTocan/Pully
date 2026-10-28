@@ -154,3 +154,14 @@ session from temporary storage/verification failure. Only the former MAY become
 Unauthorized or Reconnect; a temporary failure MUST preserve Unavailable and permit
 retry with the same confirmed bearer, including after a recoverable refresh failure.
 Source: confirmed ce-code-review finding 3 and Tavi's 25 Oct 2026 assigned fix batch.
+
+@cc [owner:OctavianTocan,label:security;architecture] personal-grant-is-bound-to-its-bearer-and-account
+A `SessionGrant` MUST be made only from a session the vault resolved, and MUST carry whether it
+was resolved as a confirmed workspace session. `GrantedSessions` MUST refuse a grant for another
+account than its own, a grant whose session hash is not the request's own bearer's, and a grant
+without confirmation on workspace routes. It MUST keep one captured credential per session and
+credential revision, revoke it when told the revision ended (leaving a newer revision), when the
+bearer signs out, or at the next admission or background round once it has not been granted for
+ten minutes, and its sessions MUST end by the grant's own deadline. Background sessions MUST come from the account's newest confirmed,
+unexpired session with repository access, or none. Source: Tavi, 28 Oct 2026, one Durable
+Object per account (packages/worker `hosted-account-object-acts-only-on-forwarded-grants`).

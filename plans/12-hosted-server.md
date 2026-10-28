@@ -6,9 +6,34 @@
 > `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
 > has been removed. Cloudflare deployment remains separately approved work.
 
-Status: **step 1 built** (the host seam); **the container host built** (24 Oct, below).
+Status: **step 1 built** (the host seam); **the container host built** (24 Oct, below);
+**staging deployed from main**; **stable deploy and data copy built, not run** (28 Oct, below).
 Nothing is deployed; each step that creates or changes anything on Cloudflare waits for
 Tavi's go-ahead.
+
+## Update, 28 October 2026: one object per account, and stable on Cloudflare
+
+Tavi asked why stable is not on Workers too, why anything is saved to files rather than a
+Durable Object per user, and why only 150 pull requests are refreshed (28 Oct 17:34).
+
+- **One object per account.** `PersonalServer` keeps only the sign-in vault. Each account's
+  GitHub reads and workspace go to that account's own `AccountServer` object (named by the
+  backend's `account_key`), with the session the vault resolved for the request; the account
+  object keeps the account's saved data in its own SQLite, sends sign-out back, and hears when
+  a session ends so work in flight stops (`backend/src/personal_auth/grant.rs`). Staging
+  accounts' data is copied over from `PersonalServer` the first time their object starts.
+- **Per-person refresh.** Each account object runs the server's `warm_round` on its alarm every
+  three minutes while someone is signed in to the account with repository access.
+- **The 150 cap.** It came in with the refresh loop (PR 65, 17 Oct) with no reason written
+  down; at one REST call per pull request every three minutes it already spent 3,000 of
+  GitHub's 5,000 calls an hour. A round now reads every pull request's head and base fifty to a
+  GraphQL query and only fetches the ones that changed, so the cap is 400: every row the Inbox
+  can show (four roles of up to 100).
+- **Stable.** `.github/workflows/stable.yml` deploys the same Worker as `pully-stable` from a
+  verified release push, and `packages/worker/scripts/import-vps.mjs` copies the VPS data in
+  through an import route that is off unless its token is set. Both wait for Tavi: nothing
+  runs until `PULLY_STABLE_HOST` is set, and the copy is run by hand (`packages/worker/README.md`,
+  Stable).
 
 ## Update, 24 October 2026: the server as a Worker
 

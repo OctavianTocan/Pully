@@ -15,6 +15,8 @@ import com.octaviantocan.pulls.ui.home.HomeLifecycleObserver
 import com.octaviantocan.pulls.ui.home.HomeLifecycleSubscription
 import com.octaviantocan.pulls.ui.home.NativeHomeActions
 import kotlinx.coroutines.Dispatchers
+import platform.Foundation.NSUUID
+import platform.Foundation.NSUserDefaults
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -89,6 +91,54 @@ class IosPersonalGuestWorkspaceTest {
             assertTrue(requests.all { it.headers["Authorization"] == "Bearer pully_${"A".repeat(43)}" })
             assertTrue(requests.all { it.headers.keys.none { name -> name.startsWith("CF-Access", true) || name.equals("X-Pully-Session", true) } })
         } finally { workspace.close(); runCurrent(); Dispatchers.resetMain() }
+    }
+
+    @Test
+    fun aVerifiedGitHubWorkspaceOpensTheWholeAppThroughItsOwnBearerUntilSignOut() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val requests = mutableListOf<RpcRequest>()
+        val owner = """"accountId":"account-42","githubId":42,"authority":"privateRepositories""""
+        var vault = """{"version":1,"accepted":{"origin":"https://accounts.example","token":"pully_${"A".repeat(43)}","accountId":"account-42","githubId":42,"authority":"privateRepositories"},"pending":[]}""".encodeToByteArray()
+        val store = IosPersonalSessionStore(object : NativePersonalSessionStorage {
+            override fun read(): NativePersonalSessionRead = NativePersonalSessionRead(vault.copyOf())
+            override fun write(contents: ByteArray) { vault = contents.copyOf() }
+        }, "https://accounts.example", RpcTransport { request ->
+            requests += request
+            val body = when {
+                request.url.endsWith("/session") -> """{$owner,"login":"reader","sessionExpiresAt":9999999999,"accessExpiresAt":null,"refreshAvailable":false}"""
+                request.url.endsWith("/account/capabilities") -> """{$owner,"privateRepositories":{"consentAvailable":true,"readEnabled":true}}"""
+                request.url == "https://accounts.example/workspace/api/rpc" -> """{"settings":{}}"""
+                else -> error("Unexpected route")
+            }
+            RpcResponse(200, body, "application/json")
+        })
+        val personal = assertNotNull(store.open(backgroundScope) { true })
+        val suite = "pully-workspace-test-" + NSUUID().UUIDString
+        val defaults = NSUserDefaults(suiteName = suite)
+        var app: IosPersonalWorkspace? = null
+        try {
+            personal.restore(); runCurrent()
+            val workspace = assertNotNull(personal.workspaceOwner(), "A private-repository login is a whole workspace")
+            val navigation = AppNavigation(rootScreen = Screen.Home)
+            app = IosPersonalWorkspace(workspace, personal, Actions(), settings(), defaults, navigation, IncomingLinkInbox()) { true }
+            runCurrent()
+            val rpc = requests.filter { it.url.endsWith("/api/rpc") }
+            assertTrue(rpc.isNotEmpty(), "Settings sync asks the workspace on mount, as Android does")
+            assertTrue(rpc.all { it.url == "https://accounts.example/workspace/api/rpc" })
+            assertTrue(rpc.all { it.headers["Authorization"] == "Bearer pully_${"A".repeat(43)}" })
+            assertTrue(rpc.all { it.headers.keys.none { name -> name.startsWith("CF-Access", true) || name.equals("X-Pully-Session", true) } })
+            assertTrue(app.current)
+            assertNotNull(app.incomingAudience())
+            personal.signOut(); runCurrent()
+            assertFalse(app.current, "Signing out retires the mounted app")
+            assertNull(app.incomingAudience())
+            val after = requests.size
+            app.foreground(true); runCurrent()
+            assertEquals(after, requests.size)
+        } finally {
+            app?.close(); personal.close(); runCurrent(); Dispatchers.resetMain()
+            defaults.removePersistentDomainForName(suite)
+        }
     }
 
     @Test

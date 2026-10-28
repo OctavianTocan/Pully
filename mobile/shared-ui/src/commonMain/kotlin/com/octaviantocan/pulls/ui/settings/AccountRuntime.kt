@@ -7,7 +7,10 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.RpcSource
 import com.octaviantocan.pulls.data.RpcObserver
+import com.octaviantocan.pulls.data.RpcTimeoutException
 import com.octaviantocan.pulls.data.RpcTransport
+import com.octaviantocan.pulls.data.ConnectionProblem
+import com.octaviantocan.pulls.data.connectionProblem
 import com.octaviantocan.pulls.data.ServerError
 import com.octaviantocan.pulls.data.ServerErrorKind
 import com.octaviantocan.pulls.data.SignInController
@@ -26,7 +29,27 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 enum class AccountPhase { Checking, SignIn, Ready, Problem }
-class AccountState(val phase: AccountPhase, val email: String? = null, val googleClientId: String? = null, val problem: String? = null)
+/** [connection] says what kind of connection problem [problem] is, so the setup screen can offer its way out. */
+class AccountState(
+    val phase: AccountPhase, val email: String? = null, val googleClientId: String? = null, val problem: String? = null,
+    val connection: ConnectionProblem? = null,
+)
+
+/**
+ * What the shared root needs from the account that opened the private app: a server sign-in ([AccountRuntime]) or a
+ * verified GitHub workspace ([WorkspaceRootAccount]).
+ */
+interface RootAccount {
+    val repo: Repo
+    /** Advances after old private routes/caches have been synchronously retired. */
+    val sourceEpoch: Long
+    val state: AccountState
+    fun refresh()
+    fun retryStorage()
+    fun signInServices(): SignInServices
+    suspend fun accessSignIn(title: String, hint: String): Boolean
+    fun resetCredentials(expectedEpoch: Long)
+}
 
 /** Existing account RPCs and native session verification, owned above individual routes. */
 class AccountRuntime(
@@ -37,20 +60,19 @@ class AccountRuntime(
     private val invalidated: () -> Unit,
     private val synchronizeSettings: suspend () -> Unit,
     rpcObserver: RpcObserver,
-) {
+) : RootAccount {
     private var closed = false
     private var probe: Job? = null
     private var probeChanged = CompletableDeferred<Unit>()
     private var changing = false
     private var epoch = 0L
     private var probeRevision = 0L
-    val repo = Repo({ configuration(false) }, transport, rpcObserver)
+    override val repo = Repo({ configuration(false) }, transport, rpcObserver)
     private val verificationRepo = Repo({ configuration(true) }, transport, rpcObserver)
 
-    /** Advances after old private routes/caches have been synchronously retired. */
-    var sourceEpoch by mutableStateOf(0L)
+    override var sourceEpoch by mutableStateOf(0L)
         private set
-    var state by mutableStateOf(AccountState(AccountPhase.Checking))
+    override var state by mutableStateOf(AccountState(AccountPhase.Checking))
         private set
     var serverHasAccount by mutableStateOf<Boolean?>(null)
         private set
@@ -83,7 +105,7 @@ class AccountRuntime(
     fun start() = refresh()
 
     /** Resume retries observation; an unreachable server never forgets a verified account. */
-    fun refresh() {
+    override fun refresh() {
         if (closed || changing) return
         val previousProbe = probe
         val revision = ++probeRevision
@@ -149,6 +171,8 @@ class AccountRuntime(
                         storage.account().email,
                         previous.googleClientId,
                         failure.message ?: "Pully could not reach the server. Try again or check Server settings.",
+                        // Saved-credential problems are not the server's; they keep the reset page.
+                        if (failure is ServerError || failure is RpcTimeoutException || failure !is IllegalStateException) connectionProblem(failure) else null,
                     )
                 }
             }
@@ -193,7 +217,7 @@ class AccountRuntime(
     }
 
     /** A rendered sign-in page owns a fresh controller and unsaved credentials. */
-    fun signInServices(): SignInServices {
+    override fun signInServices(): SignInServices {
         val source = repo.source()
         val openingEpoch = epoch
         val config = configuration(false)
@@ -210,6 +234,25 @@ class AccountRuntime(
                 controller.google { googleIdToken(clientId, config.generation) }
             }
             override fun close() { active = false }
+        }
+    }
+
+    /**
+     * Signs in to the server's Cloudflare Access in the host's page. True once its token is saved, when the storage
+     * observers start a fresh check; false when the person closed the page.
+     */
+    override suspend fun accessSignIn(title: String, hint: String): Boolean {
+        val generation = configuration(false).generation
+        return suspendCancellableCoroutine { continuation ->
+            val selection = storage.accessSignIn(title, hint, generation, object : AccessSignInObserver {
+                override fun signedIn() { if (continuation.isActive) continuation.resume(true) }
+                override fun ended(problem: String?) {
+                    if (!continuation.isActive) return
+                    if (problem == null) continuation.resume(false)
+                    else continuation.resumeWithException(IllegalStateException(problem))
+                }
+            })
+            continuation.invokeOnCancellation { selection.cancel() }
         }
     }
 
@@ -233,9 +276,9 @@ class AccountRuntime(
         val connection = configuration(false)
         checked(storage.saveAnalysis(engine, model, connection.generation))
     }
-    fun retryStorage() { checked(storage.retryStorage()); refresh() }
+    override fun retryStorage() { checked(storage.retryStorage()); refresh() }
     /** A confirmation belongs to the source that opened it, including when secure storage is unavailable. */
-    fun resetCredentials(expectedEpoch: Long) {
+    override fun resetCredentials(expectedEpoch: Long) {
         if (closed || changing || expectedEpoch != epoch) throw CancellationException("The account source changed.")
         checked(storage.resetCredentials())
         refresh()
