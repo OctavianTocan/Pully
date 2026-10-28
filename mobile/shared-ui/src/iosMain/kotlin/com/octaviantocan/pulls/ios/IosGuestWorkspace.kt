@@ -23,8 +23,12 @@ import com.octaviantocan.pulls.ui.personal.GitHubAccountEntrySheet
 import com.octaviantocan.pulls.ui.personal.GitHubAccountRequest
 import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.wantsDark
+import com.octaviantocan.pulls.settings.UserDefaultsSettings
+import com.octaviantocan.pulls.ui.review.PublicReviewFrame
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import platform.Foundation.NSUserDefaults
+import kotlin.time.Clock
 
 /** Public identity remains separate from the tokenless repository session and every private service. */
 internal class IosGuestWorkspace(
@@ -38,12 +42,20 @@ internal class IosGuestWorkspace(
     private val isCurrent: () -> Boolean,
     private val personalSessions: IosPersonalSessionStore? = null,
     private val accountRequest: GitHubAccountRequest? = null,
+    defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
 ) : NativeWorkspace {
     private var closed = false
     private val personalForeground = native as? NativePersonalForegroundActions
     private val session = GuestBrowseSession(transport, scope, source, navigation)
     val current get() = !closed && isCurrent() && session.current
     private val native = SourceHomeActions(native) { current }
+    /** A public pull request opens on Pully's own review page, read-only, as on Android. */
+    private val publicReview = PublicReviewFrame(
+        transport, scope, settings, this.native, SharedReviewFrameBack, current = { current },
+        nowMillis = { Clock.System.now().toEpochMilliseconds() },
+    )
+    /** Whether the Explore welcome sheet has been seen, on this phone; it opens once, as on Android. */
+    private val explorePrefs = UserDefaultsSettings(defaults, "pully-explore")
     private val personal = personalSessions?.takeIf { it.configured && personalForeground != null }?.open(scope) { current }
     internal val personalBrowse = personal?.let { PersonalBrowseMount(it, scope, source, navigation) }
     private var foreground by mutableStateOf(false)
@@ -79,6 +91,7 @@ internal class IosGuestWorkspace(
         personalBrowse?.close()
         personal?.close()
         commands.close()
+        publicReview.close()
         session.close()
         throw failure
     }
@@ -93,6 +106,7 @@ internal class IosGuestWorkspace(
         personalBrowse?.close()
         personal?.close()
         commands.close()
+        publicReview.close()
         session.close()
         throw failure
     }
@@ -162,6 +176,9 @@ internal class IosGuestWorkspace(
                         onCommands = { if (current) Commands.open() },
                         githubAccount = personalView?.account?.login,
                         personal = personalBrowse,
+                        publicReview = publicReview,
+                        welcomeSeen = explorePrefs.getBoolean("welcomeSeen", false),
+                        onWelcomeSeen = { explorePrefs.edit().putBoolean("welcomeSeen", true).apply() },
                     )
                     personalBrowse?.let { mount -> PersonalBrowseAccountSheet(mount,
                         onOpenBrowser = { url -> if (current && foreground && personalAvailable) native.openOnGithub(url) }) }
@@ -190,6 +207,7 @@ internal class IosGuestWorkspace(
         personal?.close()
         lifecycle.cancel()
         commands.close()
+        publicReview.close()
         session.close()
     }
 }

@@ -4,8 +4,9 @@ Ordinary scenes supply the same shared app with separate native Share and person
 account adapters. The personal vault uses its own device-only, app-private Keychain
 item and is shared across scenes. Its profile stays in public Explore; it does not
 authorize the legacy private workspace or Share imports. `PULLY_PERSONAL_AUTH_ORIGIN`
-is an optional trusted build setting, empty by default. A deployment must configure
-its actual Pully-owned authorization origin before native GitHub sign-in is offered.
+is the trusted build setting naming the Pully-owned authorization origin; it is
+`https://prs.octaviantocan.com`, as Android's `pully.personalAuthOrigin`, so Connect
+GitHub is offered. Emptying it leaves native GitHub sign-in unavailable.
 No client secret or legacy server setting supplies that origin. Share's optional
 App Group setup is described below and remains independent of this vault.
 
@@ -13,7 +14,7 @@ Strict Debug fixtures receive neither ordinary adapter. The actual Cocoa error,
 Keychain and lifecycle tests belong to `PullyAccountTests` and the existing signed
 Keychain host; metadata compilation alone does not establish their Apple behavior.
 
-This internal preview hosts the same shared Compose code used by Android. Fresh
+The app hosts the same shared Compose code used by Android. Fresh
 launches use public Explore without constructing the private application graph. The
 existing-server entry connects the real shared account/client to its server, with native
 Keychain storage, restored-session verification, the existing sign-in page and Server

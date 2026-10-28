@@ -5,14 +5,16 @@ authentication, storage, links, input, navigation and device services. Source: T
 21 Oct 2026, chosen Compose Multiplatform implementation with maximum Android reuse.
 
 @cc [owner:OctavianTocan,label:product] ios-preview-is-explicit
-The iOS app MUST identify itself as an internal preview until the complete account,
-review and AI journeys are connected and validated. The ordinary live host MAY read
-its configured server only through the actual shared account/client and secure native
-adapters; a restored session MUST be verified first. Deterministic nonprivate fixtures
-MUST require an explicit Debug launch switch, with a fixture label, and MUST NOT replace
+The live iOS app MUST present itself as Pully, with no preview title or bar over its
+pages: signed in, Home, Repo and Review carry their own headers as on Android, and
+Settings opens from Home's cog and from Commands. It MUST read its configured server
+only through the actual shared account/client and secure native adapters, and a
+restored session MUST be verified first. Deterministic nonprivate fixtures MUST
+require an explicit Debug launch switch, with a fixture label, and MUST NOT replace
 live server/account errors. Unsupported mutation, review and AI controls MUST remain
-unavailable before work starts. Source: Tavi's 21 Oct 2026 full iOS implementation and
-the accepted staged live-account/Home activation after the first fixture milestone.
+unavailable before work starts. Source: Tavi's 21 Oct 2026 full iOS implementation;
+Tavi, 28 Oct 2026, on the How Pully works explainer ("Our iPhone app should be 100%
+up to date"), which retired the internal-preview title.
 
 @cc [owner:OctavianTocan,label:architecture;design] ios-bundled-locales-match-web
 The iOS app bundle's `i18n/` JSON locale set and each file's bytes MUST equal

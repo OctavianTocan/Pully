@@ -437,7 +437,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				ONLY_ACTIVE_ARCH = YES;
 				PULLY_SHARE_APP_GROUP = "";
-				PULLY_PERSONAL_AUTH_ORIGIN = "";
+				PULLY_PERSONAL_AUTH_ORIGIN = "https://prs.octaviantocan.com";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -459,7 +459,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				PULLY_SHARE_APP_GROUP = "";
-				PULLY_PERSONAL_AUTH_ORIGIN = "";
+				PULLY_PERSONAL_AUTH_ORIGIN = "https://prs.octaviantocan.com";
 				SWIFT_VERSION = 5.0;
 				VALIDATE_PRODUCT = YES;
 			};
