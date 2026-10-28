@@ -73,12 +73,6 @@ async function requireReleasePush(check, head, policy, loadRun) {
  * stale, dirty, missing-ref, failed, skipped or unavailable evidence MUST fail closed.
  * Source: Tavi's 22 Oct 2026 fast-main and strongly verified release-branch decision.
  */
-/**
- * @cc [owner:OctavianTocan,label:architecture] pully-ci-runner-placement
- * Pully Linux workflow jobs MUST use the repository's pully-linux self-hosted runners.
- * iOS verification MAY use GitHub-hosted macOS and MUST NOT be required for merging
- * or publishing a release. Source: Octavian's runner decisions, 28 Oct 2026.
- */
 export async function verifyReleaseCheckout({ cwd = process.cwd(), readGit = git, loadPage = checkPage, loadRun = (repository, id) => githubJson(`${repository}/actions/runs/${id}`), policy = releasePolicy } = {}) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(policy.repository) || policy.releaseBranch !== 'release' || !policy.requiredReleaseChecks?.length)
     throw new Error('Release policy is invalid.')

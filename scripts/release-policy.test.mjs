@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 // eslint-disable-next-line test/no-import-node-test
 import { describe, it } from 'node:test'
 import YAML from 'yaml'
+import { iosVerificationRequired, linuxRunnerLabels } from './ci-runner-policy.ts'
 import { releasePolicy } from './release-track.mjs'
 
 const root = new URL('../', import.meta.url)
@@ -33,7 +34,7 @@ describe('integration and release workflow boundaries', () => {
       assert.equal(w.on.push.paths, undefined)
       assert.ok(Object.hasOwn(w.on, 'workflow_dispatch'))
       assert.equal(w.jobs[name].if, undefined)
-      assert.equal(releasePolicy.requiredReleaseChecks.includes(name), name !== 'ios-release-verify')
+      assert.equal(releasePolicy.requiredReleaseChecks.includes(name), name === 'ios-release-verify' ? iosVerificationRequired : true)
     }
     const native = workflow('ios-verify').jobs['ios-release-verify']
     assert.equal(Object.keys(workflow('ios-verify').jobs).length, 1, 'do not duplicate a whole Mac build on main')
@@ -53,10 +54,10 @@ describe('integration and release workflow boundaries', () => {
     const files = readdirSync(new URL('../.github/workflows/', import.meta.url)).filter(file => file.endsWith('.yml') && file !== 'ios-verify.yml')
     for (const file of files) {
       for (const job of Object.values(workflow(file.slice(0, -4)).jobs))
-        assert.deepEqual(job['runs-on'], ['self-hosted', 'linux', 'x64', 'pully-linux'], file)
+        assert.deepEqual(job['runs-on'], linuxRunnerLabels, file)
     }
     assert.equal(workflow('ios-verify').jobs['ios-release-verify']['runs-on'], 'macos-26')
-    assert.ok(!releasePolicy.requiredReleaseChecks.includes('ios-release-verify'))
+    assert.equal(releasePolicy.requiredReleaseChecks.includes('ios-release-verify'), iosVerificationRequired)
   })
 
   it('fences manual/tag and legacy deployment consumers before publication', () => {
