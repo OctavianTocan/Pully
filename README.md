@@ -9,8 +9,8 @@ writes a short summary and a guided tour through the change, and lets you ask qu
 or have Claude Code or Codex review it, all from an Android app built for one-handed reading.
 
 > [!NOTE]
-> Pully is a personal project under active development. The Android app is the product; the
-> iPhone app is an internal preview and the web app trails behind both.
+> Pully is a personal project under active development. The Android app is the product and the
+> iPhone app runs the same shared screens on real data; the web app trails behind both.
 
 ## What it does
 
@@ -58,7 +58,7 @@ Every release is described, with pictures, in [`android/CHANGELOG.md`](./android
 | Path                                     | What it is                                                                            |
 | ---------------------------------------- | ------------------------------------------------------------------------------------- |
 | [`android/`](./android)                  | The Android app, its design rules ([`DESIGN.md`](./android/DESIGN.md)) and changelog. |
-| [`ios/`](./ios)                          | The iPhone host for the shared app (internal preview).                                |
+| [`ios/`](./ios)                          | The iPhone host for the shared app.                                                   |
 | [`mobile/`](./mobile)                    | Kotlin Multiplatform code shared by Android and iOS.                                  |
 | [`backend/`](./backend)                  | The Rust server: GitHub, review state, AI runs, accounts, sync.                       |
 | [`packages/worker`](./packages/worker)   | The same server built for Cloudflare Workers.                                         |
