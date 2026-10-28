@@ -70,8 +70,12 @@ internal class IosGuestWorkspace(
     private var personalApp: IosPersonalWorkspace? = null
     /** Whether the person went back to Explore from a mounted GitHub workspace. */
     private var exploring by mutableStateOf(false)
-    /** A saved GitHub login opens on the signed-in side's still Inbox while it is checked, as on Android. */
-    private var awaitingSaved by mutableStateOf(personal?.savedPrivateLogin() == true)
+    /**
+     * A saved GitHub login opens on the signed-in side's still Inbox while it is checked, as on Android. Asked once,
+     * after the first active storage probe, since secure storage is read only on an actual active event.
+     */
+    private var awaitingSaved by mutableStateOf(false)
+    private var savedLoginAsked = false
     private var personalActivityEpoch = 0L
     private val githubAccountEntry = GitHubAccountEntry(
         current = { current }, foreground = { this.native.isSharedBackActive() },
@@ -97,6 +101,11 @@ internal class IosGuestWorkspace(
                 personalAvailable = available
                 personalBrowse?.availability(available)
                 if (!available) awaitingSaved = false
+                if (available && !savedLoginAsked) {
+                    savedLoginAsked = true
+                    awaitingSaved = personal?.savedPrivateLogin() == true
+                    if (!current || personalActivityEpoch != opening || !foreground) return
+                }
                 if (available) personal?.restore()
                 if (current && personalActivityEpoch == opening && foreground) personalApp?.foreground(available)
                 if (current && personalActivityEpoch == opening && foreground) accountRequest?.deliver(githubAccountEntry)
