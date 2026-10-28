@@ -1,129 +1,112 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./packages/app/public/og-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="./packages/app/public/og.png">
-  <img alt="pulls.review Open Graph image" src="./packages/app/public/og.png">
-</picture>
+<p align="center">
+  <img alt="Pully on an unfolded phone: the Inbox beside an open pull request" src="./android/changelog/0.65.0/unfolded.png" width="720">
+</p>
 
-# [pulls.review](https://pulls.review)
+# Pully
 
-> [!WARNING]
-> Heavily work in progress.
+Review GitHub pull requests on your phone. Pully groups a pull request's files by what they do,
+writes a short summary and a guided tour through the change, and lets you ask questions about it
+or have Claude Code or Codex review it, all from an Android app built for one-handed reading.
 
-Pull request review made simple. Groups changed files, summarizes what matters, and reviews them one scope at a time.
+> [!NOTE]
+> Pully is a personal project under active development. The Android app is the product; the
+> iPhone app is an internal preview and the web app trails behind both.
 
-## Use on Website
+## What it does
 
-To use pulls.review on the website, simply visit [pulls.review](https://pulls.review) and follow the instructions to connect your GitHub account and start reviewing pull requests directly in your browser.
+- **Inbox.** Pull requests waiting on you, the ones you wrote, and stacks of pull requests shown
+  as one row. Group them by kind and see the riskiest first. The Inbox updates by itself while
+  it is open, and every pull request on it is read ahead, so tapping one opens it at once.
+- **Overview, Diff and Tour.** A summary of what changed and why, the description and
+  conversation as GitHub shows them (Mermaid diagrams drawn on the phone), a diff that reads
+  like code, and a Tour that walks through the change in a sensible order.
+- **Ask.** Ask anything about a pull request or your whole Inbox, with the chat history kept.
+- **Review with AI.** Claude Code, Codex or Pi (any model behind your own API) reviews the pull request with a chosen set of review
+  skills, and you pick which findings to post back to GitHub. Each person signs in to their own
+  Claude Code and Codex subscription in Settings; no API keys.
+- **Explore.** Browse public GitHub projects and open their pull requests without signing in.
+- **Diff links for agents.** Coding agents post a diff with an agent key and hand you a link that
+  opens like a pull request ([`skills/post-diff-to-pully`](./skills/post-diff-to-pully)).
+- **Made for the phone.** Gestures that follow your finger, sheets, haptics and sounds, light and
+  dark colour themes, two panes on an unfolded foldable, alerts for the checks and AI work you
+  follow, and in-app updates with a What's new sheet.
 
-## Use in GitHub
+Every release is described, with pictures, in [`android/CHANGELOG.md`](./android/CHANGELOG.md).
 
-You can optionally install userscript to enhance the GitHub interface with pulls.review features.
+## How it fits together
 
-Go to [pulls.review](https://pulls.review/) and scroll down to the GitHub section to install the userscript.
-
-## Analyze pull requests from CI (Experimental)
-
-Instead of each reviewer spending their own model key, let a workflow analyze every pull request once and post the result as a PR comment. pulls.review picks the comment up automatically for everyone who opens the PR there. Re-runs on an unchanged PR skip the model call.
-
-```yaml
-# .github/workflows/pulls-review.yml
-name: pulls.review
-on:
-  # The analysis only reads the diff through the API and never checks out PR code,
-  # so `pull_request_target` is safe here and lets fork PRs get a comment too.
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-
-permissions:
-  pull-requests: write
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: antfu/pulls.review@main
-        with:
-          api-key: ${{ secrets.VERCEL_AI_GATEWAY_API_KEY }}
+```
+ Android app  ─┐
+ iPhone app   ─┼──  Pully server (Rust)  ──  GitHub, Claude Code, Codex
+ Web app      ─┘     native, or on Cloudflare Workers
 ```
 
-`provider` is inferred from the key you pass (`gateway` for a Vercel AI Gateway token, `anthropic`, or `openai-compatible` with `base-url`); set it explicitly, along with `model` and `locale`, when you want to.
+- **Phone apps.** Kotlin with Compose. Android and iOS share their domain, client and UI code
+  through Kotlin Multiplatform ([`mobile/`](./mobile)); [`android/`](./android) and
+  [`ios/`](./ios) are the two hosts.
+- **Server.** [`backend/`](./backend) is one Rust crate that builds both the native server and
+  the Cloudflare Worker in [`packages/worker`](./packages/worker), which keeps the server's data
+  in a Durable Object and runs each login's AI in its own container. The server keeps every
+  pull request it has read and tells phones what changed, so the apps read from their own copy
+  first and catch up quietly ([plan 14](./plans/14-sync-engine.md)).
+- **Sign-in.** A Pully account with Google; GitHub is connected the way `gh auth login` does it.
+- **Web.** [`packages/app`](./packages/app) is the Vue web app, styled from the same design
+  tokens as the phone.
 
-The action is a thin wrapper around the `@pulls.review/actions` CLI, which works anywhere a GitHub token and a model key are in the environment:
+## Repository layout
 
-```sh
-GITHUB_TOKEN=... ANTHROPIC_API_KEY=... npx @pulls.review/actions owner/repo#123
-```
+| Path                                     | What it is                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| [`android/`](./android)                  | The Android app, its design rules ([`DESIGN.md`](./android/DESIGN.md)) and changelog. |
+| [`ios/`](./ios)                          | The iPhone host for the shared app (internal preview).                                |
+| [`mobile/`](./mobile)                    | Kotlin Multiplatform code shared by Android and iOS.                                  |
+| [`backend/`](./backend)                  | The Rust server: GitHub, review state, AI runs, accounts, sync.                       |
+| [`packages/worker`](./packages/worker)   | The same server built for Cloudflare Workers.                                         |
+| [`packages/app`](./packages/app)         | The Vue web app.                                                                      |
+| [`packages/core`](./packages/core)       | Diff parsing, providers and analysis used by the web app and the Action.              |
+| [`packages/cli`](./packages/cli)         | A small launcher that serves the web app from a local Rust server.                    |
+| [`packages/actions`](./packages/actions) | The CLI behind the GitHub Action in [`action.yml`](./action.yml).                     |
+| [`skills/`](./skills)                    | Agent skills for posting diffs to Pully and reading in-app feedback.                  |
+| [`plans/`](./plans), [`docs/`](./docs)   | Design plans and notes on the server, releases and migrations.                        |
 
-Every variable also has a `PULLS_REVIEW_*` form that takes precedence (`PULLS_REVIEW_GITHUB_TOKEN`, `PULLS_REVIEW_PROVIDER`, `PULLS_REVIEW_API_KEY`, `PULLS_REVIEW_MODEL`, `PULLS_REVIEW_BASE_URL`, `PULLS_REVIEW_LOCALE`); `npx @pulls.review/actions --help` lists everything.
+## Development
 
-## Run your own review server
-
-[`pulls-review-server`](./backend/README.md) is the native Rust server for local
-Git reviews, the existing Android client, server-owned AI tasks, GitHub
-operations, and persistent review state. The [`pulls.review` npm package](./packages/cli/README.md)
-is a small JavaScript launcher plus the web UI and curated review lenses. It
-requires a separately built or installed native executable; it does not bundle,
-download, or build one, and has no TypeScript server fallback.
-
-From a source checkout, with Rust, Git, Node.js compatible with the workspace dependencies (checks used 24.19.0) and the repository's pnpm
-version installed:
+You need Node.js 24 with pnpm, Rust, and for the app JDK 21 and the Android SDK.
 
 ```sh
 pnpm install
-cargo build --locked --manifest-path backend/Cargo.toml
-pnpm -F pulls.review run build
-node packages/cli/bin.mjs --cwd /absolute/path/to/repository --worktree
-# Or build the native server and packaged web assets together:
-# pnpm run build:server
+
+# Android app: unit tests and a debug APK
+cd android && ./gradlew :app:testDebugUnitTest :app:assembleDebug
+
+# Server
+cargo test --manifest-path backend/Cargo.toml
+cargo run --manifest-path backend/Cargo.toml   # see backend/README.md for settings
+
+# Cloudflare Worker, locally
+pnpm -F @pulls.review/worker dev
+
+# Checks that run in CI
+pnpm run lint && pnpm run typecheck
+pnpm run contracts:check && pnpm run android:design
 ```
 
-For an installed npm launcher, install the server from a source checkout with
-`cargo install --locked --path /path/to/pulls.review/backend`, then put Cargo's
-bin directory on `PATH` or set `PULLS_REVIEW_SERVER_BIN` to its executable.
-The launcher uses this checkout's `backend/target/debug` or `release` build when
-run from source, and supplies the packaged web/skills directories automatically.
-Direct native execution is also supported; see the [setup guide](./backend/README.md).
-This PR does not publish an npm release; use the source checkout commands until
-a release includes the native launcher.
+Code rules live in `CONTRACTS` files beside the code they govern, and the Android look is set
+by [`android/DESIGN.md`](./android/DESIGN.md); [`CLAUDE.md`](./CLAUDE.md) explains both.
 
-A [full native CI run](https://github.com/OctavianTocan/pulls.review/actions/runs/38917860671)
-at `fac9ff30b532297145b890d91cde2ec2c3af6ca6` passed a locked full build, all 43 targeted native fixtures (16 presentation,
-11 lens, 14 RPC and two cursor tests), and both bounded offline HTTP/auth/review
-and analytics smokes after the TypeScript backend removal. Live providers, Docker/shared login, GitHub writes, and
-Android-device workflows remain untested; these bounded results do not establish
-complete end-to-end parity. The Vue/Android UIs, browser-used TypeScript core,
-and separate GitHub Action remain. See the [migration and rollback notes](./docs/RUST_BACKEND_MIGRATION.md).
-Keep remote access on a trusted network or behind an authenticated proxy: the
-general phone RPCs have no application login. Account-owned methods additionally
-require a Pully session, and `/api/v1` uses agent keys.
+## Releases
 
-Integration uses fast main checks; full native, Android and backend verification gates
-release promotion. See [the release track and deployment migration](./docs/RELEASE_TRACK.md)
-before running an updater or publisher.
-
-## Packages
-
-| Package                                       | What it is                                                                                      |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [`packages/app`](./packages/app)              | The Vue website, github.com embed, and self-hosted web UI.                                      |
-| [`@pulls.review/core`](./packages/core)       | Browser/Action diff parsing, providers, analysis, caching, and shared client contracts.         |
-| [`@pulls.review/actions`](./packages/actions) | The separate TypeScript CLI used by the GitHub Action.                                          |
-| [`pulls.review`](./packages/cli)              | Dependency-free JavaScript launcher, packaged web UI, and curated lenses; requires Rust server. |
-| [`pulls-review-server`](./backend)            | The native Rust HTTP/RPC server, local Git provider, AI orchestration, and persistent storage.  |
-| [`android`](./android)                        | The Kotlin/Compose Android client for the self-hosted server.                                   |
+`main` is the integration branch: each merge deploys the Cloudflare server as staging and
+publishes Pully Staging, a separate app that installs beside Pully. Stable releases go out from
+the `release` branch through a promotion pull request that runs the full Android, iOS and server
+checks. [`docs/RELEASE_TRACK.md`](./docs/RELEASE_TRACK.md) has the details.
 
 ## Credits
 
-Inspired heavily by [Linear's PR review guides](https://linear.app/docs/diffs#guides), thanks for the inspiration.
-
-## Sponsors
-
-<p align="center">
-  <a href="https://cdn.jsdelivr.net/gh/antfu/static/sponsors.svg">
-    <img src="https://cdn.jsdelivr.net/gh/antfu/static/sponsors.svg" alt="Sponsors"/>
-  </a>
-</p>
+Pully started as a fork of [pulls.review](https://github.com/antfu/pulls.review) by
+[Anthony Fu](https://github.com/antfu), which was itself inspired by
+[Linear's PR review guides](https://linear.app/docs/diffs#guides).
 
 ## License
 
-MIT License
+[MIT](./LICENSE)
