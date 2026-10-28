@@ -117,6 +117,7 @@ class ContractsTest {
         assertEquals("Pull request pages", contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/ui/review").first)
         assertEquals("Server", contractArea("backend").first)
         assertEquals("Server launcher", contractArea("packages/cli").first)
+        assertEquals(contractArea("ai-kit"), contractArea("ai-kit/kotlin/src/commonMain/kotlin/com/octaviantocan/aikit"))
         assertTrue(contractArea("backend").second < contractArea("packages/cli").second)
         // Two directories may share an area, and rank with it.
         assertEquals(contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/ui/update"), contractArea("android/app/src/main/kotlin/com/octaviantocan/pulls/update"))

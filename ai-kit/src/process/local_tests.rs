@@ -60,6 +60,7 @@ fn write_fake_clis(bin: &Path, homes: &Path) {
 #[test]
 #[cfg(unix)]
 fn local_runtime_runs_signs_in_and_keeps_rotated_logins() {
+    crate::config::for_tests();
     let root = std::env::temp_dir().join(format!("pulls-local-runtime-{}", Uuid::new_v4()));
     let bin = root.join("bin");
     write_fake_clis(&bin, &root.join("homes"));
@@ -75,7 +76,7 @@ fn local_runtime_runs_signs_in_and_keeps_rotated_logins() {
     let status = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "agent_process::local_tests::local_runtime_child",
+            "process::local_tests::local_runtime_child",
             "--nocapture",
         ])
         .env("PULLS_TEST_LOCAL_DIR", &root)
@@ -93,6 +94,7 @@ fn local_runtime_runs_signs_in_and_keeps_rotated_logins() {
 
 #[tokio::test(flavor = "current_thread")]
 async fn local_runtime_child() {
+    crate::config::for_tests();
     let Some(dir) = std::env::var_os("PULLS_TEST_LOCAL_DIR").map(PathBuf::from) else {
         return;
     };
@@ -104,14 +106,14 @@ async fn local_runtime_child() {
         &login,
         receiver,
         Arc::new(|_| {}),
-        crate::ai::StructuredAnswerPreparation::Strict,
+        Preparation::STRICT,
     )
     .await
     .unwrap();
     assert_eq!(answer, "echo: offline fixture");
-    let status = crate::agent_login::status(&login).await.unwrap();
+    let status = crate::login::status(&login).await.unwrap();
     assert_eq!(status["codex"]["signedIn"], true);
-    let logins = crate::agent_login::Logins::default();
+    let logins = crate::login::Logins::default();
     let started = logins.start(&login, "codex").await.unwrap();
     assert_eq!(started["code"], "ABCD-EFGH");
     let home = dir.join("homes").join(login.volume());
@@ -133,16 +135,17 @@ async fn local_runtime_child() {
     .expect("a cancelled sign-in stops its process");
     let other = AgentLogin::Account("someone-else".into());
     assert_eq!(
-        crate::agent_login::status(&other).await.unwrap()["codex"]["signedIn"],
+        crate::login::status(&other).await.unwrap()["codex"]["signedIn"],
         false
     );
 }
 
-/// The Worker's path: AI calls go through `agent_remote` to a runner in another process, which
+/// The Worker's path: AI calls go through `remote` to a runner in another process, which
 /// runs them with the local runtime.
 #[test]
 #[cfg(unix)]
 fn remote_calls_reach_the_runner_of_their_login_only() {
+    crate::config::for_tests();
     let root = std::env::temp_dir().join(format!("pulls-agent-runner-{}", Uuid::new_v4()));
     let bin = root.join("bin");
     write_fake_clis(&bin, &root.join("homes"));
@@ -164,10 +167,8 @@ fn remote_calls_reach_the_runner_of_their_login_only() {
             .spawn()
             .unwrap()
     };
-    let mut runner = child("agent_process::local_tests::runner_child");
-    let status = child("agent_process::local_tests::remote_child")
-        .wait()
-        .unwrap();
+    let mut runner = child("process::local_tests::runner_child");
+    let status = child("process::local_tests::remote_child").wait().unwrap();
     let _ = runner.kill();
     let _ = runner.wait();
     assert!(status.success());
@@ -176,6 +177,7 @@ fn remote_calls_reach_the_runner_of_their_login_only() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn runner_child() {
+    crate::config::for_tests();
     let Some(dir) = std::env::var_os("PULLS_TEST_RUNNER_DIR").map(PathBuf::from) else {
         return;
     };
@@ -187,7 +189,7 @@ async fn runner_child() {
     )
     .unwrap();
     let volume = AgentLogin::Account("remote-account".into()).volume();
-    axum::serve(listener, crate::agent_runner::router(volume))
+    axum::serve(listener, crate::runner::router(volume))
         .await
         .unwrap();
 }
@@ -195,13 +197,13 @@ async fn runner_child() {
 struct HttpRemote {
     base: String,
 }
-impl crate::agent_remote::AgentRemote for HttpRemote {
+impl crate::remote::AgentRemote for HttpRemote {
     fn post(
         &self,
         _: &AgentLogin,
         path: &'static str,
         body: Vec<u8>,
-    ) -> futures_util::future::BoxFuture<'static, Result<crate::agent_remote::Body>> {
+    ) -> futures_util::future::BoxFuture<'static, Result<crate::remote::Body>> {
         let url = format!("{}{path}", self.base);
         Box::pin(async move {
             use futures_util::StreamExt;
@@ -214,13 +216,14 @@ impl crate::agent_remote::AgentRemote for HttpRemote {
             let body = response
                 .bytes_stream()
                 .map(|chunk| chunk.map(|b| b.to_vec()).map_err(std::io::Error::other));
-            Ok(Box::pin(body) as crate::agent_remote::Body)
+            Ok(Box::pin(body) as crate::remote::Body)
         })
     }
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn remote_child() {
+    crate::config::for_tests();
     let Some(dir) = std::env::var_os("PULLS_TEST_RUNNER_DIR").map(PathBuf::from) else {
         return;
     };
@@ -234,7 +237,7 @@ async fn remote_child() {
     })
     .await
     .unwrap();
-    crate::agent_remote::set(Arc::new(HttpRemote {
+    crate::remote::set(Arc::new(HttpRemote {
         base: format!("http://127.0.0.1:{port}"),
     }))
     .unwrap();
@@ -247,15 +250,15 @@ async fn remote_child() {
         &login,
         receiver,
         Arc::new(move |event| seen.lock().unwrap().push(event)),
-        crate::ai::StructuredAnswerPreparation::Strict,
+        Preparation::STRICT,
     )
     .await
     .unwrap();
     assert_eq!(answer, "echo: over the wire");
     assert!(!events.lock().unwrap().is_empty());
-    let status = crate::agent_login::status(&login).await.unwrap();
+    let status = crate::login::status(&login).await.unwrap();
     assert_eq!(status["codex"]["signedIn"], true);
-    let logins = crate::agent_login::Logins::default();
+    let logins = crate::login::Logins::default();
     let started = logins.start(&login, "codex").await.unwrap();
     assert_eq!(started["url"], "https://auth.openai.com/codex/device");
     logins.cancel(&login, "codex").await;
@@ -295,6 +298,6 @@ async fn remote_child() {
     assert!(put(json!({"../escape.json": codex})).await["error"].is_string());
     assert!(!dir.join("homes/escape.json").exists());
     let other = AgentLogin::Account("someone-else".into());
-    let refused = crate::agent_login::status(&other).await.unwrap_err();
+    let refused = crate::login::status(&other).await.unwrap_err();
     assert!(refused.to_string().contains("another login"), "{refused}");
 }

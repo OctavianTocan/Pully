@@ -240,7 +240,7 @@ pub(super) async fn run_prepared(
             &run.login,
             run.cancel.subscribe(),
             sink,
-            preparation,
+            preparation.into(),
         )
         .await;
         drop(guard);

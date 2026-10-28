@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.octaviantocan.aikit.CliCatalog
 import com.octaviantocan.pulls.data.ENGINES
-import com.octaviantocan.pulls.ui.settings.CliCatalog
 import com.octaviantocan.pulls.ui.settings.ModelConfiguration
 import com.octaviantocan.pulls.ui.settings.ModelSettingsServices
 

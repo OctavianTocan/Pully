@@ -5,7 +5,7 @@
 //! request with the session it resolved, and answers sign-out and background sessions for it.
 
 use crate::{
-    agent, answer, import,
+    answer, import,
     personal::{store, ScopedRecords},
     storage,
 };
@@ -39,9 +39,7 @@ pub struct AccountServer {
 impl worker::DurableObject for AccountServer {
     fn new(state: State, env: Env) -> Self {
         // The object may be the first in this isolate: AI work goes to the login's container.
-        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
-            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
-        }));
+        ai_kit::home::install(&env, "AGENT_HOME").expect("Agent homes");
         Self {
             state,
             env,

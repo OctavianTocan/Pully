@@ -1,10 +1,13 @@
-//! The server inside the hosted agent container (`packages/worker/agent`): one Pully login's
-//! Claude Code and Codex runs, model lists and sign-ins, done with the native server's own code
-//! (`agent_process`, `agent_login`) as plain processes, since the container is the sandbox. Only
-//! the login's `AgentHome` Durable Object can reach it; `agent_remote` is its client.
+//! The server inside the hosted agent container: one login's Claude Code and Codex runs, model
+//! lists and sign-ins, done with a native server's own code ([`crate::process`],
+//! [`crate::login`]) as plain processes, since the container is the sandbox. Only the login's own
+//! Durable Object can reach it; [`crate::remote`] is its client.
 use crate::{
-    agent_login::{self, AgentLogin},
-    agent_process, agent_remote,
+    config::{config, Preparation},
+    login::{self as agent_login, AgentLogin},
+    process as agent_process,
+    redact::safe_error,
+    remote as agent_remote,
 };
 use anyhow::{bail, Context, Result};
 use axum::{
@@ -21,8 +24,6 @@ use std::{
 };
 use tokio::sync::{mpsc, watch};
 
-/// Baked into the agent image only, so the runner refuses to start anywhere else.
-pub const CONTAINER_MARKER: &str = "/.pully-agent-container";
 /// The largest login file kept between container starts, as the login copy scripts allow.
 const LOGIN_FILE_LIMIT: usize = 512 * 1024;
 
@@ -42,8 +43,8 @@ pub async fn serve(
     volume: String,
     cli: (u32, u32),
 ) -> Result<()> {
-    if !std::path::Path::new(CONTAINER_MARKER).is_file() {
-        bail!("The agent runner only runs in the Pully agent container");
+    if !std::path::Path::new(config().container_marker).is_file() {
+        bail!("The agent runner only runs in the agent container");
     }
     #[cfg(unix)]
     {
@@ -108,7 +109,7 @@ fn binary(body: &Value) -> Result<&'static str> {
 fn answer(result: Result<Value>) -> Json<Value> {
     Json(match result {
         Ok(value) => json!({"ok": value}),
-        Err(error) => json!({"error": crate::transport::safe_error(&error)}),
+        Err(error) => json!({"error": safe_error(&error)}),
     })
 }
 
@@ -123,13 +124,12 @@ async fn run(
             .as_str()
             .filter(|id| id.len() <= 64)
             .context("Invalid run")?;
-        let preparation =
-            agent_remote::preparation_from(body["preparation"].as_str().unwrap_or("strict"))?;
+        let preparation = Preparation::named(body["preparation"].as_str().unwrap_or("strict"))?;
         Ok::<_, anyhow::Error>((login, id.to_owned(), preparation))
     })();
     match started {
         Err(error) => {
-            let _ = lines.send(json!({"error": crate::transport::safe_error(&error)}));
+            let _ = lines.send(json!({"error": safe_error(&error)}));
         }
         Ok((login, id, preparation)) => {
             let (stop, cancelled) = watch::channel(false);
@@ -160,7 +160,7 @@ async fn run(
                 runner.runs.lock().unwrap().remove(&id);
                 let _ = lines.send(match result {
                     Ok((answer, usage)) => json!({"answer": answer, "usage": usage}),
-                    Err(error) => json!({"error": crate::transport::safe_error(&error)}),
+                    Err(error) => json!({"error": safe_error(&error)}),
                 });
             });
         }
@@ -310,7 +310,7 @@ async fn login_files_save(State(runner): State<Arc<Runner>>) -> axum::response::
         Ok(files) => Json(files).into_response(),
         Err(error) => (
             axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            crate::transport::safe_error(&error),
+            safe_error(&error),
         )
             .into_response(),
     }

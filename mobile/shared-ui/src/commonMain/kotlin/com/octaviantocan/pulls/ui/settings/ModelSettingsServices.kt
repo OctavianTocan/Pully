@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.settings
 
+import com.octaviantocan.aikit.CliCatalog
+import com.octaviantocan.aikit.asCatalog
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.settings.SettingsPreferences
 import kotlinx.coroutines.CancellationException

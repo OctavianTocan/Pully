@@ -1,4 +1,4 @@
-package com.octaviantocan.pulls.ui.settings
+package com.octaviantocan.aikit
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

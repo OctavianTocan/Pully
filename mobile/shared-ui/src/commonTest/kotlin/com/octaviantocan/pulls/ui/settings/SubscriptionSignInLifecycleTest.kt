@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.ui.settings
 
+import com.octaviantocan.aikit.AiCli
+import com.octaviantocan.aikit.AiSignInStart
 import com.octaviantocan.pulls.data.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest

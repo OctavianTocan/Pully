@@ -4,7 +4,7 @@
 //! Each account's reads and workspace go on to that account's own `AccountServer` object
 //! (`account.rs`), with the session this object resolved for the request.
 
-use crate::{account, agent, answer, failed, import, storage, PART};
+use crate::{account, answer, failed, import, storage, PART};
 use pulls_review_server::{
     public_server::{
         hosted_router, served_by_account, HostedAuthority, HostedGrant, HostedPersonal,
@@ -12,7 +12,6 @@ use pulls_review_server::{
     },
     store::{Records, Store},
 };
-use send_wrapper::SendWrapper;
 use std::{cell::RefCell, collections::HashSet, path::PathBuf, rc::Rc, sync::Arc};
 use tokio::sync::OnceCell;
 use worker::{
@@ -48,9 +47,7 @@ impl worker::DurableObject for PersonalServer {
     fn new(state: State, env: Env) -> Self {
         // PersonalServer may be the first object in this isolate. Its workspace uses
         // exactly the same own-login container remote, never a local wasm process.
-        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
-            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
-        }));
+        ai_kit::home::install(&env, "AGENT_HOME").expect("Agent homes");
         let mut variables: std::collections::BTreeMap<_, _> =
             pulls_review_server::rt::env::vars().into_iter().collect();
         if let Ok(value) = env.var("PULLS_REVIEW_ANALYTICS") {
