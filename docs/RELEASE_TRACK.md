@@ -96,3 +96,5 @@ install the reviewed updater copy and move its deployment checkout onto `release
 The new updater refuses another branch and uses fresh release admission before a
 new build or publication. Run the existing idle-safe update process only after the
 release push is green. This repository change performs none of those host actions.
+
+Linux runner operations are documented in [CI_RUNNERS.md](./CI_RUNNERS.md).
