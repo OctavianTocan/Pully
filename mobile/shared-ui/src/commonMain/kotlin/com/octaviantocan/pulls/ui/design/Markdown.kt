@@ -280,10 +280,14 @@ private fun Block(node: Node, style: TextStyle) {
         is BulletList, is OrderedList -> ListBlock(node, style)
         is FencedCodeBlock -> {
             val custom = LocalCodeBlock.current
+            val language = node.info.orEmpty().trim().substringBefore(' ').lowercase()
+            val code: @Composable () -> Unit = {
+                if (custom != null) custom(node.literal.trimEnd('\n'), language) else CodeBlock(node.literal.trimEnd('\n'))
+            }
             when {
                 node.info.orEmpty().startsWith(DETAILS_INFO) -> Details(node.info.removePrefix(DETAILS_INFO).trim(), node.literal, style)
-                custom != null -> custom(node.literal.trimEnd('\n'), node.info.orEmpty().trim().substringBefore(' ').lowercase())
-                else -> CodeBlock(node.literal.trimEnd('\n'))
+                language == "mermaid" -> MermaidDiagram(node.literal.trimEnd('\n'), code)
+                else -> code()
             }
         }
         is IndentedCodeBlock -> LocalCodeBlock.current?.invoke(node.literal.trimEnd('\n'), "") ?: CodeBlock(node.literal.trimEnd('\n'))

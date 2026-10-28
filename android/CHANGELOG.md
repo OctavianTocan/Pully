@@ -21,6 +21,19 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.72.0
+
+#### 2026-10-28 15:22 UTC
+
+Mermaid diagrams in descriptions and comments are drawn as diagrams.
+
+- A Mermaid block in a description, a comment or the description you are writing now shows its diagram, drawn on the phone with Pele, Obsidian's diagram renderer, in the app's own colours.
+![A flowchart drawn in a description](changelog/0.72.0/flowchart.png)
+- Flowcharts, sequence, class, state and ER diagrams, Gantt and pie charts, git graphs, mind maps and the rest all draw, laid out for the width of the screen; tap one to open it full screen and pinch to zoom.
+![A pie chart drawn in a comment](changelog/0.72.0/pie.png)
+- They follow light and dark, and a block Mermaid can't read stays as the code it was written as.
+![A sequence diagram in dark, and a broken block left as code](changelog/0.72.0/sequence-dark.png)
+
 ## 0.71.0
 
 #### 2026-10-28 15:03 UTC

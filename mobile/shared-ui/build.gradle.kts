@@ -34,8 +34,10 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
             implementation("io.coil-kt.coil3:coil-compose:3.3.0")
+            implementation("io.github.dokar3:quickjs-kt:1.0.15")
         }
         commonMain { kotlin.srcDir(layout.buildDirectory.dir("generated/vectorSources")) }
+        commonMain { kotlin.srcDir(layout.buildDirectory.dir("generated/peleBundle")) }
         androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.13.0")
             implementation("com.caverock:androidsvg-aar:1.4")
@@ -93,6 +95,36 @@ val soundFixtures = tasks.register("generateSoundFixtures") {
 tasks.matching { it.name.contains("compile", ignoreCase = true) && it.name.contains("test", ignoreCase = true) }.configureEach {
     dependsOn(soundFixtures)
 }
+
+// Pele's checked-in browser bundle as a Kotlin string, so both hosts carry the same renderer without asset plumbing.
+val peleBundle = tasks.register("generatePeleBundle") {
+    val source = layout.projectDirectory.file("pele/pele.global.js")
+    val output = layout.buildDirectory.file("generated/peleBundle/com/octaviantocan/pulls/ui/design/PeleBundle.kt")
+    inputs.file(source)
+    outputs.file(output)
+    doLast {
+        val chunks = source.asFile.readText().chunked(8_000).joinToString(",\n") { chunk ->
+            buildString {
+                append('"')
+                for (character in chunk) when (character) {
+                    '\\' -> append("\\\\")
+                    '"' -> append("\\\"")
+                    '\n' -> append("\\n")
+                    '\r' -> append("\\r")
+                    '\t' -> append("\\t")
+                    else -> if (character.code == 36) append("\\" + character) else append(character)
+                }
+                append('"')
+            }
+        }
+        output.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("package com.octaviantocan.pulls.ui.design\n// Generated from mobile/shared-ui/pele/pele.global.js.\n" +
+                "internal object PeleBundle {\nval code: String by lazy { listOf(\n" + chunks + "\n).joinToString(\"\") }\n}\n")
+        }
+    }
+}
+tasks.matching { it.name.startsWith("compile", ignoreCase = true) }.configureEach { dependsOn(peleBundle) }
 
 tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest>().configureEach {
     providers.gradleProperty("pully.iosSimulatorId").orNull?.let { device.set(it) }

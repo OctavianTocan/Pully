@@ -149,7 +149,9 @@ private fun block(node: HtmlElement): List<String> = if (hidden(node)) emptyList
     "pre" -> {
         val code = textContent(node).trimEnd('\n')
         val fence = if ("```" in code) "~~~" else "```"
-        listOf("$fence\n$code\n$fence")
+        // GitHub keeps a diagram's language on its `<pre lang>`, so a Mermaid diagram is drawn rather than shown as code.
+        val language = node.attrs["lang"]?.takeIf { Regex("[A-Za-z0-9_+-]+").matches(it) }.orEmpty()
+        listOf("$fence$language\n$code\n$fence")
     }
     "ul", "ol" -> listOf(list(node))
     "blockquote" -> listOf(quoted(blocks(node.children).joinToString("\n\n")))
