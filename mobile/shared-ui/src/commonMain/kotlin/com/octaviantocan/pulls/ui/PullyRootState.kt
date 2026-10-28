@@ -9,6 +9,7 @@ import com.octaviantocan.pulls.data.RpcSource
 import com.octaviantocan.pulls.ui.home.HomeScreenServices
 import com.octaviantocan.pulls.ui.home.HomeObservations
 import com.octaviantocan.pulls.ui.home.HomeUi
+import com.octaviantocan.pulls.ui.review.PageCopies
 import com.octaviantocan.pulls.ui.review.ReviewSessionCache
 import com.octaviantocan.pulls.ui.review.ReviewFrameServices
 import com.octaviantocan.pulls.ui.settings.SettingsServices
@@ -23,11 +24,15 @@ class PullyRootState private constructor(
     private val scope: CoroutineScope,
     private val inboxFilter: () -> String,
     private val entry: Entry?,
+    pages: () -> PageCopies?,
 ) {
     private class Entry(val navigation: AppNavigation, val current: () -> Boolean)
-    constructor(scope: CoroutineScope, inboxFilter: () -> String) : this(scope, inboxFilter, null)
-    constructor(scope: CoroutineScope, inboxFilter: () -> String, navigation: AppNavigation, current: () -> Boolean) :
-        this(scope, inboxFilter, Entry(navigation, current))
+    constructor(scope: CoroutineScope, inboxFilter: () -> String) : this(scope, inboxFilter, null, { null })
+    /** [pages] hands the current account its pull request pages kept on the phone, or null to keep them in memory only. */
+    constructor(
+        scope: CoroutineScope, inboxFilter: () -> String, navigation: AppNavigation,
+        pages: () -> PageCopies? = { null }, current: () -> Boolean,
+    ) : this(scope, inboxFilter, Entry(navigation, current), pages)
     private class HomeBinding(val epoch: Long, val source: RootSource, val services: HomeScreenServices) {
         var review: ReviewFrameServices? = null
         var settings: SettingsServices? = null
@@ -38,7 +43,7 @@ class PullyRootState private constructor(
     private var observationsReady = true
     internal val current: Boolean get() = !closed && entry?.current?.invoke() != false
 
-    val reviewSessions = ReviewSessionCache(scope)
+    val reviewSessions = ReviewSessionCache(scope, pages)
     var generation by mutableLongStateOf(0L)
         private set
     var navigation by mutableStateOf(entry?.navigation ?: AppNavigation())

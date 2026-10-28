@@ -32,14 +32,15 @@ read two at a time and kept on the phone: the diff, the overview, the reviews an
 stack, taking the server's kept copies where it has them. A row whose head and
 `updatedAt` match its kept page MUST NOT be read again. A pull request opened with a
 kept page MUST show its diff, overview, reviews and stack from it in the first frame,
-then refresh as any opening does. On Android the pages outlive the app, in a folder of
-the account's own, at most 400 pages and 200 MB, the least recently used dropped first;
-a store MUST NOT read or write once its account is gone. Source: Tavi, 28 Oct 2026 15:36,
-"even the things that the user hasn't actually opened yet load immediately ... We should
-have those already. It should just basically display immediately". Widened from forty
+then refresh as any opening does. On Android and iPhone the pages outlive the app, in a
+folder of the account's own (on iPhone under Caches), at most 400 pages and 200 MB, the
+least recently used dropped first; a store MUST NOT read or write once its account is
+gone. Source: Tavi, 28 Oct 2026 15:36, "even the things that the user hasn't actually
+opened yet load immediately ... We should have those already. It should just basically display immediately". Widened from forty
 rows, sixty pages and 48 MB by Tavi, 28 Oct 2026 17:30, on the "How Pully works" page:
 "We can keep more of them than this. 200mb easy."; 150 rows are the ones the server's
-warm round keeps fresh, so a read ahead takes the server's kept copies.
+warm round keeps fresh, so a read ahead takes the server's kept copies. iPhone keeps the
+same files since Tavi's 28 Oct 2026 ask that the iPhone app be "100% up to date".
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-late-responses-match-view
 Patches, saved work, file marks and task updates MUST match the current diff key,
