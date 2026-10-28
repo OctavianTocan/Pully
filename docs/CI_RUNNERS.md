@@ -7,8 +7,9 @@ macOS and is optional for merging and release publication.
 
 The runners run as `pullygha`, a dedicated account without sudo or Docker group
 membership. Their installations and workspaces are in `/opt/actions-runner-pully-1`
-through `/opt/actions-runner-pully-4`. The shared Rust toolchain and Actions tool
-cache are under `/home/pullygha`. The enabled services are named
+through `/opt/actions-runner-pully-4`. Each service has its own home and Actions
+tool cache under `/home/pullygha/runner-N`; the Rust toolchain is shared under
+`/home/pullygha/.rustup` and `/home/pullygha/.cargo`. The enabled services are named
 `actions.runner.OctavianTocan-Pully.pully-linux-N.service` for N from 1 through 4.
 
 Check their registration and service status on the server:
