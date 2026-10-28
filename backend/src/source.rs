@@ -13,7 +13,9 @@ mod local;
 mod patch;
 pub use crate::{encode_component as enc, text as s};
 pub(crate) use github::{fetch_with as fetch_github_with, file_with as github_file_with};
-pub use github::{refresh_cached as refresh_cached_pr, token as github_token};
+pub use github::{
+    pull_states, refresh_cached as refresh_cached_pr, refresh_cached_from, token as github_token,
+};
 pub use grouping::groups;
 pub use local::search as search_local;
 pub use patch::{parse_patch, parse_patch_untruncated};
