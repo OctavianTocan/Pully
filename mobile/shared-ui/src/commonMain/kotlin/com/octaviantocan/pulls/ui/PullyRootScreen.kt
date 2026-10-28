@@ -14,6 +14,7 @@ import com.octaviantocan.pulls.ui.ai.AiCapabilities
 import com.octaviantocan.pulls.ui.ai.LocalAiCapabilities
 import com.octaviantocan.pulls.ui.design.*
 import com.octaviantocan.pulls.ui.home.*
+import com.octaviantocan.pulls.ui.onboarding.ConnectionSetupScreen
 import com.octaviantocan.pulls.ui.review.LocalReviewCapabilities
 import com.octaviantocan.pulls.ui.review.LocalReviewActionReadiness
 import com.octaviantocan.pulls.ui.review.ReviewActionReadiness
@@ -159,7 +160,10 @@ fun PullyRootScreen(
                             // (Tavi, 28 Oct 2026). The bar stays only where there is no page of its own to reach Server
                             // from, and for the Debug fixture's label.
                             val signInPage = signIn?.getOrNull()
-                            if (fixture || readySettings == null && signInPage == null) Row(
+                            // A server that cannot be reached, or stops at Cloudflare Access, gets Android's setup
+                            // screen with its own Server, Retry and Access sign-in buttons.
+                            val connection = state.connection.takeIf { state.phase == AccountPhase.Problem }
+                            if (fixture || readySettings == null && signInPage == null && connection == null) Row(
                                 Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = PullsSpace.x4, vertical = PullsSpace.x2),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically,
@@ -181,7 +185,28 @@ fun PullyRootScreen(
                                         if (services != null) SignInPage(services, ::SignInArtwork, onServerSettings = ::openServer, onExplore = onExplore)
                                         else RootAccountProblem(signIn?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }
                                     }
-                                    AccountPhase.Problem -> RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
+                                    AccountPhase.Problem -> if (connection != null) {
+                                        var signingIn by remember { mutableStateOf(false) }
+                                        val accessTitle = t("connection.accessSignIn")
+                                        val accessHint = t("connection.accessHint")
+                                        ConnectionSetupScreen(
+                                            checking = signingIn, problem = connection, onRetry = account::refresh,
+                                            onServerSettings = {
+                                                try { openServer() }
+                                                catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not open its saved credentials.") }
+                                            },
+                                            onExplore = onExplore,
+                                            onAccessSignIn = {
+                                                if (!signingIn) scope.launch {
+                                                    signingIn = true
+                                                    try { account.accessSignIn(accessTitle, accessHint) }
+                                                    catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                                                    catch (failure: Exception) { toaster.show(failure.message ?: "Pully could not sign in to Access.") }
+                                                    finally { signingIn = false }
+                                                }
+                                            },
+                                        )
+                                    } else RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
                                     AccountPhase.Ready -> {
                                         val services = home?.getOrNull()
                                         if (services == null || readySettings == null) RootAccountProblem(home?.exceptionOrNull()?.message ?: settingsServices?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }

@@ -182,3 +182,14 @@ an actual shared field. They MUST NOT read a test-runner pasteboard, dispatch an
 in-app test action or replace a control with a hittable text/container proxy. Every
 existing native journey assertion MUST remain intact. Source: Tavi's accepted
 22 Oct 2026 native interaction closure under the original maximum-reuse iOS plan.
+
+@cc [owner:OctavianTocan,label:security;product] ios-access-sign-in-keeps-the-token-native
+When the configured server stops at Cloudflare Access, the iPhone MUST offer Android's
+connection setup screen with its Access sign-in, which opens the server's own Access
+login in a native web page. Only the server host's `CF_Authorization` cookie MAY be
+read; the token MUST go straight to the app-private Keychain for that server, be sent
+as `cf-access-token` only when no service token is saved, and MUST NOT reach shared
+Kotlin, logs or diagnostics. A token for the same Access email MUST keep the source; a
+first token or another email is a new identity. Source: Tavi, 28 Oct 2026, "Our iPhone
+app should be 100% up to date", and Android's in-app Access sign-in from the 23 Oct 2026
+fresh-install recording (01:19 to 01:33).
