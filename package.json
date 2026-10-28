@@ -11,9 +11,9 @@
   "homepage": "https://pulls.review",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/antfu/pulls.review.git"
+    "url": "git+https://github.com/OctavianTocan/Pully.git"
   },
-  "bugs": "https://github.com/antfu/pulls.review/issues",
+  "bugs": "https://github.com/OctavianTocan/Pully/issues",
   "scripts": {
     "build": "pnpm -r run build",
     "build:server": "cargo build --locked --manifest-path backend/Cargo.toml && pnpm -F pulls.review run build",
