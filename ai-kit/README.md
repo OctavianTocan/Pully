@@ -7,12 +7,12 @@ stays in ThyMind; this package is only the engine under them. Its rules are in
 
 ## Rust crate
 
-| Feature            | What it adds                                                                                                                                                                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Feature            | What it adds                                                                                                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `agents` (default) | `login` (the CLIs' own sign-in, status, sign-out), `process` (runs, model lists, efforts; Docker on a native server, plain processes in the hosted agent container), `remote` (a Worker's way to that container), `schema`, `redact`, and the `rt` shim |
-| `runner`           | The server inside the hosted agent container (native only)                                                                                                                                                                                               |
-| `worker`           | `home`: the `AgentHome` Durable Object that owns each login's container, for a host built as a Cloudflare Worker (wasm only)                                                                                                                              |
-| `embed`            | Gemini `gemini-embedding-2`: query and document text, answers to unit vectors, stored vectors, cosine similarity. No I/O                                                                                                                                 |
+| `runner`           | The server inside the hosted agent container (native only)                                                                                                                                                                                              |
+| `worker`           | `home`: the `AgentHome` Durable Object that owns each login's container, for a host built as a Cloudflare Worker (wasm only)                                                                                                                            |
+| `embed`            | Gemini `gemini-embedding-2`: query and document text, answers to unit vectors, stored vectors, cosine similarity. No I/O                                                                                                                                |
 
 A host names everything that is its own once, before any AI work:
 

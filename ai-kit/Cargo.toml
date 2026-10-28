@@ -25,10 +25,17 @@ agents = [
   "dep:wasm-bindgen-futures",
 ]
 # The server inside the hosted agent container (native only).
-runner = [ "agents", "dep:axum" ]
+runner = [
+  "agents",
+  "dep:axum"
+]
 # The `AgentHome` Durable Object that owns each login's container, for a host built as a
 # Cloudflare Worker (wasm only).
-worker = [ "agents", "dep:worker", "dep:web-sys" ]
+worker = [
+  "agents",
+  "dep:worker",
+  "dep:web-sys"
+]
 # Gemini embeddings: request bodies, answers, stored vectors and similarity. No I/O.
 embed = [ "dep:anyhow" ]
 
@@ -43,19 +50,41 @@ uuid = { version = "1", features = [ "v4" ], optional = true }
 web-time = { version = "1", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-axum = { version = "0.8", default-features = false, features = [ "json", "tokio", "http1" ], optional = true }
+axum = { version = "0.8", default-features = false, features = [
+  "json",
+  "tokio",
+  "http1"
+], optional = true }
 tokio = { version = "1", features = [ "full" ], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 js-sys = { version = "0.3", optional = true }
 send_wrapper = { version = "0.6", features = [ "futures" ], optional = true }
-tokio = { version = "1", default-features = false, features = [ "sync", "macros", "io-util" ], optional = true }
-uuid = { version = "1", features = [ "v4", "js" ], optional = true }
+tokio = { version = "1", default-features = false, features = [
+  "sync",
+  "macros",
+  "io-util"
+], optional = true }
+uuid = { version = "1", features = [
+  "v4",
+  "js"
+], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
-web-sys = { version = "0.3", features = [ "Request", "RequestInit", "Response" ], optional = true }
+web-sys = { version = "0.3", features = [
+  "Request",
+  "RequestInit",
+  "Response"
+], optional = true }
 worker = { version = "0.8", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", features = [ "full", "test-util" ] }
-reqwest = { version = "0.12", default-features = false, features = [ "json", "stream", "rustls-tls" ] }
+tokio = { version = "1", features = [
+  "full",
+  "test-util"
+] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "json",
+  "stream",
+  "rustls-tls"
+] }
