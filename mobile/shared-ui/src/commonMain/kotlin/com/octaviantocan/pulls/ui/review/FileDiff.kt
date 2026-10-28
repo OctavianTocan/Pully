@@ -1,7 +1,7 @@
 package com.octaviantocan.pulls.ui.review
 
-import com.octaviantocan.pulls.sound.cueCombinedClickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.draggable
@@ -11,20 +11,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
@@ -51,18 +54,24 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImagePainter
+import coil3.compose.LocalPlatformContext
+import coil3.compose.rememberAsyncImagePainter
+import coil3.request.ImageRequest
+import com.octaviantocan.pulls.core.githubRepository
 import com.octaviantocan.pulls.data.DiffLine
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ReviewThread
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
-import com.octaviantocan.pulls.ui.design.RowsSkeleton
+import com.octaviantocan.pulls.sound.cueCombinedClickable
 import com.octaviantocan.pulls.ui.design.LocalPullsColors
 import com.octaviantocan.pulls.ui.design.Lu
 import com.octaviantocan.pulls.ui.design.LuIcon
 import com.octaviantocan.pulls.ui.design.PillButton
 import com.octaviantocan.pulls.ui.design.PullsColors
 import com.octaviantocan.pulls.ui.design.PullsType
+import com.octaviantocan.pulls.ui.design.RowsSkeleton
 import com.octaviantocan.pulls.ui.design.t
 import com.octaviantocan.pulls.ui.home.Spinner
 
@@ -136,9 +145,31 @@ internal fun fileBodyItems(emit: Emitter, session: ReviewSession, ui: DiffUi, fi
     val owner = ui.captureFileRead(file) ?: return
     val path = file.path
     val full = ui.fullFiles[path]
+    // A moved file says where it came from, as GitHub's header does; nothing else on the page names the old path.
+    file.previousPath?.takeIf { it != path }?.let { from -> emit.item("diff:from:$path", "file-from", path) { RenamedFrom(from) } }
     when {
-        file.isBinary -> emit.item("diff:fm:$path", "file-message", path) { FileMessage(t("file.binaryNotShown"), null) }
-        file.truncated && full == null -> emit.item("diff:fm:$path", "file-message", path) { FileMessage(t("file.tooLarge"), file.takeIf { ui.canLoadFull(it) }?.let { f -> { ui.loadFullFile(f) } }) }
+        // A changed picture shows itself, before and after, as on GitHub; any other binary file, or a picture that cannot be
+        // fetched, says it is not shown. A move with no changes reads as binary to the server, so it says so plainly.
+        file.isBinary -> {
+            val opened = session.opened
+            val repo = githubRepository(session.target)
+            val sides = opened?.let { imageSides(repo?.first, repo?.second, it.refKind, it.baseSha, it.headSha, file) }.orEmpty()
+            emit.item("diff:fm:$path", "file-message", path) {
+                when {
+                    sides.isNotEmpty() -> BinaryPictures(sides)
+                    file.previousPath != null && file.previousPath != path && file.additions + file.deletions == 0 -> FileMessage(emptyFileMessage(file), null)
+                    else -> FileMessage(t("file.binaryNotShown"), null)
+                }
+            }
+        }
+        file.truncated && full == null -> emit.item("diff:fm:$path", "file-message", path) {
+            val error = ui.fullErrors[path]
+            FileMessage(
+                if (error != null && ui.fullLoading[path] != true) "Couldn't load this file: $error" else t("file.tooLarge"),
+                file.takeIf { ui.canLoadFull(it) && ui.fullLoading[path] != true }?.let { f -> { ui.loadFullFile(f) } },
+                action = if (error != null) "Load again" else t("file.loadFull"),
+            )
+        }
         // A large diff came without this file's patch: bars where the code goes while it and the next few arrive.
         file.patchOmitted && full == null -> when (val problem = session.patchProblems[path]) {
             null -> emit.item("diff:wait:$path", "file-waiting", path) {
@@ -160,6 +191,11 @@ internal fun fileBodyItems(emit: Emitter, session: ReviewSession, ui: DiffUi, fi
 private fun rowItems(emit: Emitter, session: ReviewSession, ui: DiffUi, file: ReviewFile) {
     val path = file.path
     val entries = ui.entries(file)
+    // No lines at all: a file moved or made without changes to its text. Say so instead of leaving the page blank.
+    if (entries.isEmpty()) {
+        emit.item("diff:fm:$path", "file-message", path) { FileMessage(emptyFileMessage(file), null) }
+        return
+    }
     val split = effectiveSplit(session.settings.layout, file, ui.widthDp)
     // Rows as line lists, to place anchors: a unified row is one line, a split row up to two.
     val splitRows = if (split) splitEntries(entries) else emptyList()
@@ -216,11 +252,61 @@ private fun FileMessage(text: String, onLoad: (() -> Unit)?, action: String = t(
     }
 }
 
+/** A changed picture, before and after (or just the one side an added or removed file has), each at most the page's width. */
+@Composable
+private fun BinaryPictures(sides: List<ImageSide>) {
+    val c = LocalPullsColors.current
+    Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        sides.forEach { side ->
+            if (sides.size > 1) Text(if (side.before) "Before" else "After", style = PullsType.sm, color = c.muted)
+            // At its own size: a painter that waits to be drawn for its size would never load behind the skeleton.
+            val context = LocalPlatformContext.current
+            val request = remember(side.url) { ImageRequest.Builder(context).data(side.url).size(coil3.size.Size.ORIGINAL).build() }
+            val painter = rememberAsyncImagePainter(request)
+            val state by painter.state.collectAsState()
+            when (state) {
+                is AsyncImagePainter.State.Error -> Text(t("file.binaryNotShown"), style = PullsType.sm, color = c.muted)
+                is AsyncImagePainter.State.Success -> {
+                    val size = painter.intrinsicSize
+                    val ratio = if (size.width > 0f && size.height > 0f) size.width / size.height else 1f
+                    androidx.compose.foundation.Image(
+                        painter, if (side.before) "Before" else "After",
+                        Modifier.widthIn(max = with(LocalDensity.current) { size.width.toDp() }).fillMaxWidth().aspectRatio(ratio)
+                            .border(1.dp, c.borderMute),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    )
+                }
+                else -> RowsSkeleton(rows = 3)
+            }
+        }
+    }
+}
+
+/** What a file with no lines to show says: moved as it was, or a file with nothing in it. */
+internal fun emptyFileMessage(file: ReviewFile): String = when {
+    file.previousPath != null && file.previousPath != file.path -> "Moved without changes to its content."
+    file.status == "added" -> "A new, empty file."
+    file.status == "removed" -> "An empty file, deleted."
+    else -> "No changes to its content."
+}
+
+/** The old path of a moved file, above its code. */
+@Composable
+private fun RenamedFrom(from: String) {
+    val c = LocalPullsColors.current
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Moved from", style = PullsType.sm, color = c.muted, maxLines = 1)
+        PathTail(from, PullsType.sm.copy(fontFamily = PullsType.mono), c.muted, Modifier.weight(1f, fill = false))
+    }
+}
+
 /** `.hunk`: a 36dp bar between hunks, "N unchanged lines"; a tap loads the file and opens them. */
 @Composable
 private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Boolean) {
     val c = LocalPullsColors.current
     val loading = ui.fullLoading[file.path] == true
+    // A load that failed says so on the bar it was asked from, and a tap tries again.
+    val failed = !loading && ui.fullErrors[file.path] != null
     Row(
         Modifier.fillMaxWidth().height(36.dp).background(c.paper)
             .drawBehind {
@@ -233,7 +319,11 @@ private fun GapRow(ui: DiffUi, file: ReviewFile, gap: DiffEntry.Gap, first: Bool
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (loading) Spinner(14.dp, c.muted) else LuIcon(Lu.exp, tint = c.muted, size = 16.dp)
-        Text("${gap.count} unchanged line${if (gap.count == 1) "" else "s"}", style = PullsType.sm, color = c.muted, maxLines = 1)
+        Text(
+            if (failed) "Couldn't load ${gap.count} unchanged line${if (gap.count == 1) "" else "s"}. Tap to try again"
+            else "${gap.count} unchanged line${if (gap.count == 1) "" else "s"}",
+            style = PullsType.sm, color = if (failed) c.error else c.muted, maxLines = 1,
+        )
     }
 }
 

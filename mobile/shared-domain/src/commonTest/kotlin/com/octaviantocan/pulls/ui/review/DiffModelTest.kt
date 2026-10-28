@@ -248,4 +248,22 @@ class DiffModelTest {
         assertEquals("5 min ago", timeAgo(now - 5 * 60_000L, now))
         assertEquals("in 2 h", timeAgo(now + 2 * 3_600_000L, now))
     }
+
+    @Test
+    fun aChangedPictureShowsBothSidesFromItsCommits() {
+        val png = file("art/logo.png")
+        assertEquals(
+            listOf(
+                ImageSide(true, "https://github.com/o/r/blob/base1/art/logo.png?raw=true"),
+                ImageSide(false, "https://github.com/o/r/blob/head1/art/logo.png?raw=true"),
+            ),
+            imageSides("o", "r", "pr", "base1", "head1", png),
+        )
+        // A renamed picture's base side is at its old path; an added one has no base side, a removed one no head side.
+        assertEquals("https://github.com/o/r/blob/b/old.png?raw=true", imageSides("o", "r", "pr", "b", "h", png.copy(previousPath = "old.png")).first().url)
+        assertEquals(listOf(false), imageSides("o", "r", "pr", "b", "h", png.copy(status = "added")).map { it.before })
+        assertEquals(listOf(true), imageSides("o", "r", "pr", "b", "h", png.copy(status = "removed")).map { it.before })
+        assertTrue(imageSides("o", "r", "pr", "b", "h", file("app.jar")).isEmpty())
+        assertTrue(imageSides(null, null, "local", "b", "h", png).isEmpty())
+    }
 }

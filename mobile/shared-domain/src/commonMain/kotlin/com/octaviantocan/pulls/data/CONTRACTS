@@ -72,3 +72,10 @@ legacy /api/rpc and /health, and personal login/read routes MUST NOT receive it.
 Empty stable-build fields MUST produce no baked authorization. Existing user-saved
 Access credentials MAY retain their legacy compatibility behavior.
 Source: Tavi25Oct2026, explicit staging-only APK trade-off and path-scoped Access plan.
+
+@cc [owner:OctavianTocan,label:product] hunk-body-lines-are-code
+A hunk's patch is its body only, so every line after `@@` MUST be read as code by its
+first character: a removed `-- comment` or `---` and an added `++i` or `+++` are lines,
+never file headers, and line numbers after them MUST stay exact. A CRLF file's `\r`
+MUST be dropped from patch lines as it is from full-file lines. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description"; such lines
+disappeared and shifted the numbers after them.

@@ -7,6 +7,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -239,7 +240,7 @@ fun bareCites(text: String): Sequence<Triple<IntRange, String, Int>> = BARE_CITE
  */
 @Composable
 fun Markdown(source: String, modifier: Modifier = Modifier, style: TextStyle = PullsType.sm) {
-    val document = remember(source) { parseMarkdown(source) }
+    val document = remember(source) { liftHtml(parseMarkdown(source)) }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         var child = document.firstChild
         while (child != null) {
@@ -259,7 +260,7 @@ fun MarkdownPreview(source: String, modifier: Modifier = Modifier, style: TextSt
     val mentions = LocalMentions.current
     val text = remember(source, c, mentions) {
         buildAnnotatedString {
-            var block = parseMarkdown(source).firstChild
+            var block = liftHtml(parseMarkdown(source)).firstChild
             while (block != null) {
                 if (length > 0) append(' ')
                 appendInline(block, c, mentions)
@@ -286,9 +287,13 @@ private fun Block(node: Node, style: TextStyle) {
             }
         }
         is IndentedCodeBlock -> LocalCodeBlock.current?.invoke(node.literal.trimEnd('\n'), "") ?: CodeBlock(node.literal.trimEnd('\n'))
+        // The bar runs the quote's whole height. It is drawn, not laid out: a 2dp box with no height of its own was a dot,
+        // and sizing it to the quote would measure a table or a picture inside intrinsically, which they cannot be.
         is BlockQuote -> Row {
-            Box(Modifier.width(2.dp).background(c.border).padding(vertical = 2.dp))
-            Column(Modifier.padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier.drawBehind { drawRect(c.border, size = androidx.compose.ui.geometry.Size(2.dp.toPx(), size.height)) }.padding(start = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 var child = node.firstChild
                 while (child != null) {
                     Block(child, style.copy(color = c.fade))
@@ -298,6 +303,13 @@ private fun Block(node: Node, style: TextStyle) {
         }
         is ThematicBreak -> Spacer(Modifier.fillMaxWidth().height(1.dp).background(c.border))
         is TableBlock -> TableView(node, style)
+        is DetailsBlock -> Disclosure(node.summary, node.open, style) {
+            var child = node.firstChild
+            while (child != null) {
+                Block(child, style)
+                child = child.next
+            }
+        }
         is HtmlBlock -> {
             val text = htmlText(node.literal)
             if (text.isNotBlank()) Text(text, style = style.copy(color = c.text))
@@ -340,9 +352,13 @@ private fun ListBlock(list: Node, style: TextStyle) {
 
 /** `<details>`: a disclosure row (`▶ summary`), closed by default; the body renders as Markdown when opened. */
 @Composable
-private fun Details(summary: String, body: String, style: TextStyle) {
+private fun Details(summary: String, body: String, style: TextStyle) = Disclosure(summary, false, style, key = body) { Markdown(body, style = style) }
+
+/** A disclosure row (`▶ summary`) over [content], shown once opened; [initiallyOpen] for `<details open>`. */
+@Composable
+private fun Disclosure(summary: String, initiallyOpen: Boolean, style: TextStyle, key: Any? = null, content: @Composable () -> Unit) {
     val c = LocalPullsColors.current
-    var open by androidx.compose.runtime.saveable.rememberSaveable(summary, body) { androidx.compose.runtime.mutableStateOf(false) }
+    var open by androidx.compose.runtime.saveable.rememberSaveable(summary, key) { androidx.compose.runtime.mutableStateOf(initiallyOpen) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             Modifier.cueClickable { open = !open }.padding(vertical = 4.dp),
@@ -352,7 +368,7 @@ private fun Details(summary: String, body: String, style: TextStyle) {
             Text(if (open) "▼" else "▶", style = style.copy(fontSize = style.fontSize * 0.7f, color = c.text))
             Text(summary, style = style.copy(color = c.text))
         }
-        if (open) Markdown(body, style = style)
+        if (open) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
     }
 }
 
@@ -566,6 +582,16 @@ private fun InlinePicture(src: String, alt: String, onClick: (() -> Unit)?) {
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val request = remember(src) { coil3.request.ImageRequest.Builder(context).data(src).size(coil3.size.Size.ORIGINAL).build() }
     val probe = coil3.compose.rememberAsyncImagePainter(request)
+    val probeState by probe.state.collectAsState()
+    // A picture that cannot load keeps its words in its place, as a browser shows alt text, instead of vanishing.
+    if (probeState is coil3.compose.AsyncImagePainter.State.Error) {
+        val c = LocalPullsColors.current
+        Text(
+            alt.ifBlank { "Image" }, Modifier.let { m -> if (onClick != null) m.cueClickable(onClick = onClick) else m },
+            style = PullsType.sm.copy(color = c.fade, textDecoration = TextDecoration.Underline),
+        )
+        return
+    }
     val size = probe.intrinsicSize
     val known = size.isSpecified && size.width > 0f && size.height > 0f
     androidx.compose.foundation.layout.BoxWithConstraints {

@@ -66,7 +66,8 @@ private fun textContent(node: HtmlNode): String = when (node) {
 
 private fun inline(node: HtmlNode, ctx: MdContext): String = when (node) {
     is HtmlText -> escapeMarkdown(decodeEntities(node.text).replace(Regex("\\s+"), " "))
-    is HtmlElement -> when (node.tag) {
+    // Words only a screen reader gets, such as the "Loading" of a diagram's spinner GitHub hides once it draws.
+    is HtmlElement -> if (hidden(node)) "" else when (node.tag) {
         "br" -> if (ctx.inTable) " " else "\\\n"
         "strong", "b" -> wrap("**", node, ctx)
         "em", "i" -> wrap("*", node, ctx)
@@ -129,7 +130,20 @@ private fun blocks(children: List<HtmlNode>): List<String> {
     return out.filter { it.isNotBlank() }
 }
 
-private fun block(node: HtmlElement): List<String> = when (node.tag) {
+/** An element GitHub draws for nobody to see: screen-reader words and a diagram's loading spinner. */
+private fun hidden(node: HtmlElement): Boolean = node.attrs["class"].orEmpty().split(' ').any { it == "sr-only" || it == "js-render-enrichment-loader" }
+
+/** Markdown blocks as a quote: each line behind `> `. */
+private fun quoted(body: String): String = body.lines().joinToString("\n") { if (it.isEmpty()) ">" else "> $it" }
+
+private fun block(node: HtmlElement): List<String> = if (hidden(node)) emptyList() else when (node.tag) {
+    // A GitHub alert (`> [!NOTE]`) stays a quote with its title in bold, as GitHub sets it apart, not a loose "Note" line.
+    "div" -> if ("markdown-alert" !in node.attrs["class"].orEmpty()) blocks(node.children) else {
+        val title = node.children.filterIsInstance<HtmlElement>().firstOrNull { "markdown-alert-title" in it.attrs["class"].orEmpty() }
+        val label = title?.let { textContent(it) }?.trim().orEmpty()
+        val body = blocks(node.children.filter { it !== title }).joinToString("\n\n")
+        listOf(quoted(listOfNotNull(label.ifEmpty { null }?.let { "**${escapeMarkdown(it)}**" }, body.ifBlank { null }).joinToString("\n\n")))
+    }
     "h1", "h2", "h3", "h4", "h5", "h6" -> listOf("#".repeat(node.tag[1].digitToInt()) + " " + node.children.joinToString("") { inline(it, MdContext()) }.trim()).filter { it.trimEnd('#', ' ').isNotEmpty() }
     "hr" -> listOf("---")
     "pre" -> {
@@ -138,7 +152,7 @@ private fun block(node: HtmlElement): List<String> = when (node.tag) {
         listOf("$fence\n$code\n$fence")
     }
     "ul", "ol" -> listOf(list(node))
-    "blockquote" -> listOf(blocks(node.children).joinToString("\n\n").lines().joinToString("\n") { if (it.isEmpty()) ">" else "> $it" })
+    "blockquote" -> listOf(quoted(blocks(node.children).joinToString("\n\n")))
     "table" -> listOfNotNull(table(node))
     "details" -> {
         // A closed `<details>`, as GitHub renders it: [DETAILS_INFO] tells the Markdown renderer to draw a disclosure.

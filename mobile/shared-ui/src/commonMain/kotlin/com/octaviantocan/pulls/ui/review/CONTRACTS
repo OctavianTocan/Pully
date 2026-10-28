@@ -622,3 +622,20 @@ AI/error-recovery journey and the accepted 22 Oct 2026 Tour Stop rejection findi
 Only the latest actually dispatched explicit Stop for a still-running task MAY
 publish a rejection; a queued tap that never dispatches MUST NOT supersede an accepted
 receipt. Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, finding 1.
+
+@cc [owner:OctavianTocan,label:product] diff-file-says-why-it-has-no-lines
+A file with no lines to show MUST say why, never show a blank page: moved without
+changes, a new empty file, an empty file deleted, or no changes to its content. A moved
+file MUST name its old path above its code. A rename the server marks binary because it
+has no patch MUST NOT say "Binary file not shown." Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+
+@cc [owner:OctavianTocan,label:product;design] diff-pictures-show-before-and-after
+A changed picture in a GitHub pull request MUST show the base and head pictures from
+the commits the pull request compares, labelled Before and After when both exist, in
+place of "Binary file not shown." When a picture cannot load it MUST fall back to that
+message. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+
+@cc [owner:OctavianTocan,label:product] diff-load-failures-say-so
+When unchanged lines or a large file fail to load, the diff MUST say so in the error
+colour and offer to try again, never stay silent or keep offering the same tap with no
+sign it failed. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
