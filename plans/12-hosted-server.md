@@ -62,9 +62,9 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
   in its own container (built, tried locally; see the next point).
 - **AI (M6).** Each login has an `AgentHome` Durable Object, named after its volume, that
   owns one container (`packages/worker/agent/Dockerfile`: the CLIs plus the server binary).
-  In it, `agent_runner` runs the server's own `agent_process` and `agent_login` code as plain
-  processes, since the container is the sandbox; the Worker's server reaches it through
-  `agent_remote`, which streams each run's activity back as lines of JSON. The runner is root
+  In it, the AI kit's runner (`ai-kit/src/runner.rs`) runs the kit's own `process` and `login`
+  code as plain processes, since the container is the sandbox; the Worker's server reaches it
+  through `ai_kit::remote`, which streams each run's activity back as lines of JSON. The runner is root
   and keeps the login home where only root can read it; each job runs as `pully-cli` in its
   own job folder with the same selected credential files the Docker jobs get. The container's
   disk goes when it sleeps (five minutes idle), so the object keeps the login's sign-in files

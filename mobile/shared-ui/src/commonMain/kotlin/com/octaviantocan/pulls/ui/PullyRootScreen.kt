@@ -183,7 +183,7 @@ fun PullyRootScreen(
                                     AccountPhase.SignIn -> {
                                         val services = signIn?.getOrNull()
                                         if (services != null) SignInPage(services, ::SignInArtwork, onServerSettings = ::openServer, onExplore = onExplore)
-                                        else RootAccountProblem(signIn?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }
+                                        else RootAccountProblem(signIn?.exceptionOrNull()?.message, account::refresh, account::retrySavedStorage) { resetting = openingEpoch }
                                     }
                                     AccountPhase.Problem -> if (connection != null) {
                                         var signingIn by remember { mutableStateOf(false) }
@@ -206,10 +206,10 @@ fun PullyRootScreen(
                                                 }
                                             },
                                         )
-                                    } else RootAccountProblem(state.problem, account::refresh, account::retryStorage) { resetting = openingEpoch }
+                                    } else RootAccountProblem(state.problem, account::refresh, account::retrySavedStorage) { resetting = openingEpoch }
                                     AccountPhase.Ready -> {
                                         val services = home?.getOrNull()
-                                        if (services == null || readySettings == null) RootAccountProblem(home?.exceptionOrNull()?.message ?: settingsServices?.exceptionOrNull()?.message, account::refresh, account::retryStorage) { resetting = openingEpoch }
+                                        if (services == null || readySettings == null) RootAccountProblem(home?.exceptionOrNull()?.message ?: settingsServices?.exceptionOrNull()?.message, account::refresh, account::retrySavedStorage) { resetting = openingEpoch }
                                         else AppPages(navigation, motion, Modifier.fillMaxSize()) { route ->
                                             when (route) {
                                                 Screen.Home -> HomeScreen(navigation.nav, root.homeUi, services)

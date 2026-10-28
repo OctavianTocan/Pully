@@ -1,5 +1,7 @@
 package com.octaviantocan.pulls.home
 
+import com.octaviantocan.aikit.AiSettingsLogic
+import com.octaviantocan.aikit.asCatalog
 import com.octaviantocan.pulls.core.ListedPull
 import com.octaviantocan.pulls.core.LinkPlace
 import com.octaviantocan.pulls.core.OpenTarget
@@ -21,8 +23,6 @@ import com.octaviantocan.pulls.ui.home.asSnapshot
 import com.octaviantocan.pulls.ui.home.relativeTime
 import com.octaviantocan.pulls.ui.home.inShownRepos
 import com.octaviantocan.pulls.ui.home.repoChoices
-import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
-import com.octaviantocan.pulls.ui.settings.asCatalog
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking

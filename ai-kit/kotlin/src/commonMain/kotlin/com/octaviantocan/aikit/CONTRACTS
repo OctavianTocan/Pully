@@ -1,0 +1,23 @@
+@cc [owner:OctavianTocan,label:product;architecture] shared-model-settings-keep-server-choices
+The model catalog parser MUST retain the server's ids, grouping, defaults and supported
+efforts. Switching models MUST retain an explicit effort only when the new model lists
+it; a blank model MUST mean the server's default. The shared ordering/name policies
+MUST retain Android's current generation/tier and Pi provider-group behavior.
+Source: settings-model-row-names-the-model, settings-effort-under-model, DESIGN.md
+rule89, N7 and Tavi's 21 Oct 2026 same-app iOS reuse decision.
+
+@cc [owner:OctavianTocan,label:architecture] kit-kotlin-has-no-ui
+The sign-in, model catalog, model order and name, and effort policies MUST have one
+implementation here, used by Pully on Android and iOS and by ThyMind on Android. This module
+MUST NOT depend on Android, Compose or native UI services: each app draws the pages in its
+own look on these policies. Source: shared-domain `shared-domain-has-one-implementation`;
+Tavi, 28 Oct 2026 ("fully copy from the Pully project how it does sign-in for those, how it
+puts them in the settings, it's model and effort selectors ... make it a separate package").
+
+@cc [owner:OctavianTocan,label:security;product] kit-sign-in-flow-is-the-clis-own
+A started sign-in MUST open only an `https` provider page the server gave. A code on the
+clipboard MUST be sent only when it is a whole Claude code whose state is the one this
+sign-in's page was opened with. Waiting for Codex MUST keep asking until the server says it
+is done, and a failed wait that finds the CLI signed in MUST count as signed in. Source:
+ai-kit `kit-subscription-sign-in-only`; recording 26 Oct 2026, 02:59 to 03:13 and 05:00 to
+05:13.

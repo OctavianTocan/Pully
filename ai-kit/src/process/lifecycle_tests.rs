@@ -4,6 +4,7 @@ use super::*;
 #[test]
 #[cfg(unix)]
 fn fake_docker_cancellation_removes_late_containers() {
+    crate::config::for_tests();
     use std::os::unix::fs::PermissionsExt;
     let root = std::env::temp_dir().join(format!("pulls-fake-docker-{}", Uuid::new_v4()));
     std::fs::create_dir_all(&root).unwrap();
@@ -46,7 +47,7 @@ if args[0]=='create': print(args[args.index('--name')+1])
         let child = std::process::Command::new(std::env::current_exe().unwrap())
             .args([
                 "--exact",
-                "agent_process::lifecycle_tests::fake_docker_child",
+                "process::lifecycle_tests::fake_docker_child",
                 "--nocapture",
             ])
             .env_clear()
@@ -83,6 +84,7 @@ if args[0]=='create': print(args[args.index('--name')+1])
 
 #[tokio::test(flavor = "current_thread")]
 async fn fake_docker_child() {
+    crate::config::for_tests();
     let Some(dir) = std::env::var_os("PULLS_TEST_DOCKER_DIR").map(PathBuf::from) else {
         return;
     };
@@ -100,7 +102,7 @@ async fn fake_docker_child() {
             &AgentLogin::Account("offline-account".into()),
             receiver,
             Arc::new(|_| {}),
-            crate::ai::StructuredAnswerPreparation::Strict,
+            Preparation::STRICT,
         )
         .await
     });

@@ -164,6 +164,8 @@ private val AREAS = listOf(
     "$APP/data" to "Phone data",
     "$APP/ui/book" to "UI Book",
     "android/core" to "Shared logic",
+    "ai-kit" to "Shared AI",
+    "ai-kit/kotlin/src/commonMain/kotlin/com/octaviantocan/aikit" to "Shared AI",
     "backend" to "Server",
     "packages/cli" to "Server launcher",
     "packages/core" to "Review engine",

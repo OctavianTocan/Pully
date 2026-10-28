@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Builds the Docker image pulls.review runs Claude Code and Codex in, and signs them in, once, into the
 # server's own login volume, used without a Pully account. People with a Pully account sign their own
-# in from the phone instead (backend/src/agent_login.rs). Native jobs copy only selected login fields.
+# in from the phone instead (ai-kit/src/login.rs). Native jobs copy only selected login fields.
 # Every command can be run again: a build reuses what has not changed,
 # and a sign-in replaces the one before it.
 set -euo pipefail

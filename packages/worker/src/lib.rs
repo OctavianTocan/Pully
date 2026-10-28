@@ -24,7 +24,6 @@ use worker::{
 };
 
 mod account;
-mod agent;
 mod import;
 mod personal;
 mod request_headers;
@@ -50,9 +49,14 @@ const FIRST_WARM: Duration = Duration::from_secs(5);
 /// The port `wrangler dev` listens on, so local browser origins are trusted.
 const DEV_PORT: u16 = 8787;
 
+// Every Claude Code and Codex container is an `AgentHome` of the shared AI kit.
+pub use ai_kit::home::AgentHome;
+
 #[event(start)]
 fn start() {
     console_error_panic_hook::set_once();
+    // Before any object answers: an `AgentHome` checks logins against Pully's names.
+    pulls_review_server::configure_agents();
 }
 
 #[event(fetch)]
@@ -89,9 +93,7 @@ impl worker::DurableObject for PullyServer {
         }));
         // Every Claude Code and Codex call goes to its login's container; a second object in
         // this isolate finds the remote already set.
-        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
-            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
-        }));
+        ai_kit::home::install(&env, "AGENT_HOME").expect("Agent homes");
         let sql = state.storage().sql();
         let records = SqlRecords::new(sql.clone()).expect("Durable Object storage");
         let store = Store::with_records(PathBuf::from("/pully-server"), Box::new(records));

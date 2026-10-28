@@ -12,7 +12,7 @@ class WorkspaceRootAccount(override val repo: Repo, login: String) : RootAccount
     override val sourceEpoch = 0L
     override val state = AccountState(AccountPhase.Ready, login)
     override fun refresh() {}
-    override fun retryStorage() {}
+    override fun retrySavedStorage() {}
     override fun signInServices(): SignInServices = throw IllegalStateException("A GitHub workspace has no server sign-in.")
     override suspend fun accessSignIn(title: String, hint: String) = false
     override fun resetCredentials(expectedEpoch: Long) = throw CancellationException("A GitHub workspace has no saved server credentials.")

@@ -21,7 +21,6 @@
   },
   "uppercase": {
     "ui/ai/AiFormat.kt": 1,
-    "ui/design/Components.kt": 1,
-    "ui/settings/CliCatalog.kt": 1
+    "ui/design/Components.kt": 1
   }
 }
