@@ -35,8 +35,8 @@ fun androidPageCopies(context: Context): PageCopies? {
  */
 class FilePageCopies(
     private val dir: File,
-    private val maxPages: Int = 60,
-    private val maxBytes: Long = 48L * 1024 * 1024,
+    private val maxPages: Int = 400,
+    private val maxBytes: Long = 200L * 1024 * 1024,
     private val writer: Executor = Executors.newSingleThreadExecutor(),
     private val current: () -> Boolean = { true },
 ) : PageCopies {
