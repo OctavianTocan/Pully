@@ -639,3 +639,11 @@ message. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly
 When unchanged lines or a large file fail to load, the diff MUST say so in the error
 colour and offer to try again, never stay silent or keep offering the same tap with no
 sign it failed. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+
+@cc [owner:OctavianTocan,label:product] review-page-follows-the-server
+While a pull request page is in front on a host with the change feed, its overview and
+saved AI work MUST be read again when the pull request's topic changes, and its marks when
+the marks topic does, so a new commit, a finished analysis or a file marked on another
+device shows without Refresh. Marking a file MUST go through the outbox
+(`writes-show-first`). Source: Tavi, 28 Oct 2026 ("Go") on the plan in thread "Build a
+sync engine like Wholana's".

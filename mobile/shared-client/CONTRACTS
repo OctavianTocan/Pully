@@ -266,3 +266,20 @@ session for a same-bearer retry. HTTP 403 scope denial MUST NOT impersonate sign
 An actual current workspace JSON 401 rejection MUST revoke the accepted account; HTML
 and Access responses MUST remain connection failures. Source: Tavi's 25 Oct 2026
 review-fix batch #3 and the route-to-client retry regression requested by its owner.
+
+@cc [owner:OctavianTocan,label:architecture;product] sync-reads-what-changed
+A screen following the server's change feed MUST read again only what a topic it shows
+names, through the methods it already calls, and only for the source it started with.
+The first answer only places the phone in the feed; an older server without the feed
+ends following at once, and repeated failures end it until the screen next comes to the
+front, so the screen keeps what it did before. Held waits are left out of call timings.
+Source: Tavi, 28 Oct 2026 ("Go") on the plan in thread "Build a sync engine like
+Wholana's", building Zero's design that Omar named (call of 26 Oct 2026, 1:01:29).
+
+@cc [owner:OctavianTocan,label:product;architecture] writes-show-first
+A write the phone has already shown MUST go out through the outbox: one at a time, in the
+order made, retried on no connection, timeouts, 408, 429, 5xx and answers that are not
+the server's own, and dropped only on the server's own 4xx refusal, after which the page
+reads the server's state back. A read of the same state MUST lay the unsent writes over
+the server's answer, so a write never shows undone before it arrived. A source change
+MUST drop every queued write. Source: as sync-reads-what-changed.

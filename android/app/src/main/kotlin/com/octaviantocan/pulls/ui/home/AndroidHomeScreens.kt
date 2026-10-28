@@ -175,7 +175,7 @@ internal fun rememberAndroidHomeScreenServices(repo: Repo): HomeScreenServices {
             capabilities = HomeScreenCapabilities(
                 reviewRoutes = true, tourRoutes = true, startTour = true, inboxAsk = canAsk,
                 taskObservation = true, postedDiffs = true, deletePosted = true, profileStats = true,
-                settingsRoute = true, commands = true, uiBookRoute = true,
+                settingsRoute = true, commands = true, uiBookRoute = true, serverChanges = true,
             ),
             unavailable = { toaster.show("This feature is unavailable") },
             openCommands = { Commands.open() },

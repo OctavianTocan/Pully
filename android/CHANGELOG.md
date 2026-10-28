@@ -21,6 +21,17 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.71.0
+
+#### 2026-10-28 15:03 UTC
+
+Your Inbox and pull requests now update by themselves while open.
+
+- A new or changed pull request shows up in the Inbox within about a minute while you look at it, with no pull to refresh.
+![The Inbox before waits for a refresh; now the server tells the phone and new pull requests appear by themselves](changelog/0.71.0/live-inbox.png)
+- An open pull request takes a finished analysis, a new commit or a file marked on another device without Refresh.
+- Marking a file reviewed shows at once and is sent until the server has it, even on a weak connection.
+
 ## 0.70.0
 
 #### 2026-10-28 14:03 UTC

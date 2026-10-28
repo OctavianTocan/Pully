@@ -893,3 +893,44 @@ async fn workspace_events_use_only_the_confirmed_owner_and_existing_sanitizer() 
         StatusCode::UNAUTHORIZED
     );
 }
+
+#[tokio::test]
+async fn workspace_sync_wait_wakes_only_for_its_own_account() {
+    let fixture = Fixture::new().await;
+    let (public_a, _) = fixture.sign_in("a").await;
+    let (a, a_owner) = fixture.upgrade(&public_a, "a-upgrade").await;
+    let (public_b, _) = fixture.sign_in("b").await;
+    let (b, _) = fixture.upgrade(&public_b, "b-upgrade").await;
+    let server = &fixture.server;
+    let wait = |session: String, epoch: Value, version: Value, ms: u64| async move {
+        server
+            .post(
+                RPC,
+                json!({"name":"sync-wait","args":{"epoch":epoch,"version":version,"waitMs":ms}}),
+                Some(&session),
+            )
+            .await
+            .json::<Value>()
+            .await
+            .unwrap()["result"]
+            .clone()
+    };
+    let first_a = wait(a.clone(), json!(""), json!(0), 0).await;
+    let first_b = wait(b.clone(), json!(""), json!(0), 0).await;
+    assert_eq!(first_a["reset"], true);
+    assert_eq!(first_b["reset"], true);
+    let store = fixture.workspace_store(a_owner["accountId"].as_str().unwrap());
+    let waiting_a = wait(a.clone(), first_a["epoch"].clone(), first_a["version"].clone(), 5_000);
+    let waiting_b = wait(b.clone(), first_b["epoch"].clone(), first_b["version"].clone(), 400);
+    let write = async {
+        crate::rt::sleep(std::time::Duration::from_millis(100)).await;
+        store
+            .set("review:file-sha", &json!({"sha":"file-sha","reviewedAt":1}))
+            .unwrap();
+    };
+    let (woken, quiet, ()) = tokio::join!(waiting_a, waiting_b, write);
+    assert_eq!(woken["topics"], json!(["marks"]));
+    assert_eq!(woken["reset"], false);
+    assert_eq!(quiet["topics"], json!([]));
+    assert_eq!(quiet["reset"], false);
+}
