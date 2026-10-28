@@ -632,6 +632,73 @@ pub async fn refresh_cached(state: &AppState, diff: &Value) -> Result<Option<Val
     let pr = get(state, &format!("{p}/pulls/{number}")).await?;
     refreshed_snapshot(diff, &pr, fetch(state, r)).await
 }
+/// How many pull requests one [`pull_states`] query asks about.
+const STATES_PER_QUERY: usize = 50;
+
+/// The current state of each pull request in `refs` (`{"owner","repo","number"}`), read with
+/// one GraphQL query for every fifty instead of one REST call each, and shaped like the REST
+/// pull request [`refresh_cached_from`] compares. An entry is `None` when GitHub did not
+/// answer for it, so the caller can fall back to [`refresh_cached`].
+pub async fn pull_states(state: &AppState, refs: &[Value]) -> Vec<Option<Value>> {
+    let mut states = Vec::with_capacity(refs.len());
+    for chunk in refs.chunks(STATES_PER_QUERY) {
+        let mut query = String::from("query {");
+        for (i, r) in chunk.iter().enumerate() {
+            let number = s(r, "number");
+            let (Ok(owner), Ok(repo)) = (
+                serde_json::to_string(s(r, "owner")),
+                serde_json::to_string(s(r, "repo")),
+            ) else {
+                continue;
+            };
+            if prefix(r).is_err() || number.is_empty() || !number.bytes().all(|b| b.is_ascii_digit()) {
+                continue;
+            }
+            query.push_str(&format!(" p{i}: repository(owner:{owner},name:{repo}) {{ pullRequest(number:{number}) {{ headRefOid baseRefOid title body updatedAt state isDraft mergedAt closedAt }} }}"));
+        }
+        query.push('}');
+        let response = raw(
+            state,
+            reqwest::Method::POST,
+            "/graphql",
+            Some(json!({"query":query})),
+            "application/json",
+        )
+        .await
+        .ok()
+        .filter(|(code, _, _)| *code == 200)
+        .map(|(_, value, _)| value);
+        for i in 0..chunk.len() {
+            states.push(response.as_ref().and_then(|response| {
+                rest_shaped(&response["data"][format!("p{i}")]["pullRequest"])
+            }));
+        }
+    }
+    states
+}
+
+/// A GraphQL pull request as the REST fields [`refreshed_snapshot`] reads.
+fn rest_shaped(pull: &Value) -> Option<Value> {
+    let head = pull["headRefOid"].as_str().filter(|sha| !sha.is_empty())?;
+    let state = pull["state"].as_str()?;
+    Some(json!({
+        "head":{"sha":head},
+        "base":{"sha":pull["baseRefOid"]},
+        "title":pull["title"],
+        "body":pull["body"],
+        "updated_at":pull["updatedAt"],
+        "state":if state == "OPEN" { "open" } else { "closed" },
+        "draft":pull["isDraft"],
+        "merged":state == "MERGED",
+        "merged_at":pull["mergedAt"],
+        "closed_at":pull["closedAt"],
+    }))
+}
+
+/// [`refresh_cached`] with the pull request already read, by [`pull_states`].
+pub async fn refresh_cached_from(state: &AppState, diff: &Value, pr: &Value) -> Result<Option<Value>> {
+    refreshed_snapshot(diff, pr, fetch(state, &diff["ref"])).await
+}
 async fn refreshed_snapshot(
     diff: &Value,
     pr: &Value,
@@ -684,6 +751,22 @@ fn cached_revisions_changed(diff: &Value, pr: &Value) -> bool {
 #[cfg(test)]
 mod warmer_tests {
     use super::*;
+    #[test]
+    fn graphql_states_read_as_the_rest_pull_request() {
+        for (state, draft, merged_at, closed_at, expected) in [
+            ("OPEN", false, None, None, "open"),
+            ("OPEN", true, None, None, "draft"),
+            ("CLOSED", false, None, Some("2026-10-28T10:00:00Z"), "closed"),
+            ("MERGED", false, Some("2026-10-28T10:00:00Z"), Some("2026-10-28T10:00:00Z"), "merged"),
+        ] {
+            let pr = rest_shaped(&json!({"headRefOid":"h","baseRefOid":"b","title":"T","body":"","updatedAt":"2026-10-28T09:00:00Z","state":state,"isDraft":draft,"mergedAt":merged_at,"closedAt":closed_at})).unwrap();
+            assert_eq!(rest_pr_state(&pr), expected);
+            assert_eq!(pr["head"]["sha"], "h");
+            assert_eq!(pr["base"]["sha"], "b");
+            assert_eq!(pr["updated_at"], "2026-10-28T09:00:00Z");
+        }
+        assert!(rest_shaped(&Value::Null).is_none());
+    }
     #[tokio::test]
     async fn unchanged_metadata_preserves_missing_versus_null_fields() {
         let pr = json!({"state":"open","title":null,"body":null,"updated_at":null,"head":{"sha":"h"},"base":{"sha":"b"}});

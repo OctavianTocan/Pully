@@ -142,15 +142,19 @@ where
 async fn cache_pull(
     state: &Arc<AppState>,
     pull: &Value,
+    current: Option<&Value>,
     rejected: Option<&RejectedSnapshot>,
 ) -> Result<(bool, bool, Option<RejectedSnapshot>)> {
     let r = reference(pull);
     let key = source::serialize_ref(&r)?;
-    // Probe both base and head: base pushes can change the diff without a head push.
+    // Compare both base and head: base pushes can change the diff without a head push.
     let fetch_ref = &r;
     let warmed = warm_diff(state, pull, rejected, |before| async move {
         if let Some(old) = before {
-            source::refresh_cached_pr(state, &old["diff"]).await
+            match current {
+                Some(current) => source::refresh_cached_from(state, &old["diff"], current).await,
+                None => source::refresh_cached_pr(state, &old["diff"]).await,
+            }
         } else {
             Ok(Some(source::fetch(state, fetch_ref).await?))
         }
@@ -205,9 +209,14 @@ pub async fn warm(state: Arc<AppState>) {
 pub const WARM_EVERY: Duration = Duration::from_secs(180);
 /// Pull requests whose diff was too large to keep, so a round skips them until they change.
 pub type Rejections = HashMap<String, RejectedSnapshot>;
-/// Refreshes the cached diffs and overviews of up to 150 open pull requests, two at a time,
-/// without marking anything viewed. Does nothing without a GitHub token. The native server
-/// runs it every [`WARM_EVERY`]; the Worker runs it on its Durable Object's alarm.
+/// How many open pull requests a round refreshes: every row the Inbox can show (four roles of
+/// up to 100 each). Their heads and bases are read fifty to a GraphQL query, so an unchanged
+/// pull request costs no call of its own.
+pub const WARM_LIMIT: usize = 400;
+/// Refreshes the cached diffs and overviews of up to [`WARM_LIMIT`] open pull requests, the
+/// most recently updated first, two at a time, without marking anything viewed. Does nothing
+/// without a GitHub token. The native server runs it every [`WARM_EVERY`]; the Worker runs it
+/// on its Durable Objects' alarms.
 pub async fn warm_round(state: &Arc<AppState>, rejected: &mut Rejections) {
     if !matches!(source::github_token(state).await, Ok(Some(_))) {
         return;
@@ -218,17 +227,18 @@ pub async fn warm_round(state: &Arc<AppState>, rejected: &mut Rejections) {
     };
     list.retain(|p| p["state"] == "open" && !text(p, "headSha").is_empty());
     list.sort_by(|a, b| text(b, "updatedAt").cmp(text(a, "updatedAt")));
-    list.truncate(150);
+    list.truncate(WARM_LIMIT);
+    let current = source::pull_states(state, &list.iter().map(reference).collect::<Vec<_>>()).await;
     let keys: HashSet<_> = list
         .iter()
         .filter_map(|p| source::serialize_ref(&reference(p)).ok())
         .collect();
     rejected.retain(|key, _| keys.contains(key));
     let (mut diffs, mut overviews) = (0, 0);
-    for batch in list.chunks(2) {
-        let results = futures_util::future::join_all(batch.iter().map(|p| {
+    for (batch, current) in list.chunks(2).zip(current.chunks(2)) {
+        let results = futures_util::future::join_all(batch.iter().zip(current).map(|(p, c)| {
             let key = source::serialize_ref(&reference(p)).unwrap_or_default();
-            cache_pull(state, p, rejected.get(&key))
+            cache_pull(state, p, c.as_ref(), rejected.get(&key))
         }))
         .await;
         for (pull, result) in batch.iter().zip(results) {
