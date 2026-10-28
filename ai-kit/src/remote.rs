@@ -1,9 +1,9 @@
-//! AI work sent to another process. The hosted server (`packages/worker`) cannot run programs, so
-//! it sends each CLI run, model list, sign-in and sign-out to the agent container of the login it
-//! is for, where `agent_runner` does them with the same code the native server uses. The native
-//! server never sets a remote and runs the CLIs itself.
-use crate::agent_login::AgentLogin;
-use crate::ai::StructuredAnswerPreparation;
+//! AI work sent to another process. A hosted server in a Worker cannot run programs, so it sends
+//! each CLI run, model list, sign-in and sign-out to the agent container of the login it is for,
+//! where [`crate::runner`] does them with the same code a native server uses. A native server
+//! never sets a remote and runs the CLIs itself.
+use crate::config::Preparation;
+use crate::login::AgentLogin;
 use anyhow::{bail, Context, Result};
 use futures_util::{future::BoxFuture, stream::BoxStream, StreamExt};
 use serde_json::{json, Value};
@@ -12,8 +12,8 @@ use std::sync::{Arc, OnceLock};
 /// A response body, read as it arrives.
 pub type Body = BoxStream<'static, std::io::Result<Vec<u8>>>;
 
-/// Reaches the agent container of a login: the Worker sends each call to that login's
-/// `AgentHome` Durable Object.
+/// Reaches the agent container of a login: a Worker sends each call to that login's own Durable
+/// Object, which owns the container.
 pub trait AgentRemote: Send + Sync {
     /// Posts the JSON `body` to `path` on the agent container of `login`, and returns the
     /// response body once its headers arrive.
@@ -27,7 +27,7 @@ pub trait AgentRemote: Send + Sync {
 
 static REMOTE: OnceLock<Arc<dyn AgentRemote>> = OnceLock::new();
 
-/// Sends all AI work in this process to `remote`. The Worker calls it once at start.
+/// Sends all AI work in this process to `remote`. A Worker calls it once at start.
 pub fn set(remote: Arc<dyn AgentRemote>) -> Result<()> {
     REMOTE
         .set(remote)
@@ -35,12 +35,12 @@ pub fn set(remote: Arc<dyn AgentRemote>) -> Result<()> {
 }
 
 /// The remote AI work goes to, when this process has one.
-pub(crate) fn get() -> Option<&'static Arc<dyn AgentRemote>> {
+pub fn get() -> Option<&'static Arc<dyn AgentRemote>> {
     REMOTE.get()
 }
 
 /// How a login is named on the wire: its account ID, or `null` for the server's own.
-pub(crate) fn login_json(login: &AgentLogin) -> Value {
+pub fn login_json(login: &AgentLogin) -> Value {
     match login {
         AgentLogin::Server => json!({"account": null}),
         AgentLogin::Account(id) => json!({"account": id}),
@@ -48,28 +48,13 @@ pub(crate) fn login_json(login: &AgentLogin) -> Value {
 }
 
 /// The login a wire body names.
-pub(crate) fn login_from(value: &Value) -> Result<AgentLogin> {
+pub fn login_from(value: &Value) -> Result<AgentLogin> {
     match &value["login"]["account"] {
         Value::Null => Ok(AgentLogin::Server),
         Value::String(id) if !id.is_empty() && id.len() <= 256 => {
             Ok(AgentLogin::Account(id.clone()))
         }
         _ => bail!("Invalid agent login"),
-    }
-}
-
-pub(crate) fn preparation_name(preparation: StructuredAnswerPreparation) -> &'static str {
-    match preparation {
-        StructuredAnswerPreparation::Strict => "strict",
-        StructuredAnswerPreparation::Grouping => "grouping",
-    }
-}
-
-pub(crate) fn preparation_from(name: &str) -> Result<StructuredAnswerPreparation> {
-    match name {
-        "strict" => Ok(StructuredAnswerPreparation::Strict),
-        "grouping" => Ok(StructuredAnswerPreparation::Grouping),
-        _ => bail!("Invalid answer preparation"),
     }
 }
 
@@ -98,7 +83,7 @@ async fn lines(mut body: Body, mut on_line: impl FnMut(&str) -> Result<bool>) ->
 }
 
 /// Calls `path` with `body` and returns its `ok` value, or its `error` as the error.
-pub(crate) async fn call(login: &AgentLogin, path: &'static str, mut body: Value) -> Result<Value> {
+pub async fn call(login: &AgentLogin, path: &'static str, mut body: Value) -> Result<Value> {
     let remote = get().context("No agent container is configured")?;
     body["login"] = login_json(login);
     let response = remote.post(login, path, serde_json::to_vec(&body)?).await?;
@@ -121,14 +106,14 @@ pub(crate) async fn run(
     request: Value,
     login: &AgentLogin,
     mut cancel: tokio::sync::watch::Receiver<bool>,
-    sink: crate::agent_process::EventSink,
-    preparation: StructuredAnswerPreparation,
+    sink: crate::process::EventSink,
+    preparation: Preparation,
 ) -> Result<(String, Value)> {
     let remote = get().context("No agent container is configured")?;
     let id = uuid::Uuid::new_v4().to_string();
     let body = json!({
         "id": id, "request": request, "login": login_json(login),
-        "preparation": preparation_name(preparation),
+        "preparation": preparation.0,
     });
     let follow = async {
         let response = remote

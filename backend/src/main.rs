@@ -92,6 +92,7 @@ async fn main() {
     }
 }
 async fn run() -> Result<()> {
+    pulls_review_server::configure_agents();
     let args = Args::parse();
     if let Some(address) = args.public_listen {
         if args.target.is_some()

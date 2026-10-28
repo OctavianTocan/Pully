@@ -18,6 +18,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ai-kit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "futures-util",
+ "js-sys",
+ "regex",
+ "send_wrapper",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "url",
+ "uuid",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-time",
+]
+
+[[package]]
 name = "anstream"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1172,6 +1192,7 @@ dependencies = [
 name = "pulls-review-server"
 version = "0.1.0"
 dependencies = [
+ "ai-kit",
  "anyhow",
  "axum",
  "base64 0.22.1",

@@ -6,11 +6,7 @@
 )]
 pub mod account;
 pub mod agent_api;
-pub mod agent_login;
-pub mod agent_process;
-pub mod agent_remote;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod agent_runner;
+mod agents;
 pub mod ai;
 pub mod analytics;
 pub mod brief;
@@ -33,11 +29,16 @@ pub mod public_server;
 pub mod review;
 mod review_experiments;
 mod rpc_validation;
-pub mod rt;
 pub mod scheduler;
 pub mod source;
 pub mod store;
 pub mod transport;
+// Claude Code and Codex live in the shared `ai-kit` crate (`../ai-kit`); these are its modules
+// under the names the server has always used, and `agents` holds Pully's names for them.
+pub use agents::configure_agents;
+#[cfg(not(target_arch = "wasm32"))]
+pub use ai_kit::runner as agent_runner;
+pub use ai_kit::{login as agent_login, process as agent_process, remote as agent_remote, rt};
 use anyhow::{bail, Result};
 use serde_json::Value;
 use std::{path::PathBuf, sync::Arc};
@@ -102,6 +103,7 @@ impl AppState {
         identity: identity::RequestIdentity,
         analytics: analytics::Analytics,
     ) -> Result<Arc<Self>> {
+        configure_agents();
         let store = host.storage.clone();
         Ok(Arc::new(Self {
             identity,
@@ -228,22 +230,7 @@ pub fn required<'a>(v: &'a Value, key: &str) -> Result<&'a str> {
     }
     Ok(s)
 }
-pub(crate) fn omit_nulls(value: &mut Value) {
-    match value {
-        Value::Object(map) => {
-            map.retain(|_, v| !v.is_null());
-            for v in map.values_mut() {
-                omit_nulls(v);
-            }
-        }
-        Value::Array(array) => {
-            for v in array {
-                omit_nulls(v);
-            }
-        }
-        _ => {}
-    }
-}
+pub(crate) use ai_kit::schema::omit_nulls;
 // Gregorian civil date conversion, independent of the runtime timezone.
 pub(crate) fn iso_ms(ms: u64) -> String {
     let days = (ms / 86400000) as i64;

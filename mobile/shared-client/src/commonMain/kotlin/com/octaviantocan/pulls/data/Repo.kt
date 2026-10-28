@@ -211,7 +211,7 @@ class Repo(
     /** `ai-models` for an engine: `{ models: [{ id, name, description, efforts, defaultEffort, isDefault }], account, version }`. */
     suspend fun models(engine: String, refresh: Boolean = false): JsonObject = call("ai-models") { put("engine", engine); put("refresh", refresh) }.jsonObject
 
-    // --- Claude Code and Codex sign-ins, each person's own (backend/src/agent_login.rs) ---
+    // --- Claude Code and Codex sign-ins, each person's own (ai-kit/src/login.rs) ---
 
     suspend fun aiSignIns(): AiSignIns = call("ai-login-status").jsonObject.asAiSignIns()
     suspend fun startAiSignIn(cli: AiCli): AiSignInStart = call("ai-login-start") { put("engine", cli.engine) }.jsonObject.asAiSignInStart()

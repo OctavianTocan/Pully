@@ -648,3 +648,51 @@ fn shared_task_manifest_preserves_pure_rename_origin() {
     assert_eq!(manifest[0]["path"], "new.rs");
     assert!(manifest[1].get("previousPath").is_none());
 }
+
+/// Codex answers reach the grouping preparation through the shared AI kit, which drops nulls first.
+#[test]
+fn codex_grouping_round_trip_cleans_nested_optionals_before_canonical_preparation() {
+    crate::configure_agents();
+    let prepared =
+        |binary: &str, raw: &Value, preparation: StructuredAnswerPreparation| -> Result<Value> {
+            Ok(serde_json::from_str(&ai_kit::schema::prepare_answer(
+                binary,
+                &grouping_schema(),
+                &raw.to_string(),
+                preparation.into(),
+            )?)?)
+        };
+    let raw = json!({"overallSummary":"Change.","groups":[
+        {"key":"parent","label":"Parent","summary":null,"category":"core","filePaths":[],"children":[{"key":"child","label":"Child","summary":null,"category":"api","filePaths":["a.rs"]}]},
+        {"key":"other","label":"Other","summary":"Present.","category":"tests","filePaths":["b.rs"],"children":null}
+    ],"files":[{"path":"a.rs","summary":"A.","hunks":null},{"path":"b.rs","summary":"B.","hunks":[{"index":0,"note":"Keep."}]}]});
+    assert!(prepare_structured_answer(
+        &grouping_schema(),
+        &raw,
+        StructuredAnswerPreparation::Strict
+    )
+    .is_err());
+    let answer = prepared("codex", &raw, StructuredAnswerPreparation::Grouping).unwrap();
+    assert_eq!(
+        answer["groups"][0]["children"][0]["filePaths"],
+        json!(["a.rs"])
+    );
+    assert!(answer["groups"][0].get("summary").is_none());
+    assert!(answer["groups"][0]["children"][0].get("summary").is_none());
+    assert!(answer["groups"][1].get("children").is_none());
+    assert!(answer["files"][0].get("hunks").is_none());
+    assert_eq!(answer["groups"][1]["summary"], "Present.");
+    assert_eq!(answer["files"][1]["hunks"][0]["note"], "Keep.");
+    assert!(prepared("claude", &raw, StructuredAnswerPreparation::Strict).is_err());
+    assert!(prepared("pi", &raw, StructuredAnswerPreparation::Strict).is_err());
+    let root_optional_null = json!({"overallSummary":"Change.","groups":[],"files":null});
+    assert_eq!(
+        prepared(
+            "codex",
+            &root_optional_null,
+            StructuredAnswerPreparation::Grouping
+        )
+        .unwrap(),
+        json!({"overallSummary":"Change.","groups":[]})
+    );
+}

@@ -219,20 +219,7 @@ fn error(status: StatusCode, message: impl Into<String>) -> Response {
     response
 }
 /// Never expose credentials in errors returned by a provider, Git, or an adapter.
-pub fn safe_error(error: &anyhow::Error) -> String {
-    let mut message = error.to_string();
-    for (name, value) in crate::rt::env::vars() {
-        let name = name.to_ascii_uppercase();
-        if value.len() >= 4
-            && ["TOKEN", "KEY", "PASSWORD", "SECRET"]
-                .iter()
-                .any(|word| name.contains(word))
-        {
-            message = message.replace(&value, "[redacted]");
-        }
-    }
-    message.chars().take(1200).collect()
-}
+pub use ai_kit::redact::safe_error;
 async fn boundary(State(state): State<HttpState>, request: Request, next: Next) -> Response {
     // Claim agent paths before routing, Host checks or browser fallbacks.
     if let Some(path) = agent_path(request.uri().path()) {

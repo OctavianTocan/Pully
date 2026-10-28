@@ -1,7 +1,7 @@
 //! Claude and Codex stream decoding for sandboxed CLI jobs.
 
 use super::EventSink;
-use crate::ai::safe_preview;
+use crate::redact::{safe_preview, safe_stream_text, sanitize};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -33,12 +33,23 @@ fn tool_preview(content: &Value) -> Option<String> {
             .collect::<Vec<_>>()
             .join("\n")
     });
-    let text = crate::ai::sanitize(text.trim());
+    let text = sanitize(text.trim());
     if text.is_empty() {
         None
     } else {
         Some(text.chars().take(400).collect())
     }
+}
+/// A tool's name without the host's MCP prefix (`mcp__{server}__`).
+fn tool_name(name: &str) -> &str {
+    crate::config::try_config()
+        .and_then(|config| config.tools.as_ref())
+        .and_then(|tools| {
+            name.strip_prefix("mcp__")?
+                .strip_prefix(tools.server)?
+                .strip_prefix("__")
+        })
+        .unwrap_or(name)
 }
 impl CliParser {
     pub(super) fn new(
@@ -71,9 +82,9 @@ impl CliParser {
                     && patch["status"] != "done"
                     && patch["status"] != "failed"
                 {
-                    crate::ai::safe_stream_text(text)
+                    safe_stream_text(text)
                 } else {
-                    crate::ai::sanitize(text)
+                    sanitize(text)
                 });
             }
         }
@@ -103,7 +114,7 @@ impl CliParser {
                         let content = &stream["content_block"];
                         if content["type"] == "tool_use" {
                             let id = format!("tool:{}", content["id"].as_str().unwrap_or("unknown"));
-                            let tool = content["name"].as_str().unwrap_or("tool").strip_prefix("mcp__pr__").unwrap_or(content["name"].as_str().unwrap_or("tool"));
+                            let tool = tool_name(content["name"].as_str().unwrap_or("tool"));
                             self.put(json!({"id":id,"kind":"tool","tool":tool,"title":format!("Using {tool}"),"status":"running"}));
                             self.blocks.insert(index, Block { id, kind:"tool".into(), text:String::new() });
                         } else if let Some(kind) = match content["type"].as_str() { Some("thinking"|"redacted_thinking") => Some("thinking"), Some("text") => Some("text"), _ => None } {
@@ -135,7 +146,7 @@ impl CliParser {
                 for content in event["message"]["content"].as_array().into_iter().flatten() {
                     if content["type"] == "tool_use" {
                         let tool = content["name"].as_str().unwrap_or("tool");
-                        self.put(json!({"id":format!("tool:{}",content["id"].as_str().unwrap_or("unknown")),"kind":"tool","tool":tool.strip_prefix("mcp__pr__").unwrap_or(tool),"title":format!("Using {}",tool.strip_prefix("mcp__pr__").unwrap_or(tool)),"status":"running"}));
+                        self.put(json!({"id":format!("tool:{}",content["id"].as_str().unwrap_or("unknown")),"kind":"tool","tool":tool_name(tool),"title":format!("Using {}",tool_name(tool)),"status":"running"}));
                     }
                 }
             }
@@ -285,7 +296,7 @@ impl CliParser {
         if self.usage["durationMs"].is_null() {
             self.usage["durationMs"] = json!(crate::now_ms().saturating_sub(self.started));
         }
-        let usage = serde_json::from_str(&crate::ai::sanitize(&self.usage.to_string()))?;
+        let usage = serde_json::from_str(&sanitize(&self.usage.to_string()))?;
         Ok((answer, usage))
     }
 }

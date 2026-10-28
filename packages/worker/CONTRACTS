@@ -59,8 +59,8 @@ last, so the manifest never names an APK the bucket lacks.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-ai-in-the-logins-own-container
 Claude Code and Codex work for a login MUST run only in the container of that login's `AgentHome`
-Durable Object, named after the login's volume, through the server's own `agent_process` code run
-by `agent_runner` (`hosted-server-is-the-rust-server-in-a-worker`). The object MUST refuse every
+Durable Object, named after the login's volume, through the server's own agent code (`ai-kit/src/process.rs`)
+run by the AI kit's runner, `ai-kit/src/runner.rs` (`hosted-server-is-the-rust-server-in-a-worker`). The object MUST refuse every
 login but the first it served, and the runner MUST refuse every login but its container's. A
 container MUST NOT be given a storage key, a server secret or another login's files. The object
 keeps only that login's sign-in files, as text in its own storage: the runner gives the

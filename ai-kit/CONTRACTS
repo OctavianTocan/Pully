@@ -1,0 +1,63 @@
+@cc [owner:OctavianTocan,label:architecture] kit-one-engine-for-every-host
+Claude Code and Codex sign-in, status, runs, model lists and efforts, and Gemini embeddings, MUST
+live here once and be used by both Pully (`backend/`) and ThyMind, rather than copied into either.
+A host MUST configure the kit once with its own names (`Config`: volume, container prefix, lock
+file, environment prefix, image, container marker, sign-in hints, tools, extra secrets,
+answer preparations), and the kit MUST NOT hard-code a host's volume, container, image, marker or
+hint outside its tests. A host MUST NOT change its `volume` or `lock_file` once people have
+signed in, because their sign-ins live there. Source: Tavi, 28 Oct 2026 ("make it a separate
+package, which then you'll use for this too ... changes it to use this new shared package").
+
+@cc [owner:OctavianTocan,label:security;product] kit-subscription-sign-in-only
+The kit MUST run Claude Code and Codex only on a person's own subscription sign-in (claude.ai,
+ChatGPT), each login in its own volume or container, and MUST NOT give either CLI an API key
+(ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, OPENAI_API_KEY) on any path. A sign-in MUST run the
+unmodified CLI's own login (`claude auth login --claudeai`, `codex login --device-auth`) with
+only that login's home, no job inputs, tools or prompt; the kit MUST NOT read the resulting
+tokens and passes the person's pasted code only to that CLI's stdin. A phone MUST be given only
+links on the providers' own sign-in hosts, and status MUST count only subscription sign-ins.
+Source: backend `ai-runs-on-the-callers-own-sign-in` and `ai-sign-in-is-the-clis-own` (Tavi,
+23 Oct 2026 13:39).
+
+@cc [owner:OctavianTocan,label:security] kit-jobs-fail-closed
+On a native server every CLI process MUST run in Docker with only its job folder read-write and
+MUST fail rather than run on the host. The hosted agent container is itself the sandbox: there
+the runner MUST refuse to start without the host's container marker, MUST run jobs as a user
+that cannot read the login homes, and MUST refuse every login but its container's. A job MUST
+get only the selected sign-in files of its login, never unrelated CLI settings or skills. Every
+Codex job MUST disable `shell_tool`, `unified_exec` and `view_image`, whether or not the host
+gives it tools. Stopping a run MUST kill its container or process. Source: backend
+`server-every-cli-through-start-agent`, `rust-ai-capabilities-fail-closed`,
+`rust-container-tools-use-scoped-capabilities`, `jobs-codex-pr-tools-only`; packages/worker
+`hosted-ai-in-the-logins-own-container`.
+
+@cc [owner:OctavianTocan,label:security] kit-jobs-settle-and-clean-up
+A job that acquired a concurrency slot MUST release it and settle even when its folder cannot be
+made, and its timeout MUST exclude queue time. Cleanup MUST stop model and bootstrap containers
+before the final sign-in files are saved, then retry removing named containers. Source: backend
+`jobs-release-acquired-slots` and `rust-final-login-helper-is-cleaned`.
+
+@cc [owner:OctavianTocan,label:security] kit-secrets-never-leave
+Model output, streamed activity, previews and errors MUST pass through `redact` before they reach
+a host's caller. Any environment value whose name says TOKEN, KEY, SECRET or PASSWORD is redacted
+where it appears, and the provider keys plus the host's own `Config::secrets` are redacted
+whatever their length. Source: root `secrets-come-from-the-environment`.
+
+@cc [owner:OctavianTocan,label:architecture] kit-structured-answers-fit-their-schema
+A structured answer MUST be checked against the schema the caller asked for before the caller
+sees it: Codex gets the strict form of the schema and its nulls are dropped first, and a host
+preparation runs only when the host named it in `Config::preparations`. Source: backend
+`native-rpc-honors-declared-schemas` and `server-agent-results-checked`.
+
+@cc [owner:OctavianTocan,label:architecture] kit-builds-for-workers
+The kit MUST build for `wasm32-unknown-unknown` with `agents` and `embed`, so a host can run in a
+Cloudflare Worker. Its code MUST use `rt` for tasks, timers, environment, files and programs,
+which fail closed in a Worker. `runner` is native only. Source: backend `server-builds-for-workers`.
+
+@cc [owner:OctavianTocan,label:architecture;product] kit-embeddings-match-stored-vectors
+`embed` MUST do no I/O: the host sends the request with its own client and key. Its text formats
+(`title: … | text: …`, `task: search result | query: …`), JavaScript whitespace and UTF-16
+clipping, the `f32` cast and the V8 `Math.hypot` normalisation MUST stay exactly as ThyMind's
+stored vectors were made (ThyMind's port of `lib/ai.mjs`), or a search compares two spaces.
+Changing any of them MUST re-embed every stored card in the same change. Source: Tavi, 28 Oct
+2026 ("combining it with the stuff you have here, which is more of an embedding thing").

@@ -1,0 +1,56 @@
+[package]
+name = "ai-kit"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Claude Code and Codex on each person's own subscription sign-in, plus Gemini embeddings, shared by Pully and ThyMind"
+publish = false
+
+[features]
+default = [ "agents" ]
+# Claude Code and Codex: sign-in, runs, model lists, the Docker and container runtimes, and the
+# runtime shim they build on for both native servers and Workers.
+agents = [
+  "dep:anyhow",
+  "dep:futures-util",
+  "dep:regex",
+  "dep:sha2",
+  "dep:tokio",
+  "dep:url",
+  "dep:uuid",
+  "dep:web-time",
+  "dep:js-sys",
+  "dep:send_wrapper",
+  "dep:wasm-bindgen",
+  "dep:wasm-bindgen-futures",
+]
+# The server inside the hosted agent container (native only).
+runner = [ "agents", "dep:axum" ]
+# Gemini embeddings: request bodies, answers, stored vectors and similarity. No I/O.
+embed = [ "dep:anyhow" ]
+
+[dependencies]
+serde_json = { version = "1", features = [ "preserve_order" ] }
+anyhow = { version = "1", optional = true }
+futures-util = { version = "0.3", optional = true }
+regex = { version = "1", optional = true }
+sha2 = { version = "0.10", optional = true }
+url = { version = "2", optional = true }
+uuid = { version = "1", features = [ "v4" ], optional = true }
+web-time = { version = "1", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+axum = { version = "0.8", default-features = false, features = [ "json", "tokio", "http1" ], optional = true }
+tokio = { version = "1", features = [ "full" ], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = { version = "0.3", optional = true }
+send_wrapper = { version = "0.6", features = [ "futures" ], optional = true }
+tokio = { version = "1", default-features = false, features = [ "sync", "macros", "io-util" ], optional = true }
+uuid = { version = "1", features = [ "v4", "js" ], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = [ "full", "test-util" ] }
+reqwest = { version = "0.12", default-features = false, features = [ "json", "stream", "rustls-tls" ] }

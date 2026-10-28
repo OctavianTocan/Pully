@@ -309,7 +309,7 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
         }
     }
     // Each person's own Claude Code and Codex sign-in, in a Providers group of its own under AI (recording
-    // 26 Oct 2026, 02:38 to 02:47; agent_login.rs).
+    // 26 Oct 2026, 02:38 to 02:47; ai-kit/src/login.rs).
     services.aiSignIns?.let { signIns ->
         Group("Providers") {
             SheetCard { AiSignInRows(signIns, open) }

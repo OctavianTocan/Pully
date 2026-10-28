@@ -87,14 +87,14 @@ tools, so Ask works on a pull request that was never analysed (rule 62; architec
 
 @cc [owner:OctavianTocan,label:architecture;security] server-every-cli-through-start-agent
 Every CLI process the server starts, jobs and the model catalog alike, MUST go through
-`backend/src/agent_process.rs` and its Docker boundary. A CLI has only its job folder
+`ai-kit/src/process.rs` (through `backend/src/agents.rs`) and its Docker boundary. A CLI has only its job folder
 read-write; its selected PR inputs and native helper are read-only, and repository
 reads go through the PR tools. Stopping a run MUST kill its container. The native
 runtime is Docker-only and MUST fail closed rather than run on the host (architecture,
 Where the CLIs run; recording 14 Oct 19:19, 01:31; Tavi's 15 Oct 2026 Rust rewrite and
 16 Oct 2026 parity requests, replacing the former host-or-Docker runtime). The one
-exception is the hosted agent container, which is itself the sandbox: there `agent_runner`,
-which refuses to start outside that image, runs the same jobs as plain processes with the
+exception is the hosted agent container, which is itself the sandbox: there the AI kit's runner
+(`ai-kit/src/runner.rs`), which refuses to start outside that image, runs the same jobs as plain processes with the
 same job folder, inputs and PR tools, and stopping a run MUST kill its process (Tavi, 24 Oct
 2026, "Rewrite it as a Worker"; packages/worker `hosted-ai-in-the-logins-own-container`).
 

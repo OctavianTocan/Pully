@@ -56,7 +56,9 @@ jobs:
           cargo test --manifest-path backend/Cargo.toml --locked --lib source::github::snapshot_tests:: --jobs 2 -- --test-threads=2
           cargo test --manifest-path backend/Cargo.toml --locked --lib source::local::snapshot_tests:: --jobs 2 -- --test-threads=2
       - name: Check offline cancellation cleanup
-        run: cargo test --manifest-path backend/Cargo.toml --locked --lib fake_docker_cancellation_removes_late_containers --jobs 2 -- --test-threads=1
+        run: cargo test --manifest-path ai-kit/Cargo.toml --locked --features runner --lib fake_docker_cancellation_removes_late_containers --jobs 2 -- --test-threads=1
+      - name: Check the shared AI kit
+        run: cargo test --manifest-path ai-kit/Cargo.toml --locked --features runner,embed --jobs 2
       - name: Run bounded offline HTTP smokes
         run: |
           python3 backend/scripts/smoke.py

@@ -1,9 +1,9 @@
 //! AI work in containers. Each Pully login gets one `AgentHome` Durable Object, named after the
 //! login's volume, that owns that login's agent container (`agent/Dockerfile`, which runs the
-//! server's `agent_runner`). `AgentRemote` is how the server reaches it. The container's disk goes
+//! AI kit's runner, `ai_kit::runner`). `AgentRemote` is how the server reaches it. The container's disk goes
 //! when it sleeps, so the object keeps the login's sign-in files as text in its own storage: written
 //! back into the container when it starts, and saved after each run, sign-in, status check and
-//! sign-out. The runner sends only the sign-in part of each file (`agent_runner`).
+//! sign-out. The runner sends only the sign-in part of each file (`ai_kit::runner`).
 use futures_util::{future::BoxFuture, lock::Mutex, StreamExt};
 use pulls_review_server::{
     agent_login::AgentLogin,
@@ -17,14 +17,14 @@ use worker::{
     State, Storage,
 };
 
-/// The port `agent_runner` listens on in the container.
+/// The port the AI kit's runner listens on in the container.
 const PORT: u16 = 8080;
 /// How long a starting container has to answer `/health`.
 const START_TIMEOUT_MS: f64 = 60_000.0;
 /// How long a container with nothing to do stays up. A sign-in in progress keeps it up through
 /// the phone's calls to finish it.
 const IDLE_MS: f64 = 5.0 * 60_000.0;
-/// The storage key of the login's sign-in files, the JSON text `agent_runner` gives.
+/// The storage key of the login's sign-in files, the JSON text the AI kit's runner gives.
 const LOGIN_FILES: &str = "login-files";
 /// Names the login a call is for; only `PullyServer` sets it, as nothing else reaches the object.
 const LOGIN_HEADER: &str = "x-pully-agent-login";
