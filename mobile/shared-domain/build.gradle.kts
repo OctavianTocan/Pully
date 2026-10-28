@@ -28,6 +28,11 @@ kotlin {
             implementation("org.commonmark:commonmark-ext-task-list-items:0.24.0")
         }
         jvmTest { resources.srcDir("../../android/app/src/test/resources") }
+        // Runs the bundled Pele the app ships (mobile/shared-ui/pele) through the same QuickJS as the phone.
+        jvmTest.dependencies {
+            implementation("io.github.dokar3:quickjs-kt:1.0.15")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
+        }
         commonTest {
             kotlin.srcDir(layout.buildDirectory.dir("generated/briefFixture"))
             kotlin.srcDir(layout.buildDirectory.dir("generated/markdownFixtures"))

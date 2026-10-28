@@ -17,6 +17,7 @@
     "Loading": "The web-port kit in Components.kt, frozen by the bans check (rule 49). It has no page because it is being replaced by the mobile kit.",
     "LuIcon": "Drawn for every glyph on the Icons page.",
     "Markdown": "Renders the rules on the Rules page.",
+    "MermaidDiagram": "What Markdown draws for a ```mermaid block, in the Tour's diagram frame; Markdown's page is the Rules page, and the frame's look is the Tour's diagram.",
     "MarkdownPreview": "Markdown's inline text cut to a few lines, for the AI note on an Overview file row; it draws exactly what Markdown draws, whose page is the Rules page.",
     "MenuReveal": "A transition wrapper for menus and dropdowns, not a visual component. Its recipe is on the Motion page.",
     "ModalReveal": "A transition wrapper for dialogs (rule 73), not a visual component. The Tour's full-screen diagram uses it.",
