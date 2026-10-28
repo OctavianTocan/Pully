@@ -16,13 +16,20 @@ Kotlin SDK but also needs Postgres and its own service.
 
 ## What Zero does, and where Pully does it
 
-| Zero | Pully |
-|---|---|
-| Reads come from a copy on the device | Already so: the Inbox shows the device copy first, a review opens from the kept diff (`shared-home-cache-and-policies-stay-compatible`, `shared-review-opens-from-bounded-cache`) |
-| The server pokes clients when their data changes | `sync-wait` (`backend/src/sync.rs`): one change feed per account store, topics `inbox`, `marks`, `review:<key>` |
-| Clients read only what changed | `followChanges` (`mobile/shared-client/.../SyncFeed.kt`): the Inbox reads the server's copy on `inbox`, a PR page its overview and saved work on its topic and its marks on `marks` |
-| Writes show first and are confirmed later | `Outbox` (`.../Outbox.kt`) in `ReviewSessionCache`: marks go out in order, retried until the server has them, laid over server reads |
-| zero-cache keeps itself current from Postgres | While a phone watches the Inbox, `sync-wait` refreshes a kept Inbox older than a minute from GitHub; the server's own 3-minute warm round still runs |
+- **Reads come from a copy on the device.** Already so in Pully: the Inbox shows the device
+  copy first, a review opens from the kept diff (`shared-home-cache-and-policies-stay-compatible`,
+  `shared-review-opens-from-bounded-cache`).
+- **The server pokes clients when their data changes.** `sync-wait` (`backend/src/sync.rs`):
+  one change feed per account store, topics `inbox`, `marks`, `review:<key>`.
+- **Clients read only what changed.** `followChanges` (`mobile/shared-client/.../SyncFeed.kt`):
+  the Inbox reads the server's copy on `inbox`, a PR page its overview and saved work on its
+  topic and its marks on `marks`.
+- **Writes show first and are confirmed later.** `Outbox` (`.../Outbox.kt`) in
+  `ReviewSessionCache`: marks go out in order, retried until the server has them, laid over
+  server reads.
+- **zero-cache keeps itself current from Postgres.** While a phone watches the Inbox,
+  `sync-wait` refreshes a kept Inbox older than a minute from GitHub; the server's own
+  3-minute warm round still runs.
 
 ## How it works
 
