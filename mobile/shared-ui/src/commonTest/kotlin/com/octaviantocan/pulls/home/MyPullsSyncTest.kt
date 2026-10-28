@@ -72,6 +72,33 @@ class MyPullsSyncTest {
     }
 
     @Test
+    fun aServerChangeShowsTheServersCopyWithoutAskingGitHubAndNeverAnOlderOne() = runTest {
+        val storage = Memory()
+        var server = PullsSnapshot(listOf(pull(1)), 100)
+        var fresh = 0
+        val sync = MyPullsSync({ server }, { fresh++; listOf(pull(1)) }, storage, now = { 110 }, peek = { _, classify ->
+            assertFalse(classify)
+            server
+        })
+        sync.select("open")
+        assertEquals(listOf(1), sync.pulls?.map { it.number })
+
+        server = PullsSnapshot(listOf(pull(1), pull(2)), 200)
+        sync.serverChanged()
+        assertEquals(listOf(1, 2), sync.pulls?.map { it.number })
+        assertEquals(200L, sync.fetchedAt)
+        assertTrue(storage.items.getValue(MyPullsSync.STORAGE_PREFIX + "open").contains("\"number\":2"))
+
+        server = PullsSnapshot(listOf(pull(3)), 150)
+        sync.serverChanged()
+        assertEquals(listOf(1, 2), sync.pulls?.map { it.number }, "an older copy is left out")
+        server = PullsSnapshot(listOf(pull(4)), 300, partial = true)
+        sync.serverChanged()
+        assertEquals(listOf(1, 2), sync.pulls?.map { it.number }, "rows so far are left out")
+        assertEquals(0, fresh, "only the server's copy is read")
+    }
+
+    @Test
     fun aFirstLoadShowsTheRowsFoundSoFarThenTheWholeList() = runTest {
         val storage = Memory()
         var server: PullsSnapshot? = null

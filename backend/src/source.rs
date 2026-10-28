@@ -504,6 +504,18 @@ async fn handle_inner(state: &Arc<AppState>, name: &str, args: Value) -> Option<
     })
 }
 
+/// Starts the open Inbox's refresh from GitHub when the kept copy is older than
+/// `older_than_ms`; joins one already running, and does nothing before the first load.
+pub(crate) async fn refresh_stale_inbox(state: &Arc<AppState>, older_than_ms: u64) -> Result<()> {
+    let Some(kept) = state.host.storage.get_async("my-pulls:open").await? else {
+        return Ok(());
+    };
+    if now().saturating_sub(kept["fetchedAt"].as_u64().unwrap_or(0)) > older_than_ms {
+        let _ = lists::start_inbox_refresh(state, &json!({"state":"open"})).await?;
+    }
+    Ok(())
+}
+
 /// Resolve storage placement through the same bounded, read-only Git boundary.
 pub async fn git_common_dir(cwd: &std::path::Path) -> Result<String> {
     local::git(cwd, &["rev-parse", "--git-common-dir"]).await

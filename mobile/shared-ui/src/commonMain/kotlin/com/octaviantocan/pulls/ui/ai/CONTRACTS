@@ -80,6 +80,7 @@ Both hosts MUST draw the same server Mermaid SVG as inert vector data, retaining
 viewBox, paths, fills, strokes, text and marker arrows. They MUST NOT execute SVG or
 introduce a WebView. Inline diagrams MUST retain the existing natural size and fit;
 full-screen diagrams MUST retain the existing bounded pinch/drag and close behavior.
+The same frame draws Markdown's Pele diagrams (markdown-mermaid-is-drawn-with-pele).
 Android MUST keep its AndroidSVG compatibility normalization and vector picture path.
 Source: existing ai-brief-is-data and ai-structures-are-drawn, DESIGN.md rules 95 and
 154, and Tavi's accepted 21 Oct 2026 shared UI/native-adapter plan.

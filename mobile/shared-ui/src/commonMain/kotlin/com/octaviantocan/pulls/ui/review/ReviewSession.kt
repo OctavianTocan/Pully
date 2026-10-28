@@ -11,16 +11,20 @@ import com.octaviantocan.pulls.data.ChatHistoryEntry
 import com.octaviantocan.pulls.data.CritiqueFinding
 import com.octaviantocan.pulls.data.FileGroup
 import com.octaviantocan.pulls.data.OpenedReview
+import com.octaviantocan.pulls.data.Outbox
 import com.octaviantocan.pulls.data.PrStack
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ReviewData
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.SavedState
+import com.octaviantocan.pulls.data.SyncTopics
 import com.octaviantocan.pulls.data.TaskState
 import com.octaviantocan.pulls.data.Tour
 import com.octaviantocan.pulls.data.TourSource
 import com.octaviantocan.pulls.data.asTaskState
+import com.octaviantocan.pulls.data.followChanges
 import com.octaviantocan.pulls.data.matches
+import com.octaviantocan.pulls.data.strings
 import com.octaviantocan.pulls.data.withHunks
 import com.octaviantocan.pulls.ui.design.ReviewState
 import kotlinx.coroutines.CoroutineScope
@@ -37,7 +41,11 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import kotlin.random.Random
 
 /** Where the diff should scroll: a file, optionally a line on one side, optionally a finding. */
@@ -63,6 +71,8 @@ class ReviewSession(
     private val cache: ReviewSessionCache,
     private val effects: SessionEffects,
     private val clock: SessionClock = SystemSessionClock,
+    /** The host's server has the change feed, so the page follows it while in front (`sync-reads-what-changed`). */
+    private val followServer: Boolean = false,
 ) {
     private val source = cache.capture(repo)
     private val sessionJob = SupervisorJob(scope.coroutineContext[Job])
@@ -83,6 +93,7 @@ class ReviewSession(
     private var taskNonce = 0L
     private val stopRequests = mutableMapOf<String, Any>()
     private var marksSequence = 0L
+    private var changesJob: Job? = null
 
     internal data class Version(val key: String, val head: String, val revision: Long)
     private fun version(): Version? = opened?.let { Version(it.key, it.headSha, viewRevision) }
@@ -499,9 +510,10 @@ class ReviewSession(
         val marksRequest = ++marksSequence
         val marks = runCatching { repo.reviewed(expected.key) }.getOrNull()
         if (!currentObservation(expected, generation)) return false
-        if (marksRequest == marksSequence) marks?.let { (shas, changed) -> reviewed = shas; changedSinceReviewed = changed }
+        if (marksRequest == marksSequence) marks?.let { showMarks(expected.key, it) }
         if (!hasAiResult) analyzeMode = "rules"
         loadAttention()
+        followChanges()
         return resumeTasks() && saved
     }
 
@@ -712,7 +724,57 @@ class ReviewSession(
         reviewed = if (value) reviewed + shas else reviewed - shas.toSet()
         val paths = files.filter { it.sha in shas }.map { it.path }.toSet()
         changedSinceReviewed = changedSinceReviewed - paths
-        scope.launch { if (active()) runCatching { repo.setReviewed(key, shas, value) } }
+        // Shown already; the outbox sends it in order and keeps trying until the server has it (`writes-show-first`).
+        cache.write(repo, source, "reviewed-set", buildJsonObject {
+            put("key", key); put("shas", JsonArray(shas.map { JsonPrimitive(it) })); put("reviewed", value)
+        })
+    }
+
+    /** The server's marks for [key] with this phone's unsent ones laid over them, so a sent mark never flickers back. */
+    private fun showMarks(key: String, server: Pair<Set<String>, Set<String>>) {
+        var (marked, changed) = server
+        for (write in cache.pendingWrites(repo, source)) {
+            if (write.name != "reviewed-set" || write.args["key"]?.jsonPrimitive?.content != key) continue
+            val shas = write.args.strings("shas").toSet()
+            marked = if (write.args["reviewed"]?.jsonPrimitive?.booleanOrNull == true) marked + shas else marked - shas
+            changed = changed - files.filter { it.sha in shas }.map { it.path }.toSet()
+        }
+        reviewed = marked
+        changedSinceReviewed = changed
+    }
+
+    /** Reads the marks again, for a change made on another device or a write the server refused. */
+    private suspend fun reloadMarks(expected: Version) {
+        val request = ++marksSequence
+        val marks = runCatching { repo.reviewed(expected.key) }.getOrNull() ?: return
+        currentCoroutineContext().ensureActive()
+        if (current(expected) && request == marksSequence) showMarks(expected.key, marks)
+    }
+
+    /** The server refused a queued write, so the page shows what the server holds instead. */
+    internal fun writeRejected(write: Outbox.Mutation) {
+        val expected = version() ?: return
+        if (write.name != "reviewed-set" || write.args["key"]?.jsonPrimitive?.content != expected.key || !canObserve()) return
+        observations.scope.launch { reloadMarks(expected) }
+    }
+
+    /**
+     * While the page is in front, the server's change feed says when this pull request, its saved AI work or the marks
+     * changed elsewhere (another phone, the web, the server's own refresh), and the page reads just that part again.
+     */
+    private fun followChanges() {
+        if (!followServer || changesJob?.isActive == true || !canObserve()) return
+        changesJob = observations.scope.launch {
+            repo.followChanges { change ->
+                val expected = version() ?: return@followChanges
+                if (!canObserve() || !current(expected)) return@followChanges
+                if (change.touches(SyncTopics.review(expected.key))) {
+                    if (pull != null) reloadOverview()
+                    reloadSavedNow()
+                }
+                if (change.touches(SyncTopics.MARKS)) reloadMarks(expected)
+            }
+        }
     }
 
     /** Narrows the diff to commits `from..to` of the PR (web `CommitPicker`); null restores all commits. */

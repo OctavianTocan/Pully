@@ -53,13 +53,14 @@ class Repo(
         try {
             val result = RpcClient(config.server, transport, config.headers).call(name, args)
             if (!config.sameSource(configuration())) throw CancellationException("The server or account changed.")
-            observer.completed(name, ms(), true, null)
+            if (name != "sync-wait") observer.completed(name, ms(), true, null)
             return result
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             if (!config.sameSource(configuration())) throw CancellationException("The server or account changed.")
-            observer.completed(name, ms(), false, (e as? ServerError)?.status)
+            // A held change-feed wait is timed by its 25 s hold, not by the server, so it is left out of call timings.
+            if (name != "sync-wait") observer.completed(name, ms(), false, (e as? ServerError)?.status)
             throw e
         }
     }

@@ -290,6 +290,12 @@ fn input_schema(name: &str) -> Option<Schema> {
         "ai-job-start" => job(true),
         "ai-models" => obj(vec![("engine", engine()), ("refresh", opt(Bool))]),
         "ai-job-wait" | "ai-task-wait" => obj(vec![("id", Str), ("after", Number)]),
+        "sync-wait" => obj(vec![
+            ("epoch", Str),
+            ("version", Number),
+            ("waitMs", Number),
+            ("inbox", opt(Bool)),
+        ]),
         "ai-job-cancel" | "ai-task-cancel" => obj(vec![("id", Str)]),
         "ai-task-start" => task(),
         "ai-task-list-all" | "inbox-chat" | "inbox-chat-clear" => obj(vec![]),
@@ -389,6 +395,12 @@ pub(crate) fn result(name: &str, value: Value) -> Result<Value> {
             ("body", Str),
         ]),
         "ai-job-cancel" | "ai-task-cancel" => Bool,
+        "sync-wait" => obj(vec![
+            ("epoch", Str),
+            ("version", Number),
+            ("topics", strings()),
+            ("reset", Bool),
+        ]),
         // trusted<T>(), unknown(), and undeclared returns deliberately do not
         // impose a stricter shape than the original boundary.
         _ => return Ok(value),

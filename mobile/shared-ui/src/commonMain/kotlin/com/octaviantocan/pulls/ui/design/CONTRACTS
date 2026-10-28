@@ -226,3 +226,11 @@ dot beside its first line. Source: Tavi's 28 Oct 2026 request to check every scr
 @cc [owner:OctavianTocan,label:product;design] markdown-failed-picture-keeps-its-words
 A picture that fails to load MUST show its alt text (or "Image") faded and underlined,
 still tappable, never vanish to nothing. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+
+@cc [owner:OctavianTocan,label:product;security;architecture] markdown-mermaid-is-drawn-with-pele
+A ```mermaid block in a description, comment or preview MUST be drawn as its diagram by
+the bundled Pele (github.com/obsidianmd/pele, mobile/shared-ui/pele) in a QuickJS runtime
+of its own: no DOM, network or files, bounded in memory and time, off the main thread,
+laid out for the width it has and in the app's light or dark palette, in the existing
+diagram frame (tap for full screen). Text Pele cannot draw MUST stay code as written,
+and a skeleton MUST hold the place while it draws. Source: Tavi, 28 Oct 2026, "For Mermaid diagrams, find Obsidian's Pele, and use that."

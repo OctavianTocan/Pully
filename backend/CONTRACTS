@@ -479,3 +479,20 @@ saved records for each UTC day, and MUST tally event lines without buffering a w
 lines. The existing Stats response, event sanitization, opt-out and 365-day retention MUST
 remain unchanged. Native and Worker storage MUST honor the same lookup and legacy key-alias
 semantics. Source: Tavi25Oct2026 review-fix batch, finding 8.
+
+@cc [owner:OctavianTocan,label:architecture;security] server-sync-feed-names-only-own-changes
+Every write to a store's Inbox, Jev, marks, diff or Ask records MUST be noted on that
+account's change feed, which every Store over the same records shares, and `sync-wait`
+MUST answer with only the topic names changed since the caller's version: never a
+record, a posted diff, or another account's change. It is a phone method behind the same
+allowlist, schemas, workspace checks and identity retirement as every other one, and it
+holds a request for at most 25 seconds. A caller from another epoch or too far behind is
+told to read everything. Source: Tavi, 28 Oct 2026 ("Go") on the plan in thread "Build a
+sync engine like Wholana's", building Zero's design that Omar named (call of 26 Oct 2026,
+1:01:29).
+
+@cc [owner:OctavianTocan,label:product] server-inbox-fresh-while-watched
+While a phone waits on the feed with the Inbox on screen, the server MUST refresh a kept
+Inbox older than a minute from GitHub, joining a refresh already running, so a new or
+changed pull request reaches the phone without a reload. Source: as
+server-sync-feed-names-only-own-changes.

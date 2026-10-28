@@ -31,6 +31,8 @@ export default antfu(
       'android/.kotlin/**',
       // Both mobile Gradle roots and Xcode produce build artifacts locally.
       'mobile/**/build/**',
+      // Pele's published browser bundle, kept byte for byte as npm ships it (mobile/shared-ui/pele/README.md).
+      'mobile/shared-ui/pele/pele.global.js',
       'mobile/.kotlin/**',
       'ios/build/**',
     ],

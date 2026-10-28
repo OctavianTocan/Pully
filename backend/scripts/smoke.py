@@ -63,7 +63,18 @@ with tempfile.TemporaryDirectory(prefix='pulls-rust-smoke-') as tmp:
         assert rpc('source-key', {'target': ''}) == opened['key']
         assert opened['diff']['files'][0]['path']=='hello.txt'; assert opened['groups']
         key=opened['key']; sha=opened['diff']['files'][0]['sha']
+        # The change feed: a phone waiting on sync-wait is told about a mark the moment it is written.
+        placed=rpc('sync-wait',{'epoch':'','version':0,'waitMs':0}); assert placed['reset'] is True,placed
+        import threading
+        woken={}
+        def wait():
+            started=time.monotonic(); woken['answer']=rpc('sync-wait',{'epoch':placed['epoch'],'version':placed['version'],'waitMs':4000}); woken['at']=time.monotonic()
+        waiter=threading.Thread(target=wait); waiter.start(); time.sleep(.3)
+        marked=time.monotonic()
         assert rpc('reviewed-set',{'key':key,'shas':[sha],'reviewed':True}) is True
+        waiter.join(6); assert 'marks' in woken['answer']['topics'],woken
+        print(f"sync-wait woke {1000*(woken['at']-marked):.0f} ms after the mark was written")
+        assert rpc('sync-wait',{'epoch':placed['epoch'],'version':woken['answer']['version'],'waitMs':0})['topics']==[]
         assert sha in rpc('reviewed-get',{'key':key})['reviewed']
         assert 'hello.txt' in rpc('diff-patches',{'key':key,'paths':['hello.txt']})['files']
         assert rpc('file-content',{'key':key,'path':'hello.txt'})['new']=='new\n'

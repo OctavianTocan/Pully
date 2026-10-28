@@ -25,3 +25,12 @@ ancestor paths and guide continuations from the existing Sketch parser. Pseudoco
 runs MUST rejoin to the exact input line while preserving their token kind. Source:
 existing Sketch.kt/SketchTest, DESIGN.md rule 95 and F59, preserved by Tavi's
 21 Oct 2026 maximum-reuse iOS decision.
+
+@cc [owner:OctavianTocan,label:security;architecture] pele-svg-is-inert
+Pele's SVG MUST reach a host only as inert vector data that both diagram adapters read:
+the drawn elements (svg, g, path, rect, circle, ellipse, polygon, polyline, line, text,
+tspan) with the iOS adapter's attributes, every CSS variable, color-mix() and
+currentColor resolved against the app palette, styles written out as attributes, links
+reduced to groups, and pictures, gradients, embedded HTML, ids and classes left out.
+Anything but well-formed SVG MUST fail. Diagram text MUST reach Pele only as a JSON
+string, never as code, with links and pictures off. Source: Tavi, 28 Oct 2026, "For Mermaid diagrams, find Obsidian's Pele, and use that."

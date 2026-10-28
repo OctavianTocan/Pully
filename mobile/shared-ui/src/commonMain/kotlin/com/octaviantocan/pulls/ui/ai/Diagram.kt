@@ -76,36 +76,42 @@ fun Diagram(session: ReviewSession, block: TourBlock) {
     val svg = remember(result) {
         result?.getOrNull()?.let { text -> runCatching { parseDiagramSvg(text) }.getOrNull() }
     }
-    var full by remember(owner, key) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         BlockLabel("Diagram", block.text)
         when {
-            svg != null -> androidx.compose.foundation.layout.BoxWithConstraints(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.md)).border(1.dp, c.border, RoundedCornerShape(PullsRadius.md))
-                    .cueClickable(onClickLabel = "Open the diagram") { full = true }.padding(8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                // Natural size (1 SVG px = 1.2dp), shrunk to fit the width and at most 480dp tall; tap for full screen.
-                val w0 = svg.viewWidth * 1.2f
-                val h0 = svg.viewHeight * 1.2f
-                val fit = minOf(1f, maxWidth.value / w0, 480f / h0)
-                SvgView(svg, Modifier.size((w0 * fit).dp, (h0 * fit).dp))
-            }
+            svg != null -> DiagramPicture(svg)
             result == null -> Skeleton(Modifier.fillMaxWidth().height(160.dp).clip(RoundedCornerShape(PullsRadius.xl)))
             // Could not render: the source still says what the diagram meant.
             else -> AiCodeView(session, block.body, "")
         }
     }
-    ModalReveal(full && svg != null, { full = false }) {
-        var scale by remember { mutableStateOf(1f) }
+}
+
+/**
+ * A drawn diagram in its bordered frame at its natural size, [scale] dp to an SVG pixel, shrunk to fit the width and at
+ * most 480dp tall; a tap opens it full screen with pinch zoom.
+ */
+@Composable
+fun DiagramPicture(svg: DiagramSvg, scale: Float = 1.2f) {
+    val c = LocalPullsColors.current
+    var full by remember(svg) { mutableStateOf(false) }
+    androidx.compose.foundation.layout.BoxWithConstraints(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(PullsRadius.md)).border(1.dp, c.border, RoundedCornerShape(PullsRadius.md))
+            .cueClickable(onClickLabel = "Open the diagram") { full = true }.padding(8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        val w0 = svg.viewWidth * scale
+        val h0 = svg.viewHeight * scale
+        val fit = minOf(1f, maxWidth.value / w0, 480f / h0)
+        SvgView(svg, Modifier.size((w0 * fit).dp, (h0 * fit).dp))
+    }
+    ModalReveal(full, { full = false }) {
+        var zoom by remember { mutableStateOf(1f) }
         var offset by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-        val state = rememberTransformableState { zoom, pan, _ -> scale = (scale * zoom).coerceIn(1f, 6f); offset += pan }
+        val state = rememberTransformableState { change, pan, _ -> zoom = (zoom * change).coerceIn(1f, 6f); offset += pan }
         Box(Modifier.fillMaxSize().background(c.base)) {
-            svg?.let { drawing ->
-                SvgView(drawing, Modifier.fillMaxSize().aspectRatio(diagramRatio(drawing)).transformable(state).graphicsLayer { scaleX = scale; scaleY = scale; translationX = offset.x; translationY = offset.y }.padding(16.dp))
-            }
+            SvgView(svg, Modifier.fillMaxSize().aspectRatio(diagramRatio(svg)).transformable(state).graphicsLayer { scaleX = zoom; scaleY = zoom; translationX = offset.x; translationY = offset.y }.padding(16.dp))
             FloatIcon(Lu.close, "Close", { full = false }, Modifier.align(Alignment.TopEnd).padding(top = headerTopPadding(), end = 16.dp))
         }
     }
 }
-

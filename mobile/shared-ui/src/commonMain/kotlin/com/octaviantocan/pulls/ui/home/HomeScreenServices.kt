@@ -25,6 +25,8 @@ data class HomeScreenCapabilities(
     val settingsRoute: Boolean,
     val commands: Boolean,
     val uiBookRoute: Boolean = false,
+    /** The source's server has the change feed (`sync-wait`), so the Inbox follows it instead of waiting for a reload. */
+    val serverChanges: Boolean = false,
 )
 
 enum class HomePreviewFeature { Review, Tour, InboxAsk, PostedDelete, Settings, UiBook, Commands }

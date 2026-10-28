@@ -124,6 +124,8 @@ import com.octaviantocan.pulls.data.PostedRow
 import com.octaviantocan.pulls.data.PullRow
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.SavedState
+import com.octaviantocan.pulls.data.SyncTopics
+import com.octaviantocan.pulls.data.followChanges
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.cueClickable
@@ -220,6 +222,11 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     HomeReadEffect(observations, sync, state, sync.fetchedAt, sync.jev, wantsJev) {
         sync.wantsJev = wantsJev
         sync.followJev()
+    }
+    // While the Inbox is in front the server says when its list changed, and refreshes it from GitHub meanwhile, so a
+    // new or updated pull request shows without a reload (`sync-reads-what-changed`).
+    if (services.capabilities.serverChanges) HomeReadEffect(observations, sync, repo) {
+        repo.followChanges(inbox = true) { change -> if (change.touches(SyncTopics.INBOX)) sync.serverChanged() }
     }
     // Refreshing is quiet: no indicator. It runs on open and whenever the app comes back to the front.
     val reload: () -> Unit = { scope.launch { observations.read { sync.reload() } } }

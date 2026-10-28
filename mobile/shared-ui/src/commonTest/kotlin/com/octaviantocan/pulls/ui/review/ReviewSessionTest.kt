@@ -419,6 +419,43 @@ class ReviewSessionTest {
     }
 
     @Test
+    fun aMarkMadeElsewhereShowsAtOnceAndAMarkStillOnItsWayIsNotShownUndone() = runTest {
+        val h = Harness(backgroundScope)
+        val waits = ArrayDeque(listOf(CompletableDeferred<JsonElement>(), CompletableDeferred(), CompletableDeferred()))
+        var serverMarks = listOf<String>()
+        val written = CompletableDeferred<JsonElement>()
+        h.handler = { name, args -> when (name) {
+            "sync-wait" -> waits.firstOrNull()?.await() ?: awaitCancellation()
+            "reviewed-get" -> json("""{"reviewed":${serverMarks.map { "\"$it\"" }},"changedSinceReviewed":[]}""")
+            "reviewed-set" -> written.await()
+            else -> h.default(name, args)
+        } }
+        fun poke(version: Int) = waits.removeFirst().complete(json("""{"epoch":"e1","version":$version,"topics":["marks"],"reset":false}"""))
+        val page = h.page(followServer = true)
+        page.load()
+        runCurrent()
+        poke(1)
+        runCurrent()
+        assertFalse("blob-a" in page.reviewed)
+
+        serverMarks = listOf("blob-a")
+        poke(2)
+        runCurrent()
+        assertTrue("blob-a" in page.reviewed, "a mark made on another device shows without a reload")
+
+        page.setReviewed(listOf("blob-a"), false)
+        runCurrent()
+        assertFalse("blob-a" in page.reviewed)
+        poke(3)
+        runCurrent()
+        assertFalse("blob-a" in page.reviewed, "the server's older marks do not undo a write still on its way")
+        written.complete(JsonObject(emptyMap()))
+        runCurrent()
+        assertEquals(1, h.calls.count { it == "reviewed-set" })
+        page.detach()
+    }
+
+    @Test
     fun aBrokenNativeTourCacheCannotHideTheSavedServerResultOrStopTaskResume() = runTest {
         val h = Harness(backgroundScope)
         h.handler = { name, args -> when (name) {
@@ -595,8 +632,9 @@ private class Harness(scope: CoroutineScope) {
         override fun settingsChanged(key: String, value: String) {}
         override fun usageStatsEnabled(enabled: Boolean) {}
     }) { "en" }
-    fun page(number: Int = 1, tours: SessionTourCache? = null): ReviewSession = ReviewSession(
+    fun page(number: Int = 1, tours: SessionTourCache? = null, followServer: Boolean = false): ReviewSession = ReviewSession(
         pull(number), repo, pageScope, settings, tourStore = tours, cache = cache, effects = effects, clock = clock,
+        followServer = followServer,
     )
 
     fun default(name: String, args: JsonObject): JsonElement = when (name) {
