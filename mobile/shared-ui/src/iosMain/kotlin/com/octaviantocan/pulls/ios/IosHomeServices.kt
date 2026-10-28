@@ -103,7 +103,7 @@ internal fun iosHomeServices(
         HomeScreenCapabilities(
             reviewRoutes = true, tourRoutes = fullJourney, startTour = fullJourney, inboxAsk = canAsk,
             taskObservation = fullJourney, postedDiffs = fullJourney && !fixture, deletePosted = fullJourney && !fixture, profileStats = true,
-            settingsRoute = true, commands = true, uiBookRoute = false,
+            settingsRoute = true, commands = true, uiBookRoute = false, serverChanges = fullJourney && !fixture,
         ),
         unavailable, openCommands = { if (current()) Commands.open() }, reviewSessions = reviewSessions,
         tourCopies = copies, ask = ask,

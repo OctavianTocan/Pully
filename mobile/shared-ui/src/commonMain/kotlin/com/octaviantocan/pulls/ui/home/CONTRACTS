@@ -427,3 +427,10 @@ replace a complete list from the phone or the server, MUST NOT be kept as the ph
 copy, and give way to the failure note when the load fails. Source: Tavi, 26 Oct 2026,
 on Staging 0.62.0: "I thought my PRs weren't actually loading ... it'd be a lot smarter
 if we showed some of them gradually as we load them".
+
+@cc [owner:OctavianTocan,label:product] home-inbox-follows-the-server
+While the Inbox is in front on a host with the change feed (`serverChanges`), it MUST follow
+the feed and show the server's copy when the Inbox topic changes, with no reload, no
+indicator and no request to GitHub of its own. A copy older than the list on screen, rows
+so far, or an answer after a newer selection or load MUST NOT replace it. Source: Tavi,
+28 Oct 2026 ("Go") on the plan in thread "Build a sync engine like Wholana's".

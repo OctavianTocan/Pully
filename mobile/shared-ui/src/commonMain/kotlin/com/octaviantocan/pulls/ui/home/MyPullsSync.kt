@@ -146,6 +146,32 @@ class MyPullsSync(
         }
     }
 
+    /**
+     * The server said its Inbox changed (its change feed, `sync-reads-what-changed`): shows the server's copy without the
+     * server asking GitHub again, since its own refresh is what changed it. A copy older than the list on screen, rows
+     * so far, or an answer after a newer selection or load are left out; an unchanged list redraws nothing.
+     */
+    suspend fun serverChanged() {
+        if (!active() || updating) return
+        val current = generation
+        val selected = state
+        val server = try { peek(selected, false) } catch (e: CancellationException) { throw e } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
+            null
+        } ?: return
+        currentCoroutineContext().ensureActive()
+        if (!active() || current != generation || selected != state || server.partial) return
+        jev = server.jev
+        if (fetchedAt?.let { server.fetchedAt < it } == true) return
+        fetchedAt = server.fetchedAt
+        if (server.pulls != pulls || partial) {
+            pulls = server.pulls
+            partial = false
+        }
+        error = null
+        writeStored(selected, server)
+    }
+
     private suspend fun load(force: Boolean) {
         if (!active()) return
         val current = ++generation

@@ -38,6 +38,7 @@ fun androidReviewSession(
     openedFrom = openedFrom,
     cache = reviewSessionCache(context),
     effects = AndroidSessionEffects,
+    followServer = true,
 )
 
 private class AndroidTourCache(private val repo: Repo, private val store: TourStore) : SessionTourCache {

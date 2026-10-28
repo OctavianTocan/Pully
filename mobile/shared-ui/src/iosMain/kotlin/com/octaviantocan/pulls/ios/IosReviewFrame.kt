@@ -64,7 +64,10 @@ internal fun iosReviewFrameServices(
         cache, overview, home.home.tours, current,
         createSession = { target, _, from ->
             check(current()) { "The review's source changed." }
-            ReviewSession(target, home.repo, source.scope, home.settings, tourStore = tours, openedFrom = from, cache = cache, effects = effects)
+            ReviewSession(
+                target, home.repo, source.scope, home.settings, tourStore = tours, openedFrom = from, cache = cache, effects = effects,
+                followServer = home.capabilities.serverChanges,
+            )
         },
         preview = { target ->
             val pull = target as? OpenTarget.Pull

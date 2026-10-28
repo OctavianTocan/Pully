@@ -143,6 +143,7 @@ struct RootLock {
     mutex: Arc<Mutex<()>>,
     diff_index: Arc<Mutex<DiffIndex>>,
     binding: Option<crate::identity::RequestIdentity>,
+    changes: Arc<crate::sync::Changes>,
     #[cfg(test)]
     diff_body_reads: std::sync::atomic::AtomicUsize,
     records: Box<dyn Records>,
@@ -153,6 +154,7 @@ impl RootLock {
             mutex: Arc::new(Mutex::new(())),
             diff_index: Arc::new(Mutex::new(DiffIndex::default())),
             binding: None,
+            changes: Arc::new(crate::sync::Changes::new()),
             #[cfg(test)]
             diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
             records,
@@ -340,12 +342,14 @@ impl Store {
         // share the stable account's lock; the adapter must not acquire it recursively.
         let mutex = durable.lock.mutex.clone();
         let diff_index = durable.lock.diff_index.clone();
+        let changes = durable.lock.changes.clone();
         Self {
             root,
             lock: Arc::new(RootLock {
                 mutex,
                 diff_index,
                 binding: Some(identity.clone()),
+                changes,
                 #[cfg(test)]
                 diff_body_reads: std::sync::atomic::AtomicUsize::new(0),
                 records: Box::new(WorkspaceRecords {
@@ -509,6 +513,7 @@ impl Store {
             .records
             .put(&self.id(key)?, &serde_json::to_vec(value)?)?;
         self.note_diff_mutation(key, Some(value));
+        self.lock.changes.note(key);
         Ok(())
     }
     // All callers hold the root lock, so mutation versions and their metadata are
@@ -673,8 +678,13 @@ impl Store {
     fn erase(&self, key: &str) -> Result<()> {
         if self.lock.records.delete(&self.id(key)?)? {
             self.note_diff_mutation(key, None);
+            self.lock.changes.note(key);
         }
         Ok(())
+    }
+    /// The change feed of this store's account: every Store over the same records shares it.
+    pub(crate) fn changes(&self) -> &crate::sync::Changes {
+        &self.lock.changes
     }
     /// @cc [owner:OctavianTocan,label:architecture] rust-store-atomic-mutations
     /// The complete read/modify/write MUST share a lock across Store instances for

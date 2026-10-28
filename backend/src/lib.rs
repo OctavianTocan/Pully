@@ -37,6 +37,7 @@ pub mod rt;
 pub mod scheduler;
 pub mod source;
 pub mod store;
+pub mod sync;
 pub mod transport;
 use anyhow::{bail, Result};
 use serde_json::Value;
@@ -288,7 +289,10 @@ pub async fn dispatch_as(
             .and_then(|value| rpc_validation::result(name, value)),
         Err(error) => Err(error),
     };
-    let _=state.analytics.record("rpc.call",serde_json::json!({"method":name,"ms":start.elapsed().as_millis() as u64,"status":if result.is_ok(){"ok"}else{"error"}})).await;
+    // A change-feed wait is held for up to 25 s by design; timing it would only swamp the call timings.
+    if name != "sync-wait" {
+        let _=state.analytics.record("rpc.call",serde_json::json!({"method":name,"ms":start.elapsed().as_millis() as u64,"status":if result.is_ok(){"ok"}else{"error"}})).await;
+    }
     result
 }
 async fn dispatch_inner(
@@ -302,6 +306,9 @@ async fn dispatch_inner(
     }
     if name == "analytics-summary" {
         return state.analytics.summary(args).await;
+    }
+    if name == "sync-wait" {
+        return sync::wait(state, &args).await;
     }
     if let Some(r) = presentation::handle(name, &args) {
         return r;

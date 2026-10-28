@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import com.octaviantocan.pulls.core.OpenTarget
 import com.octaviantocan.pulls.data.OpenedReview
+import com.octaviantocan.pulls.data.Outbox
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RpcSource
 import kotlinx.coroutines.CancellationException
@@ -31,6 +32,28 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
     private val presentation = mutableMapOf<SessionStateKey<*>, Any>()
     private var observing = true
     private var observationGeneration = 0L
+    /** The account the queued writes go to; every queued write belongs to the current source. */
+    private var writer: Repo? = null
+    private val outbox = Outbox(
+        scope,
+        send = { write -> (writer ?: throw CancellationException("The account changed.")).call(write.name, write.args) },
+        rejected = { write, _ -> sessions.toList().forEach { it.writeRejected(write) } },
+    )
+
+    /**
+     * Queues a write the page has already shown, for the server to take in order and retry until it does
+     * (`writes-show-first`). False when [expected] is no longer the current source, so nothing is sent.
+     */
+    internal fun write(repo: Repo, expected: RpcSource?, name: String, args: JsonObject): Boolean {
+        if (expected == null || !current(repo, expected)) return false
+        writer = repo
+        outbox.add(name, args)
+        return true
+    }
+
+    /** The writes of the current source the server has not confirmed yet, oldest first. */
+    internal fun pendingWrites(repo: Repo, expected: RpcSource?): List<Outbox.Mutation> =
+        if (expected != null && current(repo, expected)) outbox.pending else emptyList()
 
     /** Source-owned reading state survives route disposal, but never an identity change. */
     @Suppress("UNCHECKED_CAST")
@@ -87,6 +110,8 @@ class ReviewSessionCache(private val scope: CoroutineScope) {
 
     private fun clearState() {
         source = null
+        outbox.clear()
+        writer = null
         warming.values.toList().forEach { it.cancel() }
         requests.values.toList().forEach { it.cancel() }
         warming.clear()

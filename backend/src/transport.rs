@@ -356,6 +356,7 @@ pub(crate) fn phone_allowed(name: &str) -> bool {
             | "chat-restore"
             | "jev-files"
             | "recent-diffs"
+            | "sync-wait"
     )
 }
 async fn native(
