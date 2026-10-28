@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   rust:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 15
     env:
       CARGO_INCREMENTAL: 0
@@ -38,7 +38,7 @@ jobs:
           rustup target add wasm32-unknown-unknown
           cargo check --manifest-path ai-kit/Cargo.toml --locked --target wasm32-unknown-unknown --features worker,embed
   kotlin:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -52,7 +52,7 @@ jobs:
         working-directory: mobile
         run: ./gradlew :ai-kit:jvmTest :shared-domain:jvmTest :shared-client:jvmTest --no-daemon
   pully:
-    runs-on: ubuntu-24.04
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 25
     env:
       CARGO_INCREMENTAL: 0
