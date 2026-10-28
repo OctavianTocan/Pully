@@ -990,7 +990,7 @@ extension PullyLaunchTests {
         } else {
             pullToOpenJourneyCommands(in: app)
             requireEditor(in: app).typeText("Settings")
-            requireJourneyButton("Settings", in: app).tap()
+            requireJourneyButton("Open settings", in: app).tap()
         }
         _ = revealJourneyButton("Agent keys", contains: true, in: app)
     }
