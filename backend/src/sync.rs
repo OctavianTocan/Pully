@@ -250,6 +250,32 @@ mod dispatch_tests {
         let woken: Value = woken.unwrap();
         assert_eq!(woken["topics"], json!(["marks"]));
         assert_eq!(woken["epoch"], first["epoch"]);
+        // An update that changes nothing is no change: the woken phone is not woken again.
+        state
+            .host
+            .storage
+            .set("diff:paste:same", &json!({"changedSinceReviewed":[]}))
+            .unwrap();
+        let before = state
+            .host
+            .storage
+            .changes()
+            .since(first["epoch"].as_str().unwrap(), 0)
+            .0;
+        state
+            .host
+            .storage
+            .update("diff:paste:same", |old| Ok(old.unwrap()))
+            .unwrap();
+        assert_eq!(
+            state
+                .host
+                .storage
+                .changes()
+                .since(first["epoch"].as_str().unwrap(), 0)
+                .0,
+            before
+        );
         for invalid in [json!({}), json!({"epoch":"","version":"0","waitMs":0})] {
             assert!(crate::dispatch(&state, "sync-wait", invalid).await.is_err());
         }

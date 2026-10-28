@@ -698,8 +698,12 @@ impl Store {
             .mutex
             .lock()
             .map_err(|_| anyhow::anyhow!("Storage lock unavailable"))?;
-        let next = change(self.read(key)?)?;
-        self.write(key, &next)?;
+        let previous = self.read(key)?;
+        let next = change(previous.clone())?;
+        // A change that leaves the record as it was writes nothing, so it wakes no phone.
+        if previous.as_ref() != Some(&next) {
+            self.write(key, &next)?;
+        }
         Ok(next)
     }
     pub fn compare_exchange(&self, items: &[(String, Option<Value>, Option<Value>)]) -> Result<()> {
