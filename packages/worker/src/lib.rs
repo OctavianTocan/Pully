@@ -2,8 +2,9 @@
 //! Worker sends every request to one `PullyServer` Durable Object, which answers it with the
 //! server's own router and keeps the server's data and analytics in its SQLite storage.
 //! Published Android builds come from the `PULLY_ANDROID` R2 bucket. Public browsing and
-//! personal GitHub sign-in (`/api/public/`, `/api/personal/`) go to the `PersonalServer` object
-//! instead, the Worker's form of the native server's separate public listener.
+//! personal GitHub sign-in (`/api/public/`, `/api/personal/`, `/workspace/`) go to the
+//! `PersonalServer` object instead, the Worker's form of the native server's separate public
+//! listener, which hands each account's own requests to that account's `AccountServer` object.
 
 use axum::body::Body;
 use futures_util::{future::BoxFuture, StreamExt};
@@ -22,7 +23,9 @@ use worker::{
     durable_object, event, Bucket, Context, Env, Request, Response, Result, SqlStorage, State,
 };
 
+mod account;
 mod agent;
+mod import;
 mod personal;
 mod request_headers;
 
@@ -55,6 +58,9 @@ fn start() {
 #[event(fetch)]
 async fn fetch(request: Request, env: Env, _: Context) -> Result<Response> {
     let path = request.path();
+    if path.starts_with("/import/v1/") {
+        return import::route(request, &env).await;
+    }
     let object = if personal::serves(&path) {
         env.durable_object("PERSONAL_SERVER")?
             .get_by_name("personal")?
@@ -109,6 +115,20 @@ impl worker::DurableObject for PullyServer {
     }
 
     async fn fetch(&self, mut request: Request) -> Result<Response> {
+        // Only the Worker's import route sends these, after checking the import token.
+        match request.path().as_str() {
+            "/import/v1/server" => {
+                let batch: import::Batch = request.json().await?;
+                let records = SqlRecords::new(self.state.storage().sql())?;
+                return import::answer(import::keep_absent(&records, batch));
+            }
+            "/import/v1/analytics" => {
+                let days: import::Days = request.json().await?;
+                let analytics = SqlDays::new(self.state.storage().sql())?;
+                return import::answer(import::days(&analytics, days));
+            }
+            _ => {}
+        }
         // The alarm persists, so the first request after a deploy starts the refresh for good.
         let storage = self.state.storage();
         if storage.get_alarm().await?.is_none() {
@@ -240,6 +260,11 @@ impl SqlRecords {
 
 pub(crate) fn failed(error: worker::Error) -> anyhow::Error {
     anyhow::anyhow!("Durable Object storage failed: {error}")
+}
+
+/// A storage error as the Worker's own.
+pub(crate) fn storage(error: anyhow::Error) -> worker::Error {
+    worker::Error::RustError(error.to_string())
 }
 
 impl Records for SqlRecords {

@@ -29,7 +29,10 @@ newer failed/incomplete run, skipped check or unavailable evidence refuses publi
 The version comparison must come from this repository's successful release-push CI
 run. Historical builds use only that admitted release's first-parent history and
 exclude unshipped cached artifacts without deleting them. Tag publication needs the
-same admission. No tag or stable deployment is triggered by merging to main.
+same admission. No tag or stable deployment is triggered by merging to main. Once the
+stable server moves to Cloudflare, `.github/workflows/stable.yml` deploys it after each
+admitted release push; it skips until the `PULLY_STABLE_HOST` variable is set
+(`packages/worker/README.md`, Stable).
 
 ## Staging
 

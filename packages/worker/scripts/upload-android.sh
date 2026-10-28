@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # Copies published Android files from a server's Android directory (what
-# android/scripts/publish-apk.sh writes) into the Worker's pully-android R2 bucket, under the
-# same names. The APKs and images go first and latest.json last, so the update manifest never
+# android/scripts/publish-apk.sh writes) into the Worker's pully-android R2 bucket (or the one
+# PULLY_ANDROID_BUCKET names, pully-android-stable for the stable Worker), under the same names. The APKs and images go first and latest.json last, so the update manifest never
 # names an APK the bucket does not have yet. Pass --local to fill the `wrangler dev` bucket.
 set -euo pipefail
 
 dir="${1:?usage: upload-android.sh <android-dir> [--local]}"
 where="${2:---remote}"
+bucket="${PULLY_ANDROID_BUCKET:-pully-android}"
 cd "$(dirname "$0")/.."
 
 put() {
-  npx wrangler r2 object put "pully-android/$1" --file "$dir/$1" "$where" >/dev/null
+  npx wrangler r2 object put "$bucket/$1" --file "$dir/$1" "$where" >/dev/null
   echo "uploaded $1"
 }
 

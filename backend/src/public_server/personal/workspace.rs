@@ -150,7 +150,7 @@ async fn workspace_context(
         .map_err(|_| error(StatusCode::UNAUTHORIZED, "Sign in to GitHub first."))?;
     let session = inner
         .auth
-        .workspace_session(bearer)
+        .workspace_session(bearer, headers)
         .await
         .map_err(auth_error)?;
     if session
