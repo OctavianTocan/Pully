@@ -518,6 +518,40 @@ class ReviewSessionTest {
     }
 
     @Test
+    fun inboxPagesAreReadAheadOnceAndAPageOpensFromItsCopyWithNothingToWaitFor() = runTest {
+        val h = Harness(backgroundScope)
+        val kept = MemoryPageCopies(limit = 40)
+        h.pages = kept
+        val reviews = json("""{"threads":[{"rootId":1,"threadId":"t1","path":"src/file.kt","line":3,"side":"RIGHT","comments":[{"id":1,"body":"Kept","author":{"login":"octo"}}]}],"reviews":[]}""")
+        h.handler = { name, args -> when (name) {
+            "pr-overview" -> if (args["cached"] != null) json("""{"overview":{"title":"Kept title","number":1}}""") else h.default(name, args)
+            "review-data" -> reviews
+            "pr-stack" -> json("""{"stack":null}""")
+            else -> h.default(name, args)
+        } }
+        val rows = listOf(PageRequest(pull(1), "head-a@t1"), PageRequest(pull(2), "head-a@t1"))
+        h.cache.prefetch(h.repo, rows)
+        runCurrent()
+        assertEquals("head-a@t1", kept.version(pull(1).label))
+        assertEquals("head-a@t1", kept.version(pull(2).label))
+        val first = h.calls.size
+        h.cache.prefetch(h.repo, rows)
+        runCurrent()
+        assertEquals(first, h.calls.size, "an unchanged row is not read again")
+
+        h.handler = { _, _ -> awaitCancellation() }
+        val page = h.page(1)
+        assertEquals("pull-1", page.opened?.key, "the diff is on screen before any answer")
+        assertEquals("Kept title", page.overview?.get("overview")?.jsonObject?.get("title")?.jsonPrimitive?.content)
+        assertEquals(1, page.reviewData?.threads?.size)
+        page.detach()
+
+        h.cache.prefetch(h.repo, listOf(PageRequest(pull(1), "head-b@t2")))
+        runCurrent()
+        assertEquals("head-a@t1", kept.version(pull(1).label), "a changed row is read again; its answer has not come")
+    }
+
+    @Test
     fun stopGraceUsesTheInjectedClockAndDoesNotDelayResumedWork() = runTest {
         val h = Harness(backgroundScope)
         val page = h.page()
@@ -614,7 +648,8 @@ private class Harness(scope: CoroutineScope) {
     val calls = mutableListOf<String>()
     val effects = RecordedEffects()
     val clock = TestClock()
-    val cache = ReviewSessionCache(scope)
+    var pages: PageCopies? = null
+    val cache = ReviewSessionCache(scope) { pages }
     var handler: suspend (String, JsonObject) -> JsonElement = ::default
     val repo = Repo(
         configuration = { RepoConfiguration(server, generation = generation) },

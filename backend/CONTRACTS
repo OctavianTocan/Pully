@@ -496,3 +496,14 @@ While a phone waits on the feed with the Inbox on screen, the server MUST refres
 Inbox older than a minute from GitHub, joining a refresh already running, so a new or
 changed pull request reaches the phone without a reload. Source: as
 server-sync-feed-names-only-own-changes.
+
+@cc [owner:OctavianTocan,label:product;architecture] server-keeps-pull-request-pages
+The server MUST keep the overview, reviews and stack it last read from GitHub for each
+pull request and answer `pr-overview`, `review-data` and `pr-stack` with `cached: true`
+from that copy without asking GitHub (null when it has none); a slower, older read MUST
+NOT replace a newer copy. For every pull request its warm round refreshes, it MUST read the
+reviews and stack again only when the pull request's `updatedAt` differs from the copy's.
+A diff it does not have MUST read the comparison, files and commits together after the
+first read of the pull request, and MUST still refuse a diff whose head or base moved
+meanwhile. Source: Tavi, 28 Oct 2026 15:36, thread "Build a sync engine like Wholana's":
+"even the things that the user hasn't actually opened yet load immediately".

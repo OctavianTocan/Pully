@@ -14,11 +14,12 @@ new release. The baseline is not exempt from the new publication checks.
 Promote a reviewed main commit through a PR into `release`. Add one coherent Android
 version higher than the actual release base, current notes and a truthful illustration
 when APK inputs changed; preserve earlier notes and the signing key. Full Android
-tests/APK identity and signature, actual Mac account/Keychain/Darwin/Native/UIKit/
-resource checks, backend tests/smokes, lint/contracts, types and design must pass.
+tests/APK identity and signature, backend tests/smokes, lint/contracts, types and
+design must pass. The Mac account/Keychain/Darwin/Native/UIKit/resource checks run
+on GitHub-hosted macOS but are optional for merge and publication (Octavian, 28 Oct 2026).
 There are no path exclusions. Manual full-suite runs help diagnose candidates but
 cannot replace the release-push version comparison. The duplicate main Mac diagnostic
-has been removed. Failures in preview native journeys remain release blockers.
+has been removed.
 
 After promotion, the exact release push must finish successfully before any consumer
 can publish or restart. `scripts/release-track.mjs` checks a clean release or detached
@@ -66,12 +67,14 @@ the existing index; fetch complete release history first. Its immutable source r
 available until the background history worker finishes.
 
 Desired protection is four required main checks (`android-release`, `lint`,
-`typecheck`, `android-design`) and all seven `requiredReleaseChecks` on `release`,
+`typecheck`, `android-design`) and all six `requiredReleaseChecks` on `release`,
 with force pushes and deletions disabled. The live main branch currently requires
 only the retained `android-release` context. The initial release branch is currently
 unprotected: the available integration can read ordinary branch metadata, but its
 administrative protection endpoint returns 403. Workflow/source enforcement and
 branch protection are separate; do not describe the desired settings as installed.
+
+Linux CI runner operations are documented in [CI_RUNNERS.md](./CI_RUNNERS.md).
 
 ## Existing deployment migration
 

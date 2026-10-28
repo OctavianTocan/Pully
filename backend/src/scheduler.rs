@@ -170,6 +170,12 @@ async fn cache_pull(
         .context("Overview unavailable")?
     })
     .await?;
+    // The reviews and stack are read again only when the pull request changed on GitHub.
+    let _ = review::keep_pull_reads(
+        state,
+        &json!({"owner":pull["owner"],"repo":pull["repo"],"number":pull["number"],"updatedAt":pull["updatedAt"]}),
+    )
+    .await;
     // A changed diff was already budgeted during admission. Only overview growth
     // needs another pass; unchanged warm pulls must not rescan retained snapshots.
     let rejected = if stale {

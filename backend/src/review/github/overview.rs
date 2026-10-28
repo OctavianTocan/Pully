@@ -440,33 +440,16 @@ fn normalize_overview(data: &Value) -> Result<Value> {
 }
 pub(super) async fn overview(state: &AppState, args: &Value) -> Result<Value> {
     let pull = Pull::from(args)?;
-    let key = format!("pr-overview:{}/{}#{}", pull.owner, pull.repo, pull.number);
     if bool_at(args, "cached") {
-        return Ok(match state.host.storage.get_async(&key).await? {
-            Some(stored) if stored["value"]["overview"].is_object() => {
-                let mut value = stored["value"].clone();
-                value["storedAt"] = stored["at"].clone();
-                value
-            }
-            _ => Value::Null,
-        });
+        return kept::read(state, kept::OVERVIEW, &pull).await;
     }
     let at = crate::now_ms();
     let value = read_with(&StateGitHubRead(state), args).await?;
-    let stored = json!({"at":at,"updatedAt":value["overview"]["updatedAt"].as_str().unwrap_or(""),"value":value});
-    // A slower earlier fetch may answer its caller but cannot replace a newer cached overview.
-    let _ = state
-        .host
-        .storage
-        .transaction(move |store| {
-            store.update(&key, |current| {
-                Ok(match current {
-                    Some(current) if current["at"].as_u64().unwrap_or(0) > at => current,
-                    _ => stored,
-                })
-            })
-        })
-        .await;
+    let updated_at = value["overview"]["updatedAt"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let _ = kept::keep(state, kept::OVERVIEW, &pull, at, &updated_at, &value).await;
     Ok(value)
 }
 
