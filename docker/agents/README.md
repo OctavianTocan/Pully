@@ -46,7 +46,7 @@ These are the server's own sign-ins, used by requests without a Pully account an
 by the server's background work. Everyone signed in to a Pully account signs their
 own Claude Code and Codex in from the phone (Settings, AI), and their AI runs only on
 that sign-in: each account has its own `pulls-review-agents-home-<hash>` volume,
-written only by the CLIs' own login commands (`backend/src/agent_login.rs`). There
+written only by the CLIs' own login commands (`ai-kit/src/login.rs`). There
 are no API keys: `ANTHROPIC_API_KEY`, `CLAUDE_CODE_OAUTH_TOKEN` and `OPENAI_API_KEY`
 are not passed to the CLIs. Node remains in the image for the provider CLIs and the
 native server's login-copy helpers. The image does not build the Rust server or its

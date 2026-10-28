@@ -45,7 +45,8 @@ interface RootAccount {
     val sourceEpoch: Long
     val state: AccountState
     fun refresh()
-    fun retryStorage()
+    /** Named apart from [AccountStorage.retryStorage]: one Objective-C selector with two types renames the Swift host's. */
+    fun retrySavedStorage()
     fun signInServices(): SignInServices
     suspend fun accessSignIn(title: String, hint: String): Boolean
     fun resetCredentials(expectedEpoch: Long)
@@ -276,7 +277,7 @@ class AccountRuntime(
         val connection = configuration(false)
         checked(storage.saveAnalysis(engine, model, connection.generation))
     }
-    override fun retryStorage() { checked(storage.retryStorage()); refresh() }
+    override fun retrySavedStorage() { checked(storage.retryStorage()); refresh() }
     /** A confirmation belongs to the source that opened it, including when secure storage is unavailable. */
     override fun resetCredentials(expectedEpoch: Long) {
         if (closed || changing || expectedEpoch != epoch) throw CancellationException("The account source changed.")

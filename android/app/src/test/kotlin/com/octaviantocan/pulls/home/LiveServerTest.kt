@@ -1,12 +1,12 @@
 package com.octaviantocan.pulls.home
 
+import com.octaviantocan.aikit.asCatalog
 import com.octaviantocan.pulls.data.PullsApi
 import com.octaviantocan.pulls.data.Triage
 import com.octaviantocan.pulls.data.asPulls
 import com.octaviantocan.pulls.ui.home.asRepoInfo
 import com.octaviantocan.pulls.ui.home.asRepoPullsPage
 import com.octaviantocan.pulls.ui.home.asSnapshot
-import com.octaviantocan.pulls.ui.settings.asCatalog
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject

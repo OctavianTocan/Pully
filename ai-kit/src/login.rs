@@ -1,7 +1,8 @@
-//! Each person's own Claude Code and Codex sign-in. A signed-in Pully account has its own
-//! Docker volume that only the CLIs' own login commands write; AI work for that account copies
-//! its login from there and nowhere else. Requests without a Pully account use the server's
-//! sign-in from `docker/agents/setup.sh`. There are no API keys on either path.
+//! Each person's own Claude Code and Codex sign-in. A signed-in account has its own Docker volume
+//! that only the CLIs' own login commands write; AI work for that account copies its login from
+//! there and nowhere else. Requests without an account use the server's own sign-in. There are no
+//! API keys on either path.
+use crate::rt::process::{Child, ChildStdin, Command};
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -11,13 +12,11 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use crate::rt::process::{Child, ChildStdin, Command};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     sync::watch,
 };
 
-const SERVER_VOLUME: &str = "pulls-review-agents-home";
 const OUTPUT_LIMIT: usize = 64 * 1024;
 /// Codex's device code lasts 15 minutes; nothing waits on a sign-in longer than that.
 const LOGIN_LIFETIME: Duration = Duration::from_secs(15 * 60);
@@ -25,29 +24,28 @@ const LOGIN_LIFETIME: Duration = Duration::from_secs(15 * 60);
 /// Whose subscription a CLI run or sign-in uses. Never chosen by a request body.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum AgentLogin {
-    /// No Pully account on the request: the server's own sign-in, made with setup.sh.
+    /// No account on the request: the server's own sign-in.
     Server,
-    /// A signed-in Pully account, by its account ID.
+    /// A signed-in account, by its account ID.
     Account(String),
 }
 impl AgentLogin {
+    /// The Docker volume (in the hosted agent container, the folder) that holds this login's
+    /// CLI homes.
     pub fn volume(&self) -> String {
+        let server = crate::config().volume;
         match self {
-            Self::Server => SERVER_VOLUME.into(),
+            Self::Server => server.into(),
             Self::Account(id) => {
                 let digest = Sha256::digest(id.as_bytes());
                 let hex: String = digest[..16].iter().map(|b| format!("{b:02x}")).collect();
-                format!("{SERVER_VOLUME}-{hex}")
+                format!("{server}-{hex}")
             }
         }
     }
     /// What to do when this login has no sign-in for `binary`.
     pub fn missing(&self, binary: &str) -> String {
-        let name = display(binary);
-        match self {
-            Self::Server => format!("{name} is not signed in on the server. Sign in to your Pully account and connect {name} in Settings, or run docker/agents/setup.sh login-{binary} on the server."),
-            Self::Account(_) => format!("Sign in to {name} first: Settings, AI, {name}."),
-        }
+        (crate::config().missing)(self, display(binary), binary)
     }
 }
 
@@ -90,15 +88,15 @@ impl Logins {
 
     /// Starts the CLI's own sign-in and answers with the link to open (and Codex's code).
     pub async fn start(&self, login: &AgentLogin, binary: &str) -> Result<Value> {
-        if crate::agent_remote::get().is_some() {
+        if crate::remote::get().is_some() {
             let body = json!({"binary": binary});
-            return crate::agent_remote::call(login, "/login/start", body).await;
+            return crate::remote::call(login, "/login/start", body).await;
         }
         if let Some(old) = self.take(login, binary) {
-            crate::agent_process::remove_container(&old.container).await;
+            crate::process::remove_container(&old.container).await;
         }
-        let runtime = crate::agent_process::runtime()?;
-        let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
+        let runtime = crate::process::runtime()?;
+        let container = login_name();
         let cli: &[&str] = if binary == "claude" {
             &["claude", "auth", "login", "--claudeai"]
         } else {
@@ -106,18 +104,28 @@ impl Logins {
         };
         let mut stop = None;
         let mut command = match &runtime {
-            crate::agent_process::Runtime::Docker(image) => {
+            crate::process::Runtime::Docker(image) => {
                 let mut command = login_container(&container, &login.volume(), true);
                 command.arg(image).args(cli);
                 command
             }
-            crate::agent_process::Runtime::Local(_) => {
+            crate::process::Runtime::Local(_) => {
                 let home = local_home(&runtime, login, true).await?;
-                // The image's entrypoint puts the curated skills into the home, as in Docker.
-                let mut command =
-                    crate::agent_process::local_command("pulls-review-agent-entrypoint", &home);
-                command.env("BROWSER", "true").args(cli);
-                stop = Some(crate::agent_process::local_stop(&container));
+                // The host's sign-in program can prepare the home first, as its image does in Docker.
+                let mut command = match crate::config().sign_in_program {
+                    Some(program) => {
+                        let mut command = crate::process::local_command(program, &home);
+                        command.args(cli);
+                        command
+                    }
+                    None => {
+                        let mut command = crate::process::local_command(cli[0], &home);
+                        command.args(&cli[1..]);
+                        command
+                    }
+                };
+                command.env("BROWSER", "true");
+                stop = Some(crate::process::local_stop(&container));
                 command
             }
         };
@@ -162,7 +170,7 @@ impl Logins {
         .ok()
         .flatten();
         let Some((url, code)) = link else {
-            crate::agent_process::remove_container(&pending.container).await;
+            crate::process::remove_container(&pending.container).await;
             bail!("{} did not start its sign-in. Try again.", display(binary));
         };
         self.pending
@@ -180,9 +188,9 @@ impl Logins {
         binary: &str,
         code: Option<&str>,
     ) -> Result<Value> {
-        if crate::agent_remote::get().is_some() {
+        if crate::remote::get().is_some() {
             let body = json!({"binary": binary, "code": code});
-            return crate::agent_remote::call(login, "/login/finish", body).await;
+            return crate::remote::call(login, "/login/finish", body).await;
         }
         let pending = self
             .get(login, binary)
@@ -223,7 +231,7 @@ impl Logins {
             Err(_) => None,
         };
         self.take(login, binary);
-        crate::agent_process::remove_container(&pending.container).await;
+        crate::process::remove_container(&pending.container).await;
         if outcome != Some(true) {
             let text = pending.output.lock().unwrap().to_lowercase();
             if binary == "claude"
@@ -242,39 +250,39 @@ impl Logins {
     }
 
     pub async fn cancel(&self, login: &AgentLogin, binary: &str) {
-        if crate::agent_remote::get().is_some() {
+        if crate::remote::get().is_some() {
             let body = json!({"binary": binary});
-            let _ = crate::agent_remote::call(login, "/login/cancel", body).await;
+            let _ = crate::remote::call(login, "/login/cancel", body).await;
             return;
         }
         if let Some(pending) = self.take(login, binary) {
-            crate::agent_process::remove_container(&pending.container).await;
+            crate::process::remove_container(&pending.container).await;
         }
     }
 }
 
 /// Both CLIs' sign-in state for a login, read without a network and without creating a volume.
 pub async fn status(login: &AgentLogin) -> Result<Value> {
-    if crate::agent_remote::get().is_some() {
-        return crate::agent_remote::call(login, "/status", json!({})).await;
+    if crate::remote::get().is_some() {
+        return crate::remote::call(login, "/status", json!({})).await;
     }
     let signed_out = json!({"signedIn":false});
-    let runtime = crate::agent_process::runtime()?;
+    let runtime = crate::process::runtime()?;
     if !login_exists(&runtime, login).await {
         return Ok(json!({"claude":signed_out,"codex":signed_out}));
     }
     const SCRIPT: &str =
         "claude auth status --json 2>/dev/null; echo; echo @@codex@@; codex login status 2>&1";
-    let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
+    let container = login_name();
     let mut command = match &runtime {
-        crate::agent_process::Runtime::Docker(image) => {
+        crate::process::Runtime::Docker(image) => {
             let mut command = login_container(&container, &login.volume(), false);
             command.args(["--entrypoint", "sh", image, "-c", SCRIPT]);
             command
         }
-        crate::agent_process::Runtime::Local(_) => {
+        crate::process::Runtime::Local(_) => {
             let home = local_home(&runtime, login, false).await?;
-            let mut command = crate::agent_process::local_command("sh", &home);
+            let mut command = crate::process::local_command("sh", &home);
             command.args(["-c", SCRIPT]);
             command
         }
@@ -284,7 +292,7 @@ pub async fn status(login: &AgentLogin) -> Result<Value> {
         command.stdin(Stdio::null()).kill_on_drop(true).output(),
     )
     .await;
-    crate::agent_process::remove_container(&container).await;
+    crate::process::remove_container(&container).await;
     let output = output
         .context("Checking the AI sign-ins timed out")?
         .map_err(|_| anyhow::anyhow!("Could not start Docker on the server."))?;
@@ -293,25 +301,26 @@ pub async fn status(login: &AgentLogin) -> Result<Value> {
 
 /// Signs one CLI out with its own command, which also revokes the login where the CLI can.
 pub async fn sign_out(login: &AgentLogin, binary: &str) -> Result<()> {
-    if crate::agent_remote::get().is_some() {
+    if crate::remote::get().is_some() {
         let body = json!({"binary": binary});
-        return crate::agent_remote::call(login, "/sign-out", body).await.map(|_| ());
+        return crate::remote::call(login, "/sign-out", body)
+            .await
+            .map(|_| ());
     }
-    let runtime = crate::agent_process::runtime()?;
+    let runtime = crate::process::runtime()?;
     if !login_exists(&runtime, login).await {
         return Ok(());
     }
-    let container = format!("pulls-login-{}", uuid::Uuid::new_v4());
+    let container = login_name();
     let mut command = match &runtime {
-        crate::agent_process::Runtime::Docker(image) => {
+        crate::process::Runtime::Docker(image) => {
             let mut command = login_container(&container, &login.volume(), true);
             command.args(["--entrypoint", binary, image]);
             command
         }
-        crate::agent_process::Runtime::Local(_) => crate::agent_process::local_command(
-            binary,
-            &local_home(&runtime, login, false).await?,
-        ),
+        crate::process::Runtime::Local(_) => {
+            crate::process::local_command(binary, &local_home(&runtime, login, false).await?)
+        }
     };
     if binary == "claude" {
         command.args(["auth", "logout"]);
@@ -328,7 +337,7 @@ pub async fn sign_out(login: &AgentLogin, binary: &str) -> Result<()> {
             .status(),
     )
     .await;
-    crate::agent_process::remove_container(&container).await;
+    crate::process::remove_container(&container).await;
     result
         .context("Signing out timed out")?
         .map_err(|_| anyhow::anyhow!("Could not start Docker on the server."))?;
@@ -408,7 +417,16 @@ fn strip_ansi(text: &str) -> String {
         .into_owned()
 }
 
-/// A container with only the login volume as its home: no job inputs, PR tools or model prompt.
+/// A fresh name for a sign-in, status or sign-out container.
+fn login_name() -> String {
+    format!(
+        "{}-login-{}",
+        crate::config().container_prefix,
+        uuid::Uuid::new_v4()
+    )
+}
+
+/// A container with only the login volume as its home: no job inputs, tools or model prompt.
 fn login_container(name: &str, volume: &str, network: bool) -> Command {
     let mut command = Command::new("docker");
     command.args([
@@ -446,7 +464,7 @@ fn login_container(name: &str, volume: &str, network: bool) -> Command {
 }
 
 /// Whether `login` has a CLI home yet: a Docker volume, or a folder in the agent container.
-async fn login_exists(runtime: &crate::agent_process::Runtime, login: &AgentLogin) -> bool {
+async fn login_exists(runtime: &crate::process::Runtime, login: &AgentLogin) -> bool {
     match runtime.home(&login.volume()) {
         Some(home) => crate::rt::fs::metadata(home)
             .await
@@ -457,11 +475,13 @@ async fn login_exists(runtime: &crate::agent_process::Runtime, login: &AgentLogi
 
 /// The CLI home of `login` in the agent container, made private when `create` is set.
 async fn local_home(
-    runtime: &crate::agent_process::Runtime,
+    runtime: &crate::process::Runtime,
     login: &AgentLogin,
     create: bool,
 ) -> Result<std::path::PathBuf> {
-    let home = runtime.home(&login.volume()).context("Not a local runtime")?;
+    let home = runtime
+        .home(&login.volume())
+        .context("Not a local runtime")?;
     if create {
         crate::rt::fs::create_dir_all(&home).await?;
         #[cfg(unix)]
@@ -522,7 +542,7 @@ async fn supervise(
     if !matches!(status, Some(Ok(_))) {
         let _ = child.kill().await;
     }
-    crate::agent_process::remove_container(&container).await;
+    crate::process::remove_container(&container).await;
     done.send_replace(Some(success));
 }
 
@@ -532,6 +552,7 @@ mod tests {
 
     #[test]
     fn each_account_has_its_own_volume_and_the_server_keeps_its_own() {
+        crate::config::for_tests();
         let a = AgentLogin::Account("account-a".into()).volume();
         let b = AgentLogin::Account("account-b".into()).volume();
         assert_ne!(a, b);
@@ -614,6 +635,7 @@ mod real_docker {
     #[tokio::test]
     #[ignore]
     async fn real_docker_sign_ins_print_links() {
+        crate::config::for_tests();
         let login = AgentLogin::Account(format!("real-docker-{}", uuid::Uuid::new_v4()));
         let logins = Logins::default();
         assert_eq!(status(&login).await.unwrap()["claude"]["signedIn"], false);

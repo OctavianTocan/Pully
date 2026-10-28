@@ -1,6 +1,4 @@
-package com.octaviantocan.pulls.ui.review
-
-import com.octaviantocan.pulls.ui.settings.CliModel
+package com.octaviantocan.aikit
 
 // --- Which models to show first ---
 

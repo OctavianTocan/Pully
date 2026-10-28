@@ -1,6 +1,5 @@
-package com.octaviantocan.pulls.ui.review
+package com.octaviantocan.aikit
 
-import com.octaviantocan.pulls.ui.settings.CliModel
 import kotlin.test.assertEquals
 import kotlin.test.Test
 

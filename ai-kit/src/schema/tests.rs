@@ -1,5 +1,6 @@
 use super::*;
-use crate::ai::StructuredAnswerPreparation::{Grouping, Strict};
+
+const STRICT: Preparation = Preparation::STRICT;
 
 #[test]
 fn strict_schema_matches_the_cli_nested_optional_fixture() {
@@ -42,8 +43,7 @@ fn drop_nulls_matches_cli_without_changing_array_positions_or_scalars() {
     assert_eq!(null, Value::Null);
 }
 
-// Exact task-schema fixtures from ai/tasks/grouping.rs and ai/tasks.rs. Grouping's
-// production preparation checks schema equality, so its fixture cannot silently drift.
+// Exact task-schema fixtures from Pully's backend/src/ai/tasks/grouping.rs and ai/tasks.rs.
 fn string() -> Value {
     json!({"type":"string"})
 }
@@ -140,12 +140,8 @@ fn canonical_task_schemas_are_strict_only_at_the_codex_boundary() {
     assert_eq!(finding["suggestion"]["anyOf"][1], json!({"type":"null"}));
 }
 
-fn prepared(
-    binary: &str,
-    schema: &Value,
-    raw: &Value,
-    preparation: StructuredAnswerPreparation,
-) -> Result<Value> {
+fn prepared(binary: &str, schema: &Value, raw: &Value, preparation: Preparation) -> Result<Value> {
+    crate::config::for_tests();
     Ok(serde_json::from_str(&prepare_answer(
         binary,
         schema,
@@ -155,55 +151,27 @@ fn prepared(
 }
 
 #[test]
-fn codex_grouping_round_trip_cleans_nested_optionals_before_canonical_preparation() {
-    let schema = grouping_schema();
-    let raw = json!({"overallSummary":"Change.","groups":[
-        {"key":"parent","label":"Parent","summary":null,"category":"core","filePaths":[],"children":[{"key":"child","label":"Child","summary":null,"category":"api","filePaths":["a.rs"]}]},
-        {"key":"other","label":"Other","summary":"Present.","category":"tests","filePaths":["b.rs"],"children":null}
-    ],"files":[{"path":"a.rs","summary":"A.","hunks":null},{"path":"b.rs","summary":"B.","hunks":[{"index":0,"note":"Keep."}]}]});
-    assert!(crate::ai::prepare_structured_answer(&schema, &raw, Strict).is_err());
-    let answer = prepared("codex", &schema, &raw, Grouping).unwrap();
-    assert_eq!(
-        answer["groups"][0]["children"][0]["filePaths"],
-        json!(["a.rs"])
-    );
-    assert!(answer["groups"][0].get("summary").is_none());
-    assert!(answer["groups"][0]["children"][0].get("summary").is_none());
-    assert!(answer["groups"][1].get("children").is_none());
-    assert!(answer["files"][0].get("hunks").is_none());
-    assert_eq!(answer["groups"][1]["summary"], "Present.");
-    assert_eq!(answer["files"][1]["hunks"][0]["note"], "Keep.");
-    assert!(prepared("claude", &schema, &raw, Strict).is_err());
-    assert!(prepared("pi", &schema, &raw, Strict).is_err());
-    let root_optional_null = json!({"overallSummary":"Change.","groups":[],"files":null});
-    assert_eq!(
-        prepared("codex", &schema, &root_optional_null, Grouping).unwrap(),
-        json!({"overallSummary":"Change.","groups":[]})
-    );
-}
-
-#[test]
 fn codex_critique_and_tour_round_trips_keep_canonical_validation() {
     let critique = critique_schema();
     let finding = json!({"id":"f","path":"a.rs","side":"additions","line":1,"startLine":null,"severity":"bug","title":"Bug","body":"Breaks.","suggestion":null});
     let raw = json!({"summary":"Review.","findings":[finding]});
-    let answer = prepared("codex", &critique, &raw, Strict).unwrap();
+    let answer = prepared("codex", &critique, &raw, STRICT).unwrap();
     assert!(answer["findings"][0].get("startLine").is_none());
     assert!(answer["findings"][0].get("suggestion").is_none());
     assert_eq!(answer["findings"][0]["line"], 1);
     for binary in ["claude", "pi"] {
-        assert!(prepared(binary, &critique, &raw, Strict).is_err());
+        assert!(prepared(binary, &critique, &raw, STRICT).is_err());
     }
     let plan = json!({"title":"Tour","overview":"Flow.","stops":[{"title":"Entry","purpose":"Explain.","files":["a.rs"],"notes":"Read."}],"glossary":[{"term":"Entry","meaning":"Start."}]});
     let stop = json!({"title":"Entry","purpose":"Explain.","files":["a.rs"],"takeaway":"Keep.","blocks":[{"kind":"text","text":"Prose."},{"kind":"shape","text":"Flow.","lang":"calls","body":"entry"},{"kind":"diagram","text":"Actors.","body":"graph TD"}],"sources":[{"path":"a.rs","line":1,"why":"Entry."}]});
     for (schema, answer) in [(tour_plan_schema(), plan), (stop_schema(), stop)] {
         assert_strict_objects(&for_cli("codex", &schema));
         for binary in ["codex", "claude", "pi"] {
-            assert_eq!(prepared(binary, &schema, &answer, Strict).unwrap(), answer);
+            assert_eq!(prepared(binary, &schema, &answer, STRICT).unwrap(), answer);
         }
         let mut invalid = answer.clone();
         invalid["title"] = Value::Null;
-        assert!(prepared("codex", &schema, &invalid, Strict).is_err());
+        assert!(prepared("codex", &schema, &invalid, STRICT).is_err());
     }
 }
 
@@ -212,13 +180,13 @@ fn codex_cleanup_never_repairs_wrong_types_or_required_nulls() {
     let schema = json!({"type":"object","properties":{"required":{"type":"null"},"optional":{"type":"string"},"items":{"type":"array","items":{"type":"string"}}},"required":["required","items"]});
     let null_required = json!({"required":null,"optional":null,"items":[]});
     // CLI dropNulls removes required null properties too; canonical validation must reject.
-    assert!(prepared("codex", &schema, &null_required, Strict).is_err());
+    assert!(prepared("codex", &schema, &null_required, STRICT).is_err());
     assert_eq!(
         prepared(
             "claude",
             &schema,
             &json!({"required":null,"items":[]}),
-            Strict
+            STRICT
         )
         .unwrap(),
         json!({"required":null,"items":[]})
@@ -230,7 +198,7 @@ fn codex_cleanup_never_repairs_wrong_types_or_required_nulls() {
         json!({"overallSummary":"Bad.","groups":"wrong"}),
         json!({"overallSummary":"Bad.","groups":[{"key":"a","label":"A","category":"invalid","filePaths":[],"summary":null,"children":null}]}),
     ] {
-        assert!(prepared("codex", &grouping, &invalid, Strict).is_err());
+        assert!(prepared("codex", &grouping, &invalid, STRICT).is_err());
     }
-    assert!(prepare_answer("codex", &grouping, "not JSON", Strict).is_err());
+    assert!(prepare_answer("codex", &grouping, "not JSON", STRICT).is_err());
 }

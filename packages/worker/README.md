@@ -17,8 +17,8 @@ What runs here today:
   bucket under the same names as the native server's Android directory.
 
 - AI work: every Claude Code and Codex run, model list and sign-in goes to the login's own
-  `AgentHome` Durable Object and its container (`agent/Dockerfile`), where the server's
-  `agent_runner` runs the CLIs. The object keeps the login's sign-in files as text in its own
+  `AgentHome` Durable Object and its container (`agent/Dockerfile`), where the AI kit's
+  runner (`ai-kit/src/runner.rs`) runs the CLIs. The object keeps the login's sign-in files as text in its own
   storage while the container sleeps.
 
 The Worker itself still runs no programs and reads no files: the server's `rt::fs` and

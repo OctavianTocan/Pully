@@ -1,0 +1,69 @@
+name: AI kit
+
+# The Claude Code and Codex layer that Pully and ThyMind share (ai-kit/). ThyMind pins a commit of
+# it, so a change is checked here before it reaches main rather than only at release time.
+on:
+  pull_request:
+    branches: [main, release]
+    paths: [ai-kit/**, .github/workflows/ai-kit.yml]
+  push:
+    branches: [main]
+    paths: [ai-kit/**, .github/workflows/ai-kit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-kit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: [self-hosted, linux, x64, pully-linux]
+    timeout-minutes: 15
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Test the kit with its runner and embeddings
+        run: cargo test --manifest-path ai-kit/Cargo.toml --locked --features runner,embed --jobs 2
+      - name: Build the embeddings alone, as ThyMind's library uses them
+        run: cargo check --manifest-path ai-kit/Cargo.toml --locked --no-default-features --features embed
+      - name: Build for Workers
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check --manifest-path ai-kit/Cargo.toml --locked --target wasm32-unknown-unknown --features worker,embed
+  kotlin:
+    runs-on: [self-hosted, linux, x64, pully-linux]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Test the Kotlin module on the JVM, with the Pully modules built on it
+        working-directory: mobile
+        run: ./gradlew :ai-kit:jvmTest :shared-domain:jvmTest :shared-client:jvmTest --no-daemon
+  pully:
+    runs-on: [self-hosted, linux, x64, pully-linux]
+    timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_TERM_COLOR: never
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build Pully's server on the kit
+        run: cargo check --manifest-path backend/Cargo.toml --locked --jobs 2
+      - name: Build Pully's Worker on the kit
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo check --manifest-path packages/worker/Cargo.toml --locked --target wasm32-unknown-unknown --jobs 2

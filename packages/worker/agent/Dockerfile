@@ -1,5 +1,5 @@
 # The hosted agent container: one Pully login's Claude Code and Codex, run by the server's own
-# agent_runner (backend/src/agent_runner.rs) as plain processes, since this container is the
+# agent runner (ai-kit/src/runner.rs) as plain processes, since this container is the
 # sandbox. It is the docker/agents image plus the server binary. Built from the repository root
 # (wrangler.jsonc, image_build_context); Dockerfile.dockerignore keeps the context small.
 ARG RUST_IMAGE=rust:1.97-bookworm
@@ -8,6 +8,7 @@ ARG NODE_IMAGE=node:22-bookworm-slim
 FROM ${RUST_IMAGE} AS server
 WORKDIR /src
 COPY backend backend
+COPY ai-kit ai-kit
 COPY docker/agents/skills docker/agents/skills
 COPY packages/core/src/types/merge-risk-rubric.json packages/core/src/types/merge-risk-rubric.json
 RUN cargo build --locked --release --manifest-path backend/Cargo.toml --bin pulls-review-server
@@ -33,7 +34,7 @@ RUN userdel -r node 2>/dev/null || true \
 COPY docker/agents/skills /opt/pulls-review/skills
 COPY docker/agents/entrypoint.sh /usr/local/bin/pulls-review-agent-entrypoint
 COPY --from=server /src/backend/target/release/pulls-review-server /usr/local/bin/pulls-review-server
-# The marker lets agent_runner start; the native server never has it. Homes are the logins' own.
+# The marker lets the AI kit's runner start; the native server never has it. Homes are the logins' own.
 RUN chmod 0755 /usr/local/bin/pulls-review-agent-entrypoint && chmod -R a+rX /opt/pulls-review \
   && touch /.pully-agent-container \
   && install -d -o root -g root -m 0700 /homes

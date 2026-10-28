@@ -33,6 +33,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.aikit.AiSettingsLogic
+import com.octaviantocan.aikit.CliCatalog
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Direction
@@ -81,8 +83,8 @@ fun SettingsPage.title(openedKeyName: String?): String = when (this) {
     SettingsPage.Sound -> "Sound"
     SettingsPage.Model -> "Select model"
     SettingsPage.Effort -> "Effort"
-    SettingsPage.ClaudeSignIn -> com.octaviantocan.pulls.data.AiCli.Claude.title
-    SettingsPage.CodexSignIn -> com.octaviantocan.pulls.data.AiCli.Codex.title
+    SettingsPage.ClaudeSignIn -> com.octaviantocan.aikit.AiCli.Claude.title
+    SettingsPage.CodexSignIn -> com.octaviantocan.aikit.AiCli.Codex.title
     SettingsPage.WhatsNew -> "What's new"
     SettingsPage.Stats -> t("stats.title")
     SettingsPage.Links -> "GitHub links"
@@ -135,7 +137,7 @@ fun ColumnScope.SettingsPageContent(nav: Nav, page: SettingsPage, services: Sett
         SettingsPage.Model -> ModelPage(settings, services.models, onDone = { onPage(SettingsPage.Main) })
         SettingsPage.Effort -> EffortPage(settings, services.models, onBack = { onPage(SettingsPage.Main) })
         SettingsPage.ClaudeSignIn, SettingsPage.CodexSignIn -> services.aiSignIns?.let {
-            AiSignInPage(it, if (page == SettingsPage.ClaudeSignIn) com.octaviantocan.pulls.data.AiCli.Claude else com.octaviantocan.pulls.data.AiCli.Codex, onPage)
+            AiSignInPage(it, if (page == SettingsPage.ClaudeSignIn) com.octaviantocan.aikit.AiCli.Claude else com.octaviantocan.aikit.AiCli.Codex, onPage)
         }
         SettingsPage.Stats -> StatsPage(settings, services.stats)
         SettingsPage.Account -> AccountPage(services.account)
@@ -309,7 +311,7 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
         }
     }
     // Each person's own Claude Code and Codex sign-in, in a Providers group of its own under AI (recording
-    // 26 Oct 2026, 02:38 to 02:47; agent_login.rs).
+    // 26 Oct 2026, 02:38 to 02:47; ai-kit/src/login.rs).
     services.aiSignIns?.let { signIns ->
         Group("Providers") {
             SheetCard { AiSignInRows(signIns, open) }

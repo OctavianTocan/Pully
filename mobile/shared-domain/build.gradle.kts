@@ -15,6 +15,7 @@ kotlin {
     }
     sourceSets {
         commonMain.dependencies {
+            api(project(":ai-kit"))
             api("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
             api("org.jetbrains.kotlinx:kotlinx-datetime:0.7.1")
             implementation("org.jetbrains:markdown:0.7.3")
