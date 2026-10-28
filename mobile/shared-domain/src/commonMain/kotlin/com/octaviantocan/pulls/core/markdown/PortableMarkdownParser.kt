@@ -217,8 +217,13 @@ private class PortableTree(private val source: String, private val links: Map<St
     }
 
     private fun resolvedLink(label: ASTNode, definition: ASTNode, image: Boolean): Node {
-        val destination = definition.children.firstOrNull { it.type == E.LINK_DESTINATION }?.text()?.removeSurrounding("<", ">")?.let(::unescapeMarkdown).orEmpty()
-        val title = definition.children.firstOrNull { it.type == E.LINK_TITLE }?.text()?.let { unescapeMarkdown(it.drop(1).dropLast(1)) }
+        // The parser reads an inline `(<url> "title")` as an autolink then the title as a LINK_DESTINATION.
+        val autolink = definition.children.firstOrNull { it.type == E.AUTOLINK }.takeIf { definition.type == E.INLINE_LINK }
+        val target = autolink ?: definition.children.firstOrNull { it.type == E.LINK_DESTINATION }
+        val destination = target?.text()?.removeSurrounding("<", ">")?.let(::unescapeMarkdown).orEmpty()
+        val titled = definition.children.firstOrNull { it.type == E.LINK_TITLE }
+            ?: definition.children.firstOrNull { it.type == E.LINK_DESTINATION }.takeIf { autolink != null }
+        val title = titled?.text()?.let { unescapeMarkdown(it.drop(1).dropLast(1)) }
         return (if (image) Image(destination, title) else Link(destination, title)).also {
             inline(it, label.children.drop(1).dropLast(1), autolinks = false)
         }
