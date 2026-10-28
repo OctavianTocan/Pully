@@ -6,8 +6,8 @@
 //!   status and sign-out, per login.
 //! - [`process`]: runs, model lists and efforts, in Docker on a native server or as plain
 //!   processes inside the hosted agent container.
-//! - [`remote`] and [`runner`]: the hosted server's way to a login's own agent container, and the
-//!   server that answers in it.
+//! - [`remote`], `home` and [`runner`]: the hosted server's way to a login's own agent container,
+//!   the Durable Object that owns that container, and the server that answers in it.
 //! - [`embed`]: Gemini embedding requests and answers, stored vectors and cosine similarity.
 //! - [`rt`], [`redact`]: the runtime shim that lets all of it build for Workers, and the secret
 //!   redaction every model output goes through.
@@ -23,6 +23,8 @@
 pub mod config;
 #[cfg(feature = "embed")]
 pub mod embed;
+#[cfg(all(feature = "worker", target_arch = "wasm32"))]
+pub mod home;
 #[cfg(feature = "agents")]
 pub mod login;
 #[cfg(feature = "agents")]

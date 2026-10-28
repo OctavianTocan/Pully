@@ -78,7 +78,7 @@ struct Args {
     #[arg(long, hide = true, env = "PULLY_AGENT_HOMES", default_value = "/homes")]
     agent_homes: PathBuf,
     /// Internal: the volume name of the one login the agent container serves.
-    #[arg(long, hide = true, env = "PULLY_AGENT_LOGIN")]
+    #[arg(long, hide = true, env = "PULLS_REVIEW_AGENT_LOGIN")]
     agent_login: Option<String>,
     /// Internal: the `uid:gid` the hosted agent container runs CLI jobs as.
     #[arg(long, hide = true, env = "PULLY_AGENT_CLI_USER")]
@@ -138,7 +138,7 @@ async fn run() -> Result<()> {
     if let Some(address) = args.agent_runner {
         let login = args
             .agent_login
-            .context("The agent runner needs PULLY_AGENT_LOGIN")?;
+            .context("The agent runner needs PULLS_REVIEW_AGENT_LOGIN")?;
         let cli = args
             .agent_cli_user
             .as_deref()

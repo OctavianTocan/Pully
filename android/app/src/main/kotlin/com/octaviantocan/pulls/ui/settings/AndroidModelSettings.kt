@@ -10,6 +10,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import com.octaviantocan.aikit.CliCatalog
+import com.octaviantocan.aikit.asCatalog
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoIdentity
 import com.octaviantocan.pulls.data.ServerStore

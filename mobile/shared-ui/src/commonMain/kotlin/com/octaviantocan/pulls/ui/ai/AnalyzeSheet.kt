@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ui.ai
 
-import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +35,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.octaviantocan.aikit.AiSettingsLogic
+import com.octaviantocan.aikit.CliCatalog
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.core.AnalyzePreset
 import com.octaviantocan.pulls.sound.Cue
@@ -57,7 +58,6 @@ import com.octaviantocan.pulls.ui.review.EffortPage
 import com.octaviantocan.pulls.ui.review.ModelPage
 import com.octaviantocan.pulls.ui.review.ReviewSession
 import com.octaviantocan.pulls.ui.review.analysisModelLabel
-import com.octaviantocan.pulls.ui.settings.CliCatalog
 import com.octaviantocan.pulls.ui.settings.ModelSettingsServices
 
 private fun AnalyzePage.title(): String = when (this) {

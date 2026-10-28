@@ -26,6 +26,9 @@ agents = [
 ]
 # The server inside the hosted agent container (native only).
 runner = [ "agents", "dep:axum" ]
+# The `AgentHome` Durable Object that owns each login's container, for a host built as a
+# Cloudflare Worker (wasm only).
+worker = [ "agents", "dep:worker", "dep:web-sys" ]
 # Gemini embeddings: request bodies, answers, stored vectors and similarity. No I/O.
 embed = [ "dep:anyhow" ]
 
@@ -50,6 +53,8 @@ tokio = { version = "1", default-features = false, features = [ "sync", "macros"
 uuid = { version = "1", features = [ "v4", "js" ], optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", features = [ "Request", "RequestInit", "Response" ], optional = true }
+worker = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = [ "full", "test-util" ] }

@@ -16,9 +16,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.octaviantocan.pulls.data.AiCli
-import com.octaviantocan.pulls.data.AiSignInStart
-import com.octaviantocan.pulls.data.AiSignIns
+import com.octaviantocan.aikit.AiCli
+import com.octaviantocan.aikit.AiSignInServices
+import com.octaviantocan.aikit.AiSignInStart
+import com.octaviantocan.aikit.AiSignInStep
+import com.octaviantocan.aikit.AiSignIns
+import com.octaviantocan.aikit.DeviceSignInEnd
+import com.octaviantocan.aikit.aiSignInStep
+import com.octaviantocan.aikit.awaitDeviceSignIn
+import com.octaviantocan.aikit.isClaudeSignInCode
+import com.octaviantocan.aikit.isCodeFor
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RpcSource
 import com.octaviantocan.pulls.sound.Cue
@@ -34,30 +41,7 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetField
 import com.octaviantocan.pulls.ui.design.SheetRow
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-
-/**
- * Each person's own Claude Code and Codex sign-in on the server (Tavi, 23 Oct 13:39: "Claude Code and Codex
- * SUBSCRIPTION login. Not any other kind of thing."). The sign-in is the CLI's own, so the page only opens the
- * provider's page and passes Claude Code's code back; there is no API key anywhere.
- */
-interface AiSignInServices {
-    val dispatchReady: Boolean get() = current()
-    fun current(): Boolean
-    fun onRetired(clear: () -> Unit): () -> Unit = {}
-    suspend fun status(): AiSignIns
-    suspend fun start(cli: AiCli): AiSignInStart
-    suspend fun finish(cli: AiCli, code: String?): Boolean
-    suspend fun cancel(cli: AiCli)
-    suspend fun signOut(cli: AiCli)
-    fun openPage(url: String)
-    fun copy(text: String)
-    /** The last sign-in state this source answered, so a row or page shows it at once while it is asked again. */
-    fun cached(): AiSignIns? = null
-    /** Text on the clipboard, read when Pully comes back from the provider's page, to take Claude's code from it. */
-    fun copied(): String? = null
-}
 
 /**
  * The sign-ins each source last answered, in memory for this run of the app. The rows and pages show them at once
@@ -123,22 +107,6 @@ class SourceAiSignInServices(
     override suspend fun signOut(cli: AiCli) { requireCurrent(); repo.signOutAi(cli) }
     override fun openPage(url: String) { if (dispatchReady) open(url) }
     override fun copy(text: String) { if (dispatchReady) copyText(text) }
-}
-
-/** What Claude's sign-in page shows to paste back: the code, a `#`, then the state, as one word. */
-private val CLAUDE_CODE = Regex("""^[A-Za-z0-9_-]{16,}#[A-Za-z0-9_-]{16,}$""")
-
-/** Whether [text] is a whole code from Claude's sign-in page. */
-internal fun isClaudeSignInCode(text: String?): Boolean = text != null && CLAUDE_CODE.matches(text.trim())
-
-/**
- * Whether [text] is the code for this sign-in, started at [url]: its part after `#` is the `state` the page was opened
- * with, so a code left on the clipboard by an earlier sign-in is never sent by itself.
- */
-internal fun isCodeFor(url: String, text: String?): Boolean {
-    if (!isClaudeSignInCode(text)) return false
-    val state = Regex("""[?&]state=([^&#]+)""").find(url)?.groupValues?.get(1) ?: return false
-    return text!!.trim().substringAfter('#') == state
 }
 
 /** The Settings page for a sign-in row. */
@@ -207,33 +175,16 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
         if (!dispatchReady) return@LaunchedEffect
         try { refresh() } catch (e: CancellationException) { throw e } catch (e: Exception) { state.problem = e.message }
     }
-    // Codex finishes by itself once its code is entered on OpenAI's page; the server waits up to 25 seconds a call.
+    // Codex finishes by itself once its code is entered on OpenAI's page.
     val waiting = state.started?.takeIf { !it.paste }
     LaunchedEffect(waiting, dispatchReady) {
         if (waiting == null || !dispatchReady) return@LaunchedEffect
-        while (services.dispatchReady) {
-            val done = try {
-                services.finish(cli, null)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // A sign-in that finished while Pully was away (the provider's page was in front) has no wait left on
-                // the server, which then says it ended. The sign-in itself is what counts ("it did work, but it said it
-                // failed", recording 26 Oct 2026, 05:00 to 05:13).
-                val now = runCatching { services.status() }.getOrNull()
-                state.started = null
-                if (now?.get(cli)?.signedIn == true) {
-                    state.signIns = now
-                    signedIn()
-                } else state.problem = e.message
-                return@LaunchedEffect
-            }
-            if (done) {
-                refresh()
-                signedIn()
-                return@LaunchedEffect
-            }
-            delay(500)
+        when (val end = services.awaitDeviceSignIn(cli)) {
+            DeviceSignInEnd.Done -> { refresh(); signedIn() }
+            // The sign-in itself is what counts, even when the wait for it said it ended.
+            is DeviceSignInEnd.FinishedMeanwhile -> { state.started = null; state.signIns = end.signIns; signedIn() }
+            is DeviceSignInEnd.Failed -> { state.started = null; state.problem = end.message }
+            DeviceSignInEnd.Stopped -> Unit
         }
     }
 
@@ -253,15 +204,16 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
     val signIns = state.signIns
     val signIn = signIns?.get(cli)
     val started = state.started
-    when {
-        signIns == null && state.problem == null -> RowsSkeleton(rows = 2)
-        signIns == null -> Unit
-        !signIns.account -> {
+    when (aiSignInStep(cli, signIns, started, state.problem)) {
+        AiSignInStep.Loading -> RowsSkeleton(rows = 2)
+        AiSignInStep.Unavailable -> Unit
+        AiSignInStep.NeedsAccount -> {
             Explain("Sign in to your Pully account first, so ${cli.title} runs on your own subscription and nobody else's.")
             if (signIn?.signedIn == true) Explain("Until then, AI uses the server's own ${cli.title} sign-in.")
             CtaButton("Sign in to Pully", { open(SettingsPage.Account) }, Modifier.fillMaxWidth().padding(top = 20.dp))
         }
-        started != null && started.paste -> {
+        AiSignInStep.PasteCode -> {
+            started!!
             Explain("Sign in on the page that opened. When it shows a code, copy it and paste it here.")
             SheetCard {
                 SheetField("Code", state.code, { typed ->
@@ -276,7 +228,8 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
                 Modifier.fillMaxWidth().padding(top = 20.dp), enabled = state.code.isNotBlank() && !state.busy)
             Cancel(services, cli, state, ::run)
         }
-        started != null -> {
+        AiSignInStep.EnterCode -> {
+            started!!
             Explain("Enter this code on the page that opened. Pully finishes by itself once you approve.")
             SheetCard {
                 SheetRow(started.code.orEmpty(), { started.code?.let { services.copy(it); toaster.show("Code copied", cue = Cue.Success) } }, first = true, iconless = true) {
@@ -287,7 +240,8 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
             Explain("If OpenAI says device codes are off, turn on device code sign-in in ChatGPT's security settings, then start again.")
             Cancel(services, cli, state, ::run)
         }
-        signIn?.signedIn == true -> {
+        AiSignInStep.SignedIn -> {
+            signIn!!
             SheetCard {
                 SheetRow("Signed in", null, first = true, iconless = true) {
                     // The account takes what room is left and ends in "…"; "Signed in" never wraps (recording 26 Oct 2026, 04:03).
@@ -300,7 +254,7 @@ fun ColumnScope.AiSignInPage(services: AiSignInServices, cli: AiCli, open: (Sett
             CtaButton(if (state.busy) "Signing out…" else "Sign out", { run { services.signOut(cli); refresh() } },
                 Modifier.fillMaxWidth().padding(top = 20.dp), container = c.error, enabled = !state.busy)
         }
-        else -> {
+        AiSignInStep.SignedOut -> {
             Explain(if (cli == AiCli.Claude) "Pully runs Claude Code with your own Claude subscription. Sign in once with your Claude account."
                 else "Pully runs Codex with your own ChatGPT subscription. Sign in once with your ChatGPT account.")
             CtaButton(if (state.busy) "Starting…" else "Sign in to ${cli.title}", {

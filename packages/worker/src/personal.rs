@@ -3,12 +3,11 @@
 //! read a personal account's sign-in or data, and each personal account's records are a scope of
 //! their own.
 
-use crate::{agent, answer, failed, PART};
+use crate::{answer, failed, PART};
 use pulls_review_server::{
     public_server::{hosted_router, HostedPersonal},
     store::{Records, Store},
 };
-use send_wrapper::SendWrapper;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::OnceCell;
 use worker::{durable_object, Env, Request, Response, Result, SqlStorage, SqlStorageValue, State};
@@ -38,9 +37,7 @@ impl worker::DurableObject for PersonalServer {
     fn new(state: State, env: Env) -> Self {
         // PersonalServer may be the first object in this isolate. Its workspace uses
         // exactly the same own-login container remote, never a local wasm process.
-        let _ = pulls_review_server::agent_remote::set(Arc::new(agent::ObjectRemote {
-            homes: SendWrapper::new(env.durable_object("AGENT_HOME").expect("Agent homes")),
-        }));
+        ai_kit::home::install(&env, "AGENT_HOME").expect("Agent homes");
         let mut variables: std::collections::BTreeMap<_, _> =
             pulls_review_server::rt::env::vars().into_iter().collect();
         if let Ok(value) = env.var("PULLS_REVIEW_ANALYTICS") {

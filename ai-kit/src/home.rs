@@ -1,16 +1,19 @@
-//! AI work in containers. Each Pully login gets one `AgentHome` Durable Object, named after the
-//! login's volume, that owns that login's agent container (`agent/Dockerfile`, which runs the
-//! AI kit's runner, `ai_kit::runner`). `AgentRemote` is how the server reaches it. The container's disk goes
-//! when it sleeps, so the object keeps the login's sign-in files as text in its own storage: written
-//! back into the container when it starts, and saved after each run, sign-in, status check and
-//! sign-out. The runner sends only the sign-in part of each file (`ai_kit::runner`).
+//! AI work in containers, for a host built as a Cloudflare Worker. Each login gets one `AgentHome`
+//! Durable Object, named after the login's volume, that owns that login's agent container (the
+//! host's image, which runs [`crate::runner`]). [`ObjectRemote`] is how the host reaches it. The
+//! container's disk goes when it sleeps, so the object keeps the login's sign-in files as text in
+//! its own storage: written back into the container when it starts, and saved after each run,
+//! sign-in, status check and sign-out. The runner sends only the sign-in part of each file.
+//!
+//! The host exports [`AgentHome`] from its Worker (`pub use ai_kit::home::AgentHome;`), binds it
+//! with a container in its Wrangler file, configures the kit in its `#[event(start)]`, and calls
+//! [`install`] before any AI work.
+use crate::config::config;
+use crate::login::AgentLogin;
+use crate::remote::{AgentRemote, Body};
 use futures_util::{future::BoxFuture, lock::Mutex, StreamExt};
-use pulls_review_server::{
-    agent_login::AgentLogin,
-    agent_remote::{AgentRemote, Body},
-};
 use send_wrapper::SendWrapper;
-use std::{rc::Rc, time::Duration};
+use std::{rc::Rc, sync::Arc, time::Duration};
 use wasm_bindgen::{JsCast, JsValue};
 use worker::{
     durable_object, Env, Headers, Method, ObjectNamespace, Request, RequestInit, Response, Result,
@@ -26,13 +29,21 @@ const START_TIMEOUT_MS: f64 = 60_000.0;
 const IDLE_MS: f64 = 5.0 * 60_000.0;
 /// The storage key of the login's sign-in files, the JSON text the AI kit's runner gives.
 const LOGIN_FILES: &str = "login-files";
-/// Names the login a call is for; only `PullyServer` sets it, as nothing else reaches the object.
-const LOGIN_HEADER: &str = "x-pully-agent-login";
+/// Names the login a call is for; only the host's server sets it, as nothing else reaches the object.
+const LOGIN_HEADER: &str = "x-agent-login";
 
 /// The server's way to its logins' containers: each call goes to the `AgentHome` named after the
 /// login's volume.
 pub struct ObjectRemote {
     pub homes: SendWrapper<ObjectNamespace>,
+}
+
+/// Sends every Claude Code and Codex call of this isolate to its login's `AgentHome` in the
+/// `binding` namespace. A second call in the same isolate keeps the first remote.
+pub fn install(env: &Env, binding: &str) -> Result<()> {
+    let homes = SendWrapper::new(env.durable_object(binding)?);
+    let _ = crate::remote::set(Arc::new(ObjectRemote { homes }));
+    Ok(())
 }
 
 impl AgentRemote for ObjectRemote {
@@ -98,7 +109,7 @@ impl worker::DurableObject for AgentHome {
         let volume = request
             .headers()
             .get(LOGIN_HEADER)?
-            .filter(|v| v.starts_with("pulls-review-agents-home") && v.len() <= 64)
+            .filter(|v| v.starts_with(config().volume) && v.len() <= 64)
             .ok_or_else(|| worker::Error::RustError("Missing agent login".into()))?;
         // The first call fixes whose container this is; any other login is refused.
         let storage = self.state.storage();
@@ -153,7 +164,7 @@ impl AgentHome {
             // workers-rs 0.8.7's `ContainerStartupOptions` drops the options it is given, so the
             // object is built here as workerd expects it.
             let env = js_sys::Object::new();
-            set(&env, "PULLY_AGENT_LOGIN", &volume.into())?;
+            set(&env, &format!("{}_LOGIN", config().env), &volume.into())?;
             let options = js_sys::Object::new();
             set(&options, "enableInternet", &true.into())?;
             set(&options, "env", &env)?;

@@ -52,7 +52,8 @@ preparation runs only when the host named it in `Config::preparations`. Source: 
 @cc [owner:OctavianTocan,label:architecture] kit-builds-for-workers
 The kit MUST build for `wasm32-unknown-unknown` with `agents` and `embed`, so a host can run in a
 Cloudflare Worker. Its code MUST use `rt` for tasks, timers, environment, files and programs,
-which fail closed in a Worker. `runner` is native only. Source: backend `server-builds-for-workers`.
+which fail closed in a Worker. `runner` is native only and `worker` (`home`) is wasm only. Source:
+backend `server-builds-for-workers`.
 
 @cc [owner:OctavianTocan,label:architecture;product] kit-embeddings-match-stored-vectors
 `embed` MUST do no I/O: the host sends the request with its own client and key. Its text formats

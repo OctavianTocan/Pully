@@ -1,7 +1,9 @@
 package com.octaviantocan.pulls.ui.review
 
-import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
-import com.octaviantocan.pulls.ui.settings.CliCatalog
+import com.octaviantocan.aikit.AiSettingsLogic
+import com.octaviantocan.aikit.CliCatalog
+import com.octaviantocan.aikit.modelLabel
+import com.octaviantocan.aikit.prettyModelId
 import com.octaviantocan.pulls.ui.design.Messages
 
 /** `Opus 5.5 · High`: the model the analysis will use and its effort. */
