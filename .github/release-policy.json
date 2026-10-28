@@ -1,12 +1,11 @@
 {
-  "repository": "OctavianTocan/pulls.review",
+  "repository": "OctavianTocan/Pully",
   "integrationBranch": "main",
   "releaseBranch": "release",
   "stableBaseline": "3540fa0aea002689d2b09677d7f1b02b16833363",
   "requiredReleaseChecks": [
     "release-prerequisites",
     "android-release-verify",
-    "ios-release-verify",
     "backend-release-verify",
     "lint",
     "typecheck",

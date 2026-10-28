@@ -15,7 +15,7 @@ jobs:
   # Legacy required context retained transparently for connections without admin API access.
   # This is fast integration policy validation, not Android build/release certification.
   android-release:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 5
     permissions:
       contents: read
@@ -41,7 +41,7 @@ jobs:
 
   release-prerequisites:
     if: github.base_ref == 'release' || github.ref == 'refs/heads/release'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     timeout-minutes: 5
     permissions:
       contents: read
@@ -59,7 +59,7 @@ jobs:
         run: node android/scripts/check-release.mjs --base "$RELEASE_BASE"
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -78,7 +78,7 @@ jobs:
         run: pnpm run contracts:check
 
   typecheck:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -97,7 +97,7 @@ jobs:
         run: pnpm run typecheck
 
   android-design:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, pully-linux]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
