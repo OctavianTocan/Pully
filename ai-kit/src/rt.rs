@@ -10,7 +10,10 @@ pub use tokio::{
     runtime::Handle,
     spawn,
     task::{spawn_blocking, yield_now, AbortHandle, JoinError, JoinHandle},
-    time::{error::Elapsed, interval, sleep, sleep_until, timeout, timeout_at, Instant, Interval, MissedTickBehavior},
+    time::{
+        error::Elapsed, interval, sleep, sleep_until, timeout, timeout_at, Instant, Interval,
+        MissedTickBehavior,
+    },
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -92,7 +95,9 @@ mod wasm {
     impl<T> Future for JoinHandle<T> {
         type Output = Result<T, JoinError>;
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            Pin::new(&mut self.result).poll(cx).map(|result| result.map_err(|_| JoinError))
+            Pin::new(&mut self.result)
+                .poll(cx)
+                .map(|result| result.map_err(|_| JoinError))
         }
     }
 
@@ -412,7 +417,10 @@ mod wasm {
         pub type ChildStderr = tokio::io::Empty;
 
         fn unsupported() -> io::Error {
-            io::Error::new(io::ErrorKind::Unsupported, "Programs cannot run in the Worker")
+            io::Error::new(
+                io::ErrorKind::Unsupported,
+                "Programs cannot run in the Worker",
+            )
         }
 
         #[derive(Debug)]

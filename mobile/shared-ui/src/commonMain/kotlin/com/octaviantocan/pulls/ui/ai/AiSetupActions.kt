@@ -5,11 +5,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.octaviantocan.aikit.AiSettingsLogic
 import com.octaviantocan.pulls.core.AnalyzeChoice
 import com.octaviantocan.pulls.ui.review.LocalReviewActionReadiness
 import com.octaviantocan.pulls.ui.review.ReviewActionReadiness
 import com.octaviantocan.pulls.ui.review.ReviewSession
-import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
 import com.octaviantocan.pulls.ui.settings.ModelSettingsServices
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put

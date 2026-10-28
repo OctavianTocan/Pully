@@ -19,7 +19,7 @@ and the [migration evidence](../docs/RUST_BACKEND_MIGRATION.md).
 
 ## Layout
 
-Four pnpm workspace packages, plus the native backend and Android client:
+Four pnpm workspace packages, plus the native backend, the shared AI kit and Android client:
 
 - `packages/app` - the SPA and github.com embed (Vite + Vue), including the
   self-hosted `PR_LOCAL` build. Paths below written as `app/…` live in
@@ -51,6 +51,10 @@ Four pnpm workspace packages, plus the native backend and Android client:
   and local-hub paths. Targets live in page routes (`/`, `/branch/<name>`,
   `/compare/<A...B>`, `/worktree`, `/commit/<sha>`); CLI target arguments only
   choose the page to open and never switch the checkout. No Node server runs.
+- `ai-kit` - the Claude Code and Codex layer Pully shares with ThyMind: the CLIs' own
+  sign-ins, runs, model lists and efforts, the Docker and hosted-container runtimes, the `rt`
+  shim, secret redaction and Gemini embeddings (Rust), plus the sign-in, model and effort logic
+  both phones use (`ai-kit/kotlin`). See its [README](../ai-kit/README.md).
 - `android` - Kotlin/Compose client for the user-run server, retaining the shared
   design tokens and locale sources from the web app.
 
@@ -78,7 +82,10 @@ lists implemented operations and remaining verification limits.
   tours, briefs, and scoped PR/inbox tools. Page disconnects do not cancel jobs;
   process restarts lose active tasks while completed results remain persisted.
   Pi uses a native OpenAI-compatible streaming tool loop, not `pi-agent-core`.
-- `agent_process.rs` runs Claude Code and Codex only in Docker, with an isolated
+- Claude Code and Codex come from the shared [`ai-kit`](../ai-kit/README.md) crate, which
+  ThyMind uses too; `agents.rs` gives it Pully's volume, image, tool helper and sign-in
+  hints, and `lib.rs` keeps its modules under their old names (`agent_login`,
+  `agent_process`, `agent_remote`, `agent_runner`, `rt`). Its `process` module runs Claude Code and Codex only in Docker, with an isolated
   job home and read-only inputs/Linux MCP helper. No checkout, host home,
   settings, server store, or GitHub token is mounted. A per-run capability lets
   the helper reach scoped server tools. Selected login fields are copied by a
@@ -138,7 +145,7 @@ remain declared in `packages/core/src/local-rpc.ts`.
   compatible devframe transport are connection mechanisms, not alternate server
   implementations or permission to execute the deleted TypeScript backend.
 
-## Where the CLIs run (`backend/src/agent_process.rs`)
+## Where the CLIs run (`ai-kit/src/process.rs`)
 
 Claude Code and Codex jobs and catalog probes run only through the native Docker
 boundary. `PULLS_REVIEW_AGENT_RUNTIME`, when set, must be `docker`; `--agents`
@@ -156,7 +163,7 @@ accepts only `docker`. `PULLS_REVIEW_AGENT_IMAGE` defaults to
   `0.0.0.0` for Docker reachability and must not be publicly proxied.
 - There are no API keys. A separate network-disabled helper copies allowlisted
   subscription-login fields from the login volume of whoever started the work
-  (`backend/src/agent_login.rs`): a signed-in Pully account's own
+  (`ai-kit/src/login.rs`): a signed-in Pully account's own
   `pulls-review-agents-home-<hash>` volume, or, for requests without an account and
   the server's background work, the server's `pulls-review-agents-home`. The model
   container never mounts a login volume; a locked helper persists refreshes only if

@@ -1,6 +1,6 @@
 //! Bounded activity previews. The leading secret overlap is context, never display text.
 
-use super::KNOWN_SECRETS;
+use crate::redact::{known_secret, tail_start};
 
 const DISPLAY_CHARS: usize = 8000;
 const REDACTED: &str = "[redacted]";
@@ -24,7 +24,7 @@ impl Secrets {
                             .any(|part| name.to_ascii_uppercase().contains(part))
                 })
                 .map(|(name, value)| Secret {
-                    redact: value.len() >= 6 || KNOWN_SECRETS.contains(&name.as_str()),
+                    redact: value.len() >= 6 || known_secret(&name),
                     value,
                 })
                 .collect(),
@@ -91,7 +91,7 @@ impl<'a> Window<'a> {
     /// longest-secret overlap before redaction, without decoding the preceding text
     /// (Tavi, 16 Oct 2026, fix each code-review finding; round 9 performance finding).
     fn new(text: &'a str, overlap: usize) -> Self {
-        let display_start = super::tail_start(text, DISPLAY_CHARS);
+        let display_start = tail_start(text, DISPLAY_CHARS);
         let mut start = display_start.saturating_sub(overlap);
         while !text.is_char_boundary(start) {
             start -= 1;
@@ -125,7 +125,7 @@ fn preview(text: &str, done: bool, secrets: &Secrets) -> String {
     output.push_str(&window.text[from..end]);
     // Clip only rendered display text. Redaction may shrink the context to less
     // than 8,000 characters, but no part of that context can be backfilled here.
-    let start = super::tail_start(&output, DISPLAY_CHARS);
+    let start = tail_start(&output, DISPLAY_CHARS);
     if window.clipped || start > 0 {
         format!("…{}", &output[start..])
     } else {
@@ -138,7 +138,7 @@ fn preview(text: &str, done: bool, secrets: &Secrets) -> String {
 /// it. Complete configured secrets MUST be redacted even across clipping boundaries;
 /// unfinished prefixes MUST be withheld until terminal text is available (root
 /// secrets-come-from-the-environment; Tavi, 16 Oct 2026, fix code-review findings).
-pub(crate) fn safe_preview(text: &str, done: bool) -> String {
+pub fn safe_preview(text: &str, done: bool) -> String {
     preview(text, done, &Secrets::from_environment())
 }
 
@@ -281,9 +281,8 @@ mod tests {
     #[test]
     fn shared_secret_names_preserve_order_and_short_value_redaction() {
         assert_eq!(
-            KNOWN_SECRETS,
+            crate::redact::KNOWN_SECRETS,
             &[
-                "PULLS_REVIEW_PI_API_KEY",
                 "ANTHROPIC_API_KEY",
                 "CLAUDE_CODE_OAUTH_TOKEN",
                 "OPENAI_API_KEY",
@@ -292,7 +291,7 @@ mod tests {
                 "TYPESAFE_API_KEY",
             ]
         );
-        for &name in KNOWN_SECRETS {
+        for &name in crate::redact::KNOWN_SECRETS {
             let secrets = Secrets::from_entries([(name.to_owned(), "abc".to_owned())].into_iter());
             assert_eq!(preview("abc", true, &secrets), "[redacted]");
             assert_eq!(preview("a", false, &secrets), "");

@@ -1,6 +1,15 @@
 package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.ui.text.style.TextAlign
+import com.octaviantocan.aikit.AiSettingsLogic
+import com.octaviantocan.aikit.CliCatalog
+import com.octaviantocan.aikit.CliModel
+import com.octaviantocan.aikit.ModelGroups
+import com.octaviantocan.aikit.groupModels
+import com.octaviantocan.aikit.modelLabel
+import com.octaviantocan.aikit.modelNote
+import com.octaviantocan.aikit.modelSections
+import com.octaviantocan.aikit.sameNamed
 import com.octaviantocan.pulls.ui.design.matchesSearch
 import com.octaviantocan.pulls.ui.design.SheetSearch
 import androidx.compose.runtime.LaunchedEffect
@@ -56,9 +65,6 @@ import com.octaviantocan.pulls.ui.design.SheetCard
 import com.octaviantocan.pulls.ui.design.SheetRow
 import com.octaviantocan.pulls.ui.design.Skeleton
 import com.octaviantocan.pulls.ui.design.t
-import com.octaviantocan.pulls.ui.settings.AiSettingsLogic
-import com.octaviantocan.pulls.ui.settings.CliCatalog
-import com.octaviantocan.pulls.ui.settings.CliModel
 import com.octaviantocan.pulls.ui.design.FloatIcon
 
 // --- The pages ---

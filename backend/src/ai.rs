@@ -3,9 +3,10 @@ pub(crate) mod authority;
 pub(crate) mod chatgpt_jobs;
 pub(crate) mod chatgpt_responses;
 mod lenses;
-mod preview;
 pub(crate) mod provider;
-pub(super) use preview::safe_preview;
+use ai_kit::redact::tail_start;
+pub(super) use ai_kit::redact::{safe_preview, sanitize, sanitize_value};
+pub(super) use ai_kit::schema::validate_schema;
 mod tasks;
 mod tools;
 pub(crate) use tasks::{StructuredAnswerPreparation, prepare_structured_answer};
@@ -1051,13 +1052,6 @@ pub async fn shutdown(state: &AppState) {
     crate::agent_process::shutdown_cleanup().await;
     state.analytics.flush().await;
 }
-/// Find a UTF-8 suffix boundary without decoding or copying the preceding text.
-fn tail_start(text: &str, limit: usize) -> usize {
-    text.char_indices()
-        .rev()
-        .nth(limit - 1)
-        .map_or(0, |(at, _)| at)
-}
 pub(super) fn tail(text: &str) -> String {
     let start = tail_start(text, 8000);
     if start > 0 {
@@ -1065,69 +1059,6 @@ pub(super) fn tail(text: &str) -> String {
     } else {
         text.to_owned()
     }
-}
-const KNOWN_SECRETS: &[&str] = &[
-    "PULLS_REVIEW_PI_API_KEY",
-    "ANTHROPIC_API_KEY",
-    "CLAUDE_CODE_OAUTH_TOKEN",
-    "OPENAI_API_KEY",
-    "GITHUB_TOKEN",
-    "GH_TOKEN",
-    "TYPESAFE_API_KEY",
-];
-
-pub(super) fn sanitize(s: &str) -> String {
-    let mut out = s.to_owned();
-    for &name in KNOWN_SECRETS {
-        if let Ok(key) = crate::rt::env::var(name) {
-            if !key.is_empty() {
-                out = out.replace(&key, "[redacted]")
-            }
-        }
-    }
-    for (name, value) in crate::rt::env::vars() {
-        if value.len() >= 6
-            && ["TOKEN", "KEY", "SECRET", "PASSWORD"]
-                .iter()
-                .any(|part| name.to_ascii_uppercase().contains(part))
-        {
-            out = out.replace(&value, "[redacted]");
-        }
-    }
-    out
-}
-/// Redact string values and object keys without serializing first (escaped secrets stay protected).
-pub(super) fn sanitize_value(value: &Value) -> Value {
-    match value {
-        Value::String(value) => json!(sanitize(value)),
-        Value::Array(values) => Value::Array(values.iter().map(sanitize_value).collect()),
-        Value::Object(values) => Value::Object(
-            values
-                .iter()
-                .map(|(key, value)| (sanitize(key), sanitize_value(value)))
-                .collect(),
-        ),
-        value => value.clone(),
-    }
-}
-/// Withhold an unfinished secret prefix so streaming cannot leak a key across chunks.
-pub(super) fn safe_stream_text(s: &str) -> String {
-    let mut cut = s.len();
-    for (name, value) in crate::rt::env::vars() {
-        if value.is_empty()
-            || !["TOKEN", "KEY", "SECRET", "PASSWORD"]
-                .iter()
-                .any(|part| name.to_ascii_uppercase().contains(part))
-        {
-            continue;
-        }
-        for (index, _) in value.char_indices().skip(1) {
-            if s.ends_with(&value[..index]) {
-                cut = cut.min(s.len() - index);
-            }
-        }
-    }
-    sanitize(&s[..cut])
 }
 pub async fn change_chat(state: &Arc<AppState>, key: &str, id: Option<&str>) -> Result<Value> {
     let runs: Vec<_> = state
@@ -1352,63 +1283,6 @@ fn lens(state: &AppState, name: &str) -> Result<Option<String>> {
 }
 fn lenses(state: &AppState) -> Result<Value> {
     lenses::list(&skill_root(state))
-}
-/// Validate the JSON Schema subset used by the app's answer tools, failing closed on wrong shapes.
-pub(super) fn validate_schema(schema: &Value, value: &Value) -> Result<()> {
-    if schema.is_null() {
-        return Ok(());
-    }
-    if let Some(variants) = schema["anyOf"].as_array() {
-        if !variants.iter().any(|s| validate_schema(s, value).is_ok()) {
-            bail!("Model answer did not match schema")
-        };
-        return Ok(());
-    }
-    if let Some(e) = schema["enum"].as_array() {
-        if !e.contains(value) {
-            bail!("Model answer has an invalid enum value")
-        }
-    }
-    let valid = match text(schema, "type") {
-        "object" => value.is_object(),
-        "array" => value.is_array(),
-        "string" => value.is_string(),
-        "number" => value.is_number(),
-        "integer" => value.is_i64() || value.is_u64(),
-        "boolean" => value.is_boolean(),
-        "null" => value.is_null(),
-        _ => true,
-    };
-    if !valid {
-        bail!("Model answer has an invalid value type")
-    };
-    if let Some(object) = value.as_object() {
-        for k in schema["required"]
-            .as_array()
-            .into_iter()
-            .flatten()
-            .filter_map(Value::as_str)
-        {
-            if !object.contains_key(k) {
-                bail!("Model answer is missing required field {k}")
-            }
-        }
-        if let Some(props) = schema["properties"].as_object() {
-            for (k, v) in object {
-                if let Some(s) = props.get(k) {
-                    validate_schema(s, v)?
-                } else if schema["additionalProperties"] == false {
-                    bail!("Model answer contains unknown field {k}")
-                }
-            }
-        }
-    }
-    if let Some(items) = value.as_array() {
-        for item in items {
-            validate_schema(&schema["items"], item)?
-        }
-    }
-    Ok(())
 }
 
 #[cfg(test)]

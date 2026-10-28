@@ -28,7 +28,7 @@
     { "tag": "v3", "new_sqlite_classes": ["PersonalServer"] },
     { "tag": "v4", "new_sqlite_classes": ["AccountServer"] }
   ],
-  // One container per Pully login, started by its AgentHome object (src/agent.rs).
+  // One container per Pully login, started by its AgentHome object (ai-kit/src/home.rs).
   "containers": [
     {
       "class_name": "AgentHome",

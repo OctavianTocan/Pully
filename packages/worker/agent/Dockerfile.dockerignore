@@ -2,5 +2,7 @@
 *
 !backend
 backend/target
+!ai-kit
+ai-kit/target
 !docker/agents
 !packages/core/src/types/merge-risk-rubric.json

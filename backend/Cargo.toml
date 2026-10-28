@@ -5,6 +5,10 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+ai-kit = { path = "../ai-kit", features = [
+  "agents",
+  "runner"
+] }
 jsonwebtoken = { version = "9.3", default-features = false }
 pbkdf2 = "0.12"
 getrandom = "0.2"

@@ -1,11 +1,15 @@
 //! Sandboxed CLI transport. Permission flags are defense in depth, never the sandbox.
 //! Only the job folder is writable. Login state is copied in a separate, non-agent container,
-//! from the login volume of whoever started the work (agent_login.rs). There are no API keys.
+//! from the login volume of whoever started the work (`login`). There are no API keys.
 #[cfg(test)]
 mod lifecycle_tests;
-mod schema;
 mod stream;
 
+use crate::config::{config, Preparation};
+use crate::login::AgentLogin;
+use crate::redact::sanitize;
+use crate::rt::process::Command;
+use crate::schema;
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
 use std::{
@@ -14,9 +18,7 @@ use std::{
     sync::{Arc, OnceLock},
     time::Duration,
 };
-use crate::agent_login::AgentLogin;
 use stream::CliParser;
-use crate::rt::process::Command;
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     sync::watch,
@@ -25,13 +27,12 @@ use uuid::Uuid;
 
 const INPUT_LIMIT: usize = 8 * 1024 * 1024;
 const OUTPUT_LIMIT: usize = 16 * 1024 * 1024;
-const MCP_BIN: &str = "/opt/pulls-review-server";
 pub type EventSink = Arc<dyn Fn(Value) + Send + Sync>;
 /// A fixed PATH for programs run in the hosted agent container, which clears the environment.
 const LOCAL_PATH: &str = "/usr/local/bin:/usr/bin:/bin";
-#[cfg(test)]
+#[cfg(all(test, feature = "runner"))]
 mod local_tests;
-/// Set only by the hosted agent container's runner (`agent_runner`): the folder holding each
+/// Set only by the hosted agent container's runner (`runner`): the folder holding each
 /// login's CLI home. While unset, every CLI runs in Docker.
 static LOCAL_HOMES: OnceLock<PathBuf> = OnceLock::new();
 /// The user and group the hosted agent container runs CLI jobs as, so a job cannot read the
@@ -59,8 +60,8 @@ pub async fn shutdown_cleanup() {
 pub(crate) enum Runtime {
     /// The native server: each job, sign-in and login copy in a fresh container of this image.
     Docker(String),
-    /// Inside the hosted agent container, which is itself the sandbox and holds one Pully
-    /// account's logins (`agent_runner`): plain processes, with each login's CLI home in a
+    /// Inside the hosted agent container, which is itself the sandbox and holds one
+    /// account's logins (`runner`): plain processes, with each login's CLI home in a
     /// folder under this one.
     Local(PathBuf),
 }
@@ -88,7 +89,7 @@ struct Job {
 }
 impl Job {
     fn new(login: &AgentLogin, runtime: Runtime) -> Self {
-        let name = format!("pulls-agent-{}", Uuid::new_v4());
+        let name = format!("{}-agent-{}", config().container_prefix, Uuid::new_v4());
         Self {
             root: std::env::temp_dir().join(&name),
             name,
@@ -102,7 +103,11 @@ impl Job {
             Runtime::Docker(_) => JobPaths {
                 job: "/job".into(),
                 inputs: "/inputs".into(),
-                mcp: MCP_BIN.into(),
+                mcp: config()
+                    .tools
+                    .as_ref()
+                    .map_or("", |tools| tools.target)
+                    .into(),
             },
             Runtime::Local(_) => JobPaths {
                 job: utf8(self.root.join("work"))?,
@@ -118,7 +123,8 @@ impl Job {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            crate::rt::fs::set_permissions(&self.root, std::fs::Permissions::from_mode(0o700)).await?;
+            crate::rt::fs::set_permissions(&self.root, std::fs::Permissions::from_mode(0o700))
+                .await?;
         }
         for folder in [
             "inputs",
@@ -184,8 +190,8 @@ async fn cleanup_job(
     remove_container(&name).await;
     remove_container(&format!("{name}-login")).await;
     if let Some((binary, image, volume)) = login {
-        let _ = persist_login_with_timeout(&root, &name, &binary, &image, &volume, login_timeout)
-            .await;
+        let _ =
+            persist_login_with_timeout(&root, &name, &binary, &image, &volume, login_timeout).await;
     }
     for wait in [0, 1, 9] {
         crate::rt::sleep(Duration::from_secs(wait)).await;
@@ -339,7 +345,7 @@ fn setting(request: &Value, key: &str, max: usize) -> Result<Option<String>> {
     }
 }
 /// Makes every CLI in this process run as a plain process with its logins under `homes`. Only
-/// the hosted agent container's runner calls it (`agent_runner`, which checks it is in that
+/// the hosted agent container's runner calls it (`runner`, which checks it is in that
 /// container); the native server never does, so it keeps refusing host execution.
 /// Jobs run as `cli` (user, group) when given; sign-ins, login copies and home archives stay
 /// with this process's user.
@@ -402,14 +408,15 @@ fn utf8(path: PathBuf) -> Result<String> {
         .map_err(|_| anyhow::anyhow!("Sandbox paths must be UTF-8"))
 }
 pub(crate) fn runtime_image() -> Result<String> {
-    let runtime = crate::rt::env::var("PULLS_REVIEW_AGENT_RUNTIME").unwrap_or_else(|_| "docker".into());
+    let env = config().env;
+    let runtime = crate::rt::env::var(format!("{env}_RUNTIME")).unwrap_or_else(|_| "docker".into());
     if runtime.trim() != "docker" {
-        bail!("The Rust server requires PULLS_REVIEW_AGENT_RUNTIME=docker; unsandboxed host execution is disabled");
+        bail!("The server requires {env}_RUNTIME=docker; unsandboxed host execution is disabled");
     }
     let image =
-        crate::rt::env::var("PULLS_REVIEW_AGENT_IMAGE").unwrap_or_else(|_| "pulls-review-agents".into());
+        crate::rt::env::var(format!("{env}_IMAGE")).unwrap_or_else(|_| config().image.into());
     if image.is_empty() || image.starts_with('-') || image.chars().any(char::is_whitespace) {
-        bail!("Invalid PULLS_REVIEW_AGENT_IMAGE");
+        bail!("Invalid {env}_IMAGE");
     }
     Ok(image)
 }
@@ -542,7 +549,15 @@ async fn persist_login(
     image: &str,
     volume: &str,
 ) -> Result<()> {
-    persist_login_with_timeout(root, job_name, binary, image, volume, Duration::from_secs(30)).await
+    persist_login_with_timeout(
+        root,
+        job_name,
+        binary,
+        image,
+        volume,
+        Duration::from_secs(30),
+    )
+    .await
 }
 async fn persist_login_with_timeout(
     root: &Path,
@@ -564,7 +579,7 @@ async fn persist_login_with_timeout(
     create.arg(image).args([
         "--wait",
         "10",
-        "/login/.pulls-review-auth.lock",
+        &format!("/login/{}", config().lock_file),
         "node",
         "-e",
         LOGIN_PERSIST_SCRIPT,
@@ -582,10 +597,11 @@ async fn persist_login_with_timeout(
 /// Docker always needs a Linux helper, even when its server runs on macOS or Windows.
 /// A configured helper must be an ELF executable; otherwise use the Linux server itself.
 fn mcp_helper() -> Result<PathBuf> {
-    let path = match crate::rt::env::var_os("PULLS_REVIEW_AGENT_MCP_BINARY") {
+    let env = config().env;
+    let path = match crate::rt::env::var_os(format!("{env}_MCP_BINARY")) {
         Some(path) => PathBuf::from(path),
         None if cfg!(target_os = "linux") => std::env::current_exe()?,
-        None => bail!("Set PULLS_REVIEW_AGENT_MCP_BINARY to a Linux build of pulls-review-server for the Docker image's architecture."),
+        None => bail!("Set {env}_MCP_BINARY to a Linux build of this server for the Docker image's architecture."),
     };
     let path = path
         .canonicalize()
@@ -618,7 +634,11 @@ async fn launch(
         &mount(&job.root.join("inputs"), "/inputs", true)?,
     ]);
     if helper {
-        create.args(["--mount", &mount(&mcp_helper()?, MCP_BIN, true)?]);
+        let tools = config()
+            .tools
+            .as_ref()
+            .context("This server gives AI jobs no tools")?;
+        create.args(["--mount", &mount(&mcp_helper()?, tools.target, true)?]);
     }
     create.arg(&image).args(args);
     let result = create_start(&mut create, &job.name, input, on_line).await;
@@ -644,10 +664,16 @@ async fn launch_local(
     input: Vec<u8>,
     on_line: &mut (dyn FnMut(&str) -> bool + Send),
 ) -> Result<Vec<u8>> {
-    let home = job.runtime.home(&job.volume).context("Not a local runtime")?;
+    let home = job
+        .runtime
+        .home(&job.volume)
+        .context("Not a local runtime")?;
     let work = job.root.join("work");
     let mut bootstrap = local_command("node", &work.join("home"));
-    bootstrap.args(["-e", LOGIN_BOOTSTRAP_SCRIPT, binary]).arg(&home).arg(&work);
+    bootstrap
+        .args(["-e", LOGIN_BOOTSTRAP_SCRIPT, binary])
+        .arg(&home)
+        .arg(&work);
     crate::rt::timeout(Duration::from_secs(30), process(&mut bootstrap, vec![]))
         .await
         .context("Sandbox authentication copy timed out")?
@@ -692,7 +718,7 @@ async fn persist_login_local(
     let mut persist = local_command("flock", &work.join("home"));
     persist
         .args(["--wait", "10"])
-        .arg(home.join(".pulls-review-auth.lock"))
+        .arg(home.join(config().lock_file))
         .args(["node", "-e", LOGIN_PERSIST_SCRIPT, binary])
         .arg(&home)
         .arg(&work);
@@ -709,22 +735,15 @@ pub async fn run_agent(
     cancel: watch::Receiver<bool>,
     sink: EventSink,
 ) -> Result<(String, Value)> {
-    run_agent_prepared(
-        request,
-        login,
-        cancel,
-        sink,
-        crate::ai::StructuredAnswerPreparation::Strict,
-    )
-    .await
+    run_agent_prepared(request, login, cancel, sink, Preparation::STRICT).await
 }
 
-pub(crate) async fn run_agent_prepared(
+pub async fn run_agent_prepared(
     request: Value,
     login: &AgentLogin,
     mut cancel: watch::Receiver<bool>,
     sink: EventSink,
-    preparation: crate::ai::StructuredAnswerPreparation,
+    preparation: Preparation,
 ) -> Result<(String, Value)> {
     if *cancel.borrow() {
         bail!("AI task cancelled");
@@ -732,8 +751,8 @@ pub(crate) async fn run_agent_prepared(
     if serde_json::to_vec(&request)?.len() > INPUT_LIMIT {
         bail!("AI job exceeds the 8 MiB input limit");
     }
-    if crate::agent_remote::get().is_some() {
-        return crate::agent_remote::run(request, login, cancel, sink, preparation).await;
+    if crate::remote::get().is_some() {
+        return crate::remote::run(request, login, cancel, sink, preparation).await;
     }
     let job = Job::new(login, runtime()?);
     let result = tokio::select! {
@@ -742,14 +761,14 @@ pub(crate) async fn run_agent_prepared(
     };
     remove_container(&job.name).await;
     remove_container(&format!("{}-login", job.name)).await;
-    result.map(|(answer, usage)| (crate::ai::sanitize(&answer), usage))
+    result.map(|(answer, usage)| (sanitize(&answer), usage))
 }
 async fn run_inner(
     request: &Value,
     job: &Job,
     login: &AgentLogin,
     sink: EventSink,
-    preparation: crate::ai::StructuredAnswerPreparation,
+    preparation: Preparation,
 ) -> Result<(String, Value)> {
     let engine = setting(request, "engine", 32)?.context("AI engine is required")?;
     let binary = binary(&engine)?;
@@ -761,7 +780,7 @@ async fn run_inner(
         bail!("Unsupported reasoning effort");
     }
     let prompt = setting(request, "prompt", INPUT_LIMIT)?.context("AI prompt is required")?;
-    let system = crate::ai::sanitize(&setting(request, "system", 64 * 1024)?.unwrap_or_default());
+    let system = sanitize(&setting(request, "system", 64 * 1024)?.unwrap_or_default());
     if request
         .get("schema")
         .is_some_and(|v| v.to_string().len() > 64 * 1024)
@@ -786,7 +805,20 @@ async fn run_inner(
         )
         .await?;
     }
-    let mcp_args = json!(["--mcp-context", format!("{}/payload.json", paths.inputs)]);
+    let tools = match context {
+        Some(_) => Some(
+            config()
+                .tools
+                .as_ref()
+                .context("This server gives AI jobs no tools")?,
+        ),
+        None => None,
+    };
+    let server = tools.map_or("", |tools| tools.server);
+    let mcp_args = json!([
+        tools.map_or("", |tools| tools.context_arg),
+        format!("{}/payload.json", paths.inputs)
+    ]);
     let mut args: Vec<String>;
     let input: Vec<u8>;
     if binary == "claude" {
@@ -825,12 +857,12 @@ async fn run_inner(
                 .context("Scoped tool names are missing")?
                 .iter()
                 .filter_map(Value::as_str)
-                .map(|t| format!("mcp__pr__{t}"))
+                .map(|t| format!("mcp__{server}__{t}"))
                 .collect::<Vec<_>>()
                 .join(",");
             args.extend([
                 "--mcp-config".into(),
-                json!({"mcpServers":{"pr":{"command":paths.mcp,"args":mcp_args}}}).to_string(),
+                json!({"mcpServers":{server:{"command":paths.mcp,"args":mcp_args}}}).to_string(),
                 "--allowedTools".into(),
                 tools,
             ]);
@@ -886,9 +918,9 @@ async fn run_inner(
         }
         if context.is_some() {
             for config in [
-                format!("mcp_servers.pr.command={}", json!(paths.mcp)),
-                format!("mcp_servers.pr.args={mcp_args}"),
-                "mcp_servers.pr.default_tools_approval_mode=\"approve\"".into(),
+                format!("mcp_servers.{server}.command={}", json!(paths.mcp)),
+                format!("mcp_servers.{server}.args={mcp_args}"),
+                format!("mcp_servers.{server}.default_tools_approval_mode=\"approve\""),
             ] {
                 args.extend(["-c".into(), config]);
             }
@@ -897,12 +929,20 @@ async fn run_inner(
         input = format!("{system}\n\n{prompt}").into_bytes();
     }
     let mut parser = CliParser::new(binary, structured, model, sink);
-    let input = crate::ai::sanitize(&String::from_utf8(input).context("Invalid prompt encoding")?)
-        .into_bytes();
-    launch(job, login, binary, args, input, context.is_some(), &mut |line| {
-        parser.feed(line);
-        false
-    })
+    let input =
+        sanitize(&String::from_utf8(input).context("Invalid prompt encoding")?).into_bytes();
+    launch(
+        job,
+        login,
+        binary,
+        args,
+        input,
+        context.is_some(),
+        &mut |line| {
+            parser.feed(line);
+            false
+        },
+    )
     .await?;
     let (mut answer, usage) = parser.finish()?;
     if structured {
@@ -916,8 +956,8 @@ async fn run_inner(
 pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
     static VERSION: OnceLock<regex::Regex> = OnceLock::new();
     let binary = binary(engine)?;
-    if crate::agent_remote::get().is_some() {
-        return crate::agent_remote::call(login, "/catalog", json!({"engine": engine})).await;
+    if crate::remote::get().is_some() {
+        return crate::remote::call(login, "/catalog", json!({"engine": engine})).await;
     }
     let job = Job::new(login, runtime()?);
     let result = crate::rt::timeout(Duration::from_secs(45), async {
@@ -955,12 +995,42 @@ pub async fn catalog(engine: &str, login: &AgentLogin) -> Result<Value> {
 }
 /// Older Claude models Claude Code runs by full id: id, name, efforts and default effort.
 const OLDER_CLAUDE: &[(&str, &str, &[&str], &str)] = &[
-    ("claude-opus-5", "Opus 5", &["low", "medium", "high", "xhigh", "max"], "high"),
-    ("claude-sonnet-5", "Sonnet 5", &["low", "medium", "high", "xhigh", "max"], "high"),
-    ("claude-opus-4-8", "Opus 4.8", &["low", "medium", "high", "xhigh", "max"], "high"),
-    ("claude-opus-4-7", "Opus 4.7", &["low", "medium", "high", "xhigh", "max"], "xhigh"),
-    ("claude-opus-4-6", "Opus 4.6", &["low", "medium", "high", "max"], "high"),
-    ("claude-sonnet-4-6", "Sonnet 4.6", &["low", "medium", "high", "max"], "high"),
+    (
+        "claude-opus-5",
+        "Opus 5",
+        &["low", "medium", "high", "xhigh", "max"],
+        "high",
+    ),
+    (
+        "claude-sonnet-5",
+        "Sonnet 5",
+        &["low", "medium", "high", "xhigh", "max"],
+        "high",
+    ),
+    (
+        "claude-opus-4-8",
+        "Opus 4.8",
+        &["low", "medium", "high", "xhigh", "max"],
+        "high",
+    ),
+    (
+        "claude-opus-4-7",
+        "Opus 4.7",
+        &["low", "medium", "high", "xhigh", "max"],
+        "xhigh",
+    ),
+    (
+        "claude-opus-4-6",
+        "Opus 4.6",
+        &["low", "medium", "high", "max"],
+        "high",
+    ),
+    (
+        "claude-sonnet-4-6",
+        "Sonnet 4.6",
+        &["low", "medium", "high", "max"],
+        "high",
+    ),
     ("claude-haiku-4-5", "Haiku 4.5", &[], ""),
 ];
 
@@ -1081,8 +1151,14 @@ fn parse_catalog(binary: &str, body: &Value) -> Result<Value> {
             .flatten()
             .filter_map(|row| row["resolvedModel"].as_str())
             .map(|resolved| {
-                let bare = CONTEXT_SUFFIX.get_or_init(|| regex::Regex::new(r"\[[^\]]*\]$").unwrap()).replace(resolved, "").into_owned();
-                DATE_SUFFIX.get_or_init(|| regex::Regex::new(r"-\d{8}$").unwrap()).replace(&bare, "").into_owned()
+                let bare = CONTEXT_SUFFIX
+                    .get_or_init(|| regex::Regex::new(r"\[[^\]]*\]$").unwrap())
+                    .replace(resolved, "")
+                    .into_owned();
+                DATE_SUFFIX
+                    .get_or_init(|| regex::Regex::new(r"-\d{8}$").unwrap())
+                    .replace(&bare, "")
+                    .into_owned()
             })
             .collect();
         for (id, name, efforts, default) in OLDER_CLAUDE {
@@ -1103,8 +1179,7 @@ fn parse_catalog(binary: &str, body: &Value) -> Result<Value> {
             catalog["account"] = json!(account);
         }
     }
-    serde_json::from_str(&crate::ai::sanitize(&catalog.to_string()))
-        .context("Invalid catalog metadata")
+    serde_json::from_str(&sanitize(&catalog.to_string())).context("Invalid catalog metadata")
 }
 
 #[cfg(test)]
@@ -1183,11 +1258,36 @@ for(const invalid of [{regular:false},{symlink:true},{size:524289},{realpath:'/o
         assert_eq!(c["models"][0]["defaultEffort"], "medium");
         assert_eq!(c["account"], "max");
         // The older models Claude Code runs by full id follow its aliases, without one it already lists.
-        let ids: Vec<&str> = c["models"].as_array().unwrap().iter().filter_map(|m| m["id"].as_str()).collect();
-        assert_eq!(ids, ["opus", "claude-opus-5", "claude-sonnet-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5"]);
+        let ids: Vec<&str> = c["models"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|m| m["id"].as_str())
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                "opus",
+                "claude-opus-5",
+                "claude-sonnet-5",
+                "claude-opus-4-8",
+                "claude-opus-4-7",
+                "claude-opus-4-6",
+                "claude-sonnet-4-6",
+                "claude-haiku-4-5"
+            ]
+        );
         assert_eq!(c["models"][4]["defaultEffort"], "xhigh");
         let c=parse_catalog("claude",&json!({"models":[{"value":"claude-opus-4-8","displayName":"Opus 4.8","resolvedModel":"claude-opus-4-8[1m]"}]})).unwrap();
-        assert_eq!(c["models"].as_array().unwrap().iter().filter(|m| m["id"].as_str().is_some_and(|id| id.contains("4-8"))).count(), 1);
+        assert_eq!(
+            c["models"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["id"].as_str().is_some_and(|id| id.contains("4-8")))
+                .count(),
+            1
+        );
         let c=parse_catalog("codex",&json!({"models":[{"slug":"old","priority":3},{"slug":"hidden","priority":0,"visibility":"hide"},{"slug":"new","priority":1,"supported_reasoning_levels":[{"effort":"high"}],"default_reasoning_level":"high"}]})).unwrap();
         assert_eq!(c["models"][0]["id"], "new");
         assert_eq!(c["models"][0]["isDefault"], true);

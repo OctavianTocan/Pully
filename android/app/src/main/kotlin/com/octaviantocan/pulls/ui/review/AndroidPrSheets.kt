@@ -2,13 +2,13 @@ package com.octaviantocan.pulls.ui.review
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.octaviantocan.aikit.CliCatalog
+import com.octaviantocan.aikit.asCatalog
 import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.ReviewFile
 import com.octaviantocan.pulls.data.ServerConfig
 import com.octaviantocan.pulls.ui.design.Messages
 import com.octaviantocan.pulls.ui.home.LocalNativeHomeActions
-import com.octaviantocan.pulls.ui.settings.CliCatalog
-import com.octaviantocan.pulls.ui.settings.asCatalog
 import com.octaviantocan.pulls.ui.settings.rememberAndroidModelSettingsServices
 import kotlinx.coroutines.CancellationException
 
