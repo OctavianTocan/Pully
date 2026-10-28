@@ -7,7 +7,9 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Pully Preview</string>
+    <string>Pully</string>
+    <key>GIDClientID</key>
+    <string>$(PULLY_GOOGLE_IOS_CLIENT_ID)</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -47,6 +49,16 @@
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>pully</string>
+            </array>
+        </dict>
+        <dict>
+            <key>CFBundleTypeRole</key>
+            <string>Editor</string>
+            <key>CFBundleURLName</key>
+            <string>com.octaviantocan.pully.google</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>$(PULLY_GOOGLE_IOS_CALLBACK_SCHEME)</string>
             </array>
         </dict>
     </array>
