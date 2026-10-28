@@ -67,3 +67,26 @@ made elsewhere until it was reloaded or the app came back to the front.
 Contracts: `server-sync-feed-names-only-own-changes`, `server-inbox-fresh-while-watched`
 (backend), `sync-reads-what-changed`, `writes-show-first` (shared-client),
 `home-inbox-follows-the-server`, `review-page-follows-the-server` (shared-ui).
+
+## Pages read before the tap (0.73.0)
+
+Asked by Tavi on 28 Oct 2026 at 15:36: "even the things that the user hasn't actually opened
+yet load immediately", with everything from his account and repos already on the phone.
+
+Measured first. The phone's own `pr.load` timings (125 opens, 19 to 21 Oct) took a median of
+0.7 s when the server had the diff and 2.9 s when it read GitHub (90th percentile 5.4 s,
+worst 9.8 s), and the overview, reviews and stack were read from GitHub on every open (1.1 to
+2.2 s on the server, `pr-overview`, `review-data` and `pr-stack`).
+
+- **Server** (`server-keeps-pull-request-pages`): `review-data` and `pr-stack` keep their last
+  answer beside `pr-overview`'s (`backend/src/review/github/kept.rs`) and answer `cached: true`
+  from it. The warm round reads them again only when a pull request's `updatedAt` moved. A
+  diff the server does not have reads the comparison, files and commits together: 2.4 s
+  became 1.4 s for the same reads in a test against GitHub.
+- **Phone** (`pages-are-read-before-the-tap`): once the Inbox shows, the first forty rows'
+  pages (`PullPage`: diff, overview, reviews, stack) are read two at a time and kept;
+  Android keeps them in files of the account's own (`FilePageCopies`, sixty pages, 48 MB).
+  A page opens from its copy in the first frame: reading and drawing the largest one seen,
+  450 KB with 86 files, took 14 ms (median, laptop JVM). Only rows whose head or `updatedAt`
+  moved are read again.
+- iOS keeps its earlier warm of the top four rows in memory: it has no file store yet.

@@ -9,6 +9,7 @@ use std::{
     sync::Arc,
 };
 mod github;
+pub(crate) use github::keep_pull_reads;
 pub(crate) use github::{read_with as github_read_with, ReadKind as GitHubReadKind};
 const DIFF_LIMIT: usize = 50;
 const DIFF_BYTES: u64 = 50 * 1024 * 1024;

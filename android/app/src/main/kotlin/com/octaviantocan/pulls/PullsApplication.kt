@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 class PullsApplication : Application() {
     private val reviewScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    val reviewSessions = ReviewSessionCache(reviewScope)
+    val reviewSessions = ReviewSessionCache(reviewScope) { com.octaviantocan.pulls.ui.review.androidPageCopies(this) }
     val homeScreenData = com.octaviantocan.pulls.ui.home.HomeScreenDataOwner()
 
     override fun onCreate() {

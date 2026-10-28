@@ -19,10 +19,24 @@ saved child state. Source: the accepted 21 Oct 2026 iOS source-identity ownershi
 
 @cc [owner:OctavianTocan,label:product;architecture] shared-review-opens-from-bounded-cache
 An opened review MUST show its kept diff before waiting for a request and MUST join
-its in-flight warm. The recent-review cache MUST retain at most twelve reviews and
-warming MUST be bounded; the Inbox's top four remain the initial warm set. Source:
-the existing ReviewSession policy, retained by Tavi's 21 Oct iOS reuse decision;
-recording 16 Oct 13:06, 09:09 to 09:17 (O20; DESIGN.md rule 187).
+its in-flight warm. The in-memory recent-review cache MUST retain at most twelve reviews
+and warming MUST be bounded. A host that keeps no pages on the phone warms the Inbox's
+top four; one that does reads the Inbox's pages ahead (pages-are-read-before-the-tap).
+Source: the existing ReviewSession policy, retained by Tavi's 21 Oct iOS reuse decision;
+recording 16 Oct 13:06, 09:09 to 09:17 (O20; DESIGN.md rule 187); the top-four set
+widened by Tavi's 28 Oct 2026 15:36 ask in thread "Build a sync engine like Wholana's".
+
+@cc [owner:OctavianTocan,label:product;architecture;security] pages-are-read-before-the-tap
+Once the Inbox has shown, the page of each of its first forty rows, top first, MUST be
+read two at a time and kept on the phone: the diff, the overview, the reviews and the
+stack, taking the server's kept copies where it has them. A row whose head and
+`updatedAt` match its kept page MUST NOT be read again. A pull request opened with a
+kept page MUST show its diff, overview, reviews and stack from it in the first frame,
+then refresh as any opening does. On Android the pages outlive the app, in a folder of
+the account's own, at most sixty pages and 48 MB, the least recently used dropped first;
+a store MUST NOT read or write once its account is gone. Source: Tavi, 28 Oct 2026 15:36,
+"even the things that the user hasn't actually opened yet load immediately ... We should
+have those already. It should just basically display immediately".
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-late-responses-match-view
 Patches, saved work, file marks and task updates MUST match the current diff key,

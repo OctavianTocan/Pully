@@ -21,6 +21,18 @@ app shows it beside the version in the phone's own time. Builds from before then
 Sections run newest first by date too.
 -->
 
+## 0.73.0
+
+#### 2026-10-28 16:05 UTC
+
+Pull requests on your Inbox open at once, read before you tap them.
+
+- Every pull request on your Inbox has its files, description, conversation, review comments and stack read ahead and kept on your phone, so tapping one, or a link to one, shows everything straight away and then quietly brings it up to date. Only pull requests that changed are read again.
+- The server keeps each pull request's comments and stack as well as its description, so even one your phone has not read yet arrives in a single quick answer instead of waiting on GitHub.
+- A pull request nobody has opened before, like a new one or one from another project, loads sooner: its files and commits are asked for together.
+
+![Before, a tap waited on the server; now the page is already on your phone](changelog/0.73.0/instant-pages.png)
+
 ## 0.72.0
 
 #### 2026-10-28 15:22 UTC

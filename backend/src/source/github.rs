@@ -498,20 +498,26 @@ pub(crate) async fn fetch_with(read: &dyn GitHubRead, r: &Value) -> Result<Value
         let base = s(&pr["base"], "sha");
         let head = s(&pr["head"], "sha");
         let cp = format!("{p}/compare/{}...{}", enc(base), enc(head));
-        let comparison = github_read::json(read, reqwest::Method::GET, &cp, None).await?;
+        let files_path = format!("{p}/pulls/{number}/files");
+        let commits_path = format!("{p}/pulls/{number}/commits");
+        // The three reads only need the revisions read above, and the second read of the pull
+        // request below still rejects a push made meanwhile, so they go out together.
+        let (comparison, files, cs) = tokio::try_join!(
+            github_read::json(read, reqwest::Method::GET, &cp, None),
+            pages_with(read, &files_path, None),
+            pages_with(read, &commits_path, None),
+        )?;
         let mb = s(&comparison["merge_base_commit"], "sha");
         ensure!(
             !mb.is_empty() && !head.is_empty(),
             "GitHub did not return captured revisions"
         );
-        let files = pages_with(read, &format!("{p}/pulls/{number}/files"), None).await?;
         ensure!(
             pr["changed_files"]
                 .as_u64()
                 .is_none_or(|n| n == files.len() as u64),
             "GitHub omitted files from this PR; refusing incomplete diff"
         );
-        let cs = pages_with(read, &format!("{p}/pulls/{number}/commits"), None).await?;
         ensure!(
             pr["commits"].as_u64().is_none_or(|n| n == cs.len() as u64),
             "GitHub omitted commits from this PR; refusing incomplete diff"

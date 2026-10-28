@@ -1,5 +1,6 @@
 //! GitHub review operations. Credentials and HTTP policy are owned by `source`.
 mod citations;
+mod kept;
 mod overview;
 mod stack;
 use crate::source::github_read::{self, GitHubRead, StateGitHubRead};
@@ -372,12 +373,18 @@ async fn review_operation(state: &AppState, name: &str, args: &Value) -> Result<
     let pull = Pull::from(args)?;
     match name {
         "review-data" | "review-threads" => {
-            let mut data = review_data(state, &pull).await?;
+            let viewer_query = graphql(state,"query Viewer($owner:String!,$repo:String!){viewer{login} repository(owner:$owner,name:$repo){viewerPermission}}",json!({"owner":pull.owner,"repo":pull.repo}));
+            let (data, viewer) = if name == "review-threads" {
+                (review_data(state, &pull).await?, Value::Null)
+            } else {
+                let (data, viewer) = futures_util::join!(review_data(state, &pull), viewer_query);
+                (data?, viewer.unwrap_or(Value::Null))
+            };
+            let mut data = data;
             if name == "review-threads" {
                 let threads:Vec<Value>=list(&data["threads"]).iter().filter(|t|!t["line"].is_null()&&!bool_at(t,"outdated")).map(|t|json!({"path":t["path"],"side":t["side"],"line":t["line"],"rootId":t["rootId"],"threadId":t["threadId"],"resolved":bool_at(t,"resolved"),"comments":list(&t["comments"]).iter().map(|c|json!({"author":c["author"]["login"],"body":c["body"]})).collect::<Vec<_>>()})).collect();
                 data = json!({"threads":threads});
             } else {
-                let viewer=graphql(state,"query Viewer($owner:String!,$repo:String!){viewer{login} repository(owner:$owner,name:$repo){viewerPermission}}",json!({"owner":pull.owner,"repo":pull.repo})).await.unwrap_or(Value::Null);
                 data["viewer"] = viewer["viewer"]["login"].clone();
                 data["canWrite"] = json!(["ADMIN", "MAINTAIN", "WRITE"]
                     .contains(&text(&viewer["repository"], "viewerPermission")));
@@ -1009,9 +1016,18 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: &Value) -> Option<R
     Some(match name {
         "pr-overview" => overview(state, args).await,
         "pr-text" => pull_text(state, args).await,
-        "pr-stack" => stack(state, args).await,
+        "pr-stack" => kept_or_read(state, args, kept::STACK, stack(state, args)).await,
         "pr-action" => pr_action(state, args).await,
-        "review-data" | "review-threads" | "review-reply" | "review-resolve" | "review-comment"
+        "review-data" => {
+            kept_or_read(
+                state,
+                args,
+                kept::REVIEWS,
+                review_operation(state, name, args),
+            )
+            .await
+        }
+        "review-threads" | "review-reply" | "review-resolve" | "review-comment"
         | "review-submit" | "review-discard" | "review-edit" | "review-delete" => {
             review_operation(state, name, args).await
         }
@@ -1019,6 +1035,52 @@ pub async fn handle(state: &Arc<AppState>, name: &str, args: &Value) -> Option<R
         "share-analysis" | "shared-list" | "shared-load" => sharing(state, name, args).await,
         _ => return None,
     })
+}
+
+/// `cached: true` answers the copy kept from the last read without asking GitHub (null when
+/// none); otherwise GitHub's answer is kept, then returned.
+async fn kept_or_read(
+    state: &AppState,
+    args: &Value,
+    kind: &str,
+    read: impl std::future::Future<Output = Result<Value>>,
+) -> Result<Value> {
+    let pull = Pull::from(args)?;
+    if bool_at(args, "cached") {
+        return kept::read(state, kind, &pull).await;
+    }
+    let at = crate::now_ms();
+    let value = read.await?;
+    let _ = kept::keep(state, kind, &pull, at, text(args, "updatedAt"), &value).await;
+    Ok(value)
+}
+
+/// Brings the kept reviews and stack of a pull request up to `updated_at` (its `updatedAt` on
+/// GitHub): each is read again only when kept for another version. The warm round runs this
+/// for the Inbox, so a phone can keep every page it may open (`server-keeps-pull-request-pages`).
+pub(crate) async fn keep_pull_reads(state: &Arc<AppState>, args: &Value) -> Result<usize> {
+    let pull = Pull::from(args)?;
+    let updated_at = text(args, "updatedAt");
+    let mut read = 0;
+    for kind in [kept::REVIEWS, kept::STACK] {
+        if kept::version(state, kind, &pull)
+            .await?
+            .is_some_and(|(_, kept_for)| !updated_at.is_empty() && kept_for == updated_at)
+        {
+            continue;
+        }
+        let at = crate::now_ms();
+        let value = if kind == kept::REVIEWS {
+            review_operation(state, "review-data", args).await
+        } else {
+            stack(state, args).await
+        };
+        if let Ok(value) = value {
+            kept::keep(state, kind, &pull, at, updated_at, &value).await?;
+            read += 1;
+        }
+    }
+    Ok(read)
 }
 
 #[cfg(test)]
