@@ -2,7 +2,7 @@ package com.octaviantocan.pulls.ios
 
 import com.octaviantocan.pulls.data.IosUsageAnalytics
 import com.octaviantocan.pulls.data.PullSizes
-import com.octaviantocan.pulls.data.sourceStorageNamespace
+import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.settings.AppSettings
 import com.octaviantocan.pulls.ui.RootSource
 import com.octaviantocan.pulls.ui.Commands
@@ -12,17 +12,20 @@ import com.octaviantocan.pulls.ui.review.IosTourCacheOwner
 import com.octaviantocan.pulls.sound.ControlFeedback
 import com.octaviantocan.pulls.sound.Cue
 import com.octaviantocan.pulls.sound.Emphasis
-import com.octaviantocan.pulls.ui.settings.AccountRuntime
 import kotlinx.coroutines.CancellationException
 import platform.Foundation.NSUserDefaults
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlin.time.Clock
 
-/** Native persistence and effects only; all lists, RPCs and presentation policies are the existing shared code. */
+/**
+ * Native persistence and effects only; all lists, RPCs and presentation policies are the existing shared code.
+ * [namespace] is the signed-in account's own storage, from a server sign-in or a GitHub workspace.
+ */
 internal fun iosHomeServices(
     source: RootSource,
-    runtime: AccountRuntime,
+    repo: Repo,
+    namespace: String,
     settings: AppSettings,
     native: NativeHomeActions,
     analytics: IosUsageAnalytics,
@@ -35,10 +38,6 @@ internal fun iosHomeServices(
     defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
     unavailable: (HomePreviewFeature) -> Unit,
 ): HomeScreenServices {
-    val connection = runtime.connection() ?: throw IllegalStateException("Pully could not open its saved credentials.")
-    val email = owner()
-    val namespace = sourceStorageNamespace(connection.server, email, email != null, connection.headers)
-        ?: throw IllegalStateException("Check the Server URL in Settings.")
     val current = { source.current }
     val copies = tours.forSource(namespace, current)
     val sourceNative = SourceHomeActions(native, current)
@@ -60,7 +59,6 @@ internal fun iosHomeServices(
         override fun loadError(message: String?) { if (current()) analytics.error("inbox.load", message) }
         override fun action(action: String, value: String) { if (current()) analytics.track("inbox.action", "action" to action, "value" to value) }
     }
-    val repo = runtime.repo
     val homeStore = section("pulls-home")
     val home = HomeState(
         MyPullsSync(

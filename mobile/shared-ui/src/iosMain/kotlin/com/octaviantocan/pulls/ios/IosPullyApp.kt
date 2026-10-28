@@ -62,13 +62,14 @@ class IosPullyApp private constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val incoming = IncomingLinkInbox()
     private var privateWorkspace: IosPrivateWorkspace? = null
+    private var guestWorkspace: IosGuestWorkspace? = null
     private var closed = false
     private val evidence = NativeEntryEvidence(UserDefaultsSettings(defaults, "pully-entry"), accountStorage)
     private val entry = if (fixture) NativeEntryState(true) else evidence.entry()
     private val githubAccountRequest = GitHubAccountRequest(entry)
     private val navigation = AppNavigation(rootScreen = if (entry.mode == NativeEntryMode.Explore) Screen.Explore else Screen.Home)
     private val settings = AppSettings(UserDefaultsSettings(defaults), object : SettingsEffects {
-        override fun touched(name: String) { privateWorkspace?.touched(name) }
+        override fun touched(name: String) { privateWorkspace?.touched(name) ?: guestWorkspace?.touched(name) }
         override fun settingsChanged(key: String, value: String) { privateWorkspace?.settingChanged(key, value) }
         override fun experimentChanged(feature: String, enabled: Boolean) { privateWorkspace?.experimentChanged(feature, enabled) }
         override fun usageStatsEnabled(enabled: Boolean) { privateWorkspace?.usageChanged(enabled) }
@@ -79,8 +80,10 @@ class IosPullyApp private constructor(
         createGuest = { source, stack, current ->
             shareHandoff?.revoke()
             privateWorkspace = null
+            guestWorkspace = null
             initialWorkspace = false
             IosGuestWorkspace(homeActions, settings, transport, scope, source, stack, incoming, current, personalSessions, githubAccountRequest)
+                .also { guestWorkspace = it }
         },
         createExisting = { stack, current ->
             IosPrivateWorkspace(
@@ -154,6 +157,6 @@ class IosPullyApp private constructor(
         runCatching { incomingLifecycle?.cancel() }
         personalIdentitySubscription?.invoke()
         try { workspaces.close() }
-        finally { privateWorkspace = null; incoming.clear(); scope.cancel() }
+        finally { privateWorkspace = null; guestWorkspace = null; incoming.clear(); scope.cancel() }
     }
 }

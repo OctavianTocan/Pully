@@ -207,8 +207,19 @@ internal class IosPrivateWorkspace(
         }
         PullyRootScreen(
             root, account, settings, homeActions,
-            createHome = { source -> iosHomeServices(source, account, settings, homeActions, analytics, ::owner, root.reviewSessions, tours, fullJourney, fixture, { aiCapabilities }, defaults) { limitation = it } },
-            createSettings = { source, home -> iosSettingsServices(source, home, account, defaults, ::owner, ::serverServices, { displayedScreen }, ::feedbackPlace, ::showScreen) },
+            createHome = { source -> iosHomeServices(source, account.repo, storageNamespace(), settings, homeActions, analytics, ::owner, root.reviewSessions, tours, fullJourney, fixture, { aiCapabilities }, defaults) { limitation = it } },
+            createSettings = { source, home ->
+                iosSettingsServices(
+                    source, home, storageNamespace(),
+                    readModel = {
+                        val saved = requireNotNull(account.connection()) { "Pully could not open its saved model choice." }
+                        ModelConfiguration(saved.engine, saved.model)
+                    },
+                    writeModel = { account.saveAnalysis(it.engine, it.model) },
+                    signOut = account::signOut,
+                    defaults, ::owner, ::serverServices, { displayedScreen }, ::feedbackPlace, ::showScreen,
+                )
+            },
             createReview = { source, home, services ->
                 iosReviewFrameServices(
                     source, home, root.reviewSessions, analytics, services.models,
@@ -223,6 +234,14 @@ internal class IosPrivateWorkspace(
             firstFrame = analytics::firstFrame, showScreen = ::showScreen, fixture = fixture,
             aiCapabilities = aiCapabilities, reviewCapabilities = reviewCapabilities, onExplore = onExplore, onGitHubAccount = onGitHubAccount,
         )
+    }
+
+    /** The signed-in server account's own storage. */
+    private fun storageNamespace(): String {
+        val connection = account.connection() ?: throw IllegalStateException("Pully could not open its saved credentials.")
+        val email = owner()
+        return sourceStorageNamespace(connection.server, email, email != null, connection.headers)
+            ?: throw IllegalStateException("Check the Server URL in Settings.")
     }
 
     private fun owner(): String? = eligibleAccountOwner(account.serverHasAccount, accountStorage.account(), accountStorage.connection(false))

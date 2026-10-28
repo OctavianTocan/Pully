@@ -25,7 +25,13 @@ import com.octaviantocan.pulls.ui.settings.ColorThemeSheet
 import com.octaviantocan.pulls.ui.settings.wantsDark
 import com.octaviantocan.pulls.settings.UserDefaultsSettings
 import com.octaviantocan.pulls.ui.review.PublicReviewFrame
+import com.octaviantocan.pulls.data.PersonalAccountRuntime
+import com.octaviantocan.pulls.data.PersonalWorkspaceOwner
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import platform.Foundation.NSUserDefaults
 import kotlin.time.Clock
@@ -42,7 +48,7 @@ internal class IosGuestWorkspace(
     private val isCurrent: () -> Boolean,
     private val personalSessions: IosPersonalSessionStore? = null,
     private val accountRequest: GitHubAccountRequest? = null,
-    defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
+    private val defaults: NSUserDefaults = NSUserDefaults.standardUserDefaults,
 ) : NativeWorkspace {
     private var closed = false
     private val personalForeground = native as? NativePersonalForegroundActions
@@ -60,6 +66,12 @@ internal class IosGuestWorkspace(
     internal val personalBrowse = personal?.let { PersonalBrowseMount(it, scope, source, navigation) }
     private var foreground by mutableStateOf(false)
     private var personalAvailable by mutableStateOf(false)
+    /** The whole app mounted for a verified GitHub workspace, as on Android; null on Explore. */
+    private var personalApp: IosPersonalWorkspace? = null
+    /** Whether the person went back to Explore from a mounted GitHub workspace. */
+    private var exploring by mutableStateOf(false)
+    /** A saved GitHub login opens on the signed-in side's still Inbox while it is checked, as on Android. */
+    private var awaitingSaved by mutableStateOf(personal?.savedPrivateLogin() == true)
     private var personalActivityEpoch = 0L
     private val githubAccountEntry = GitHubAccountEntry(
         current = { current }, foreground = { this.native.isSharedBackActive() },
@@ -74,6 +86,7 @@ internal class IosGuestWorkspace(
             override fun changed(active: Boolean) {
                 val opening = ++personalActivityEpoch
                 if (!current) return
+                personalApp?.foreground(false)
                 personalBrowse?.foreground(active, available = false)
                 if (!current || personalActivityEpoch != opening) return
                 foreground = active
@@ -83,7 +96,9 @@ internal class IosGuestWorkspace(
                 if (!current || personalActivityEpoch != opening || !foreground) return
                 personalAvailable = available
                 personalBrowse?.availability(available)
+                if (!available) awaitingSaved = false
                 if (available) personal?.restore()
+                if (current && personalActivityEpoch == opening && foreground) personalApp?.foreground(available)
                 if (current && personalActivityEpoch == opening && foreground) accountRequest?.deliver(githubAccountEntry)
             }
         })
@@ -113,6 +128,19 @@ internal class IosGuestWorkspace(
 
     @Composable
     fun Content(onExistingAccount: () -> Unit) {
+        val personalView = personal?.view?.collectAsState()?.value
+        val workspace = personalView?.account?.let { personal.workspaceOwner() }
+        var sawChecking by remember { mutableStateOf(false) }
+        LaunchedEffect(personalView) {
+            if (personalView == null) return@LaunchedEffect
+            if (personalView.checking) sawChecking = true
+            if (personalView.account != null || personalView.problem != null || (sawChecking && !personalView.checking)) awaitingSaved = false
+        }
+        LaunchedEffect(awaitingSaved) { if (awaitingSaved) { delay(SAVED_LOGIN_WAIT_MS); awaitingSaved = false } }
+        if (workspace != null && !exploring) {
+            key(workspace) { PersonalApp(workspace, personal) }
+            return
+        }
         val colorTheme = ColorThemes.of(settings.colorTheme)
         val dark = wantsDark(settings)
         val messages = rememberMessages(settings.locale)
@@ -125,7 +153,10 @@ internal class IosGuestWorkspace(
             val backs = remember { SharedBackDispatcher() }
             val toaster = remember { Toaster() }
             var themes by remember { mutableStateOf(false) }
-            val personalView = personal?.view?.collectAsState()?.value
+            if (awaitingSaved && workspace == null && !exploring) {
+                Box(Modifier.fillMaxSize().background(colors.base)) { RowsSkeleton(Modifier.statusBarsPadding().padding(top = 128.dp)) }
+                return@PullsMaterialTheme
+            }
             LaunchedEffect(accountRequest?.hasPending, foreground, personalAvailable) {
                 if (current) accountRequest?.deliver(githubAccountEntry)
             }
@@ -172,7 +203,7 @@ internal class IosGuestWorkspace(
                         navigation, motion, session,
                         { if (current) onExistingAccount() },
                         { url -> if (current) native.openOnGithub(url) },
-                        onGitHubSignIn = { githubAccountEntry.open() },
+                        onGitHubSignIn = { if (workspace != null) exploring = false else githubAccountEntry.open() },
                         onCommands = { if (current) Commands.open() },
                         githubAccount = personalView?.account?.login,
                         personal = personalBrowse,
@@ -191,12 +222,51 @@ internal class IosGuestWorkspace(
         }
     }
 
+    /**
+     * Mounts the whole app for [workspace] on this scene's own stack: open Review, Repo and Settings pages stay above
+     * Home, and the owner retiring returns to Explore (Android's GuestPullsApp).
+     */
+    @Composable
+    private fun PersonalApp(workspace: PersonalWorkspaceOwner, personal: PersonalAccountRuntime) {
+        val app = remember(workspace) {
+            Commands.close()
+            val pending = navigation.stack.filter { it is Screen.Review || it is Screen.Repo || it == Screen.Settings }
+            navigation.reset(Screen.Home)
+            navigation.stack.addAll(pending)
+            IosPersonalWorkspace(workspace, personal, native, settings, defaults, navigation, incoming) { current }
+                .also { personalApp = it; it.foreground(foreground && personalAvailable) }
+        }
+        DisposableEffect(app) {
+            val stop = workspace.onRetired {
+                Commands.close()
+                navigation.reset(Screen.Explore)
+            }
+            onDispose {
+                stop()
+                if (personalApp === app) personalApp = null
+                app.close()
+            }
+        }
+        app.Content(onExplore = {
+            if (current) {
+                exploring = true
+                Commands.close()
+                navigation.reset(Screen.Explore)
+            }
+        })
+    }
+
+    /** Settings changed on this phone, for the mounted workspace's sync. */
+    fun touched(name: String) { if (current) personalApp?.touched(name) }
+
     /** A displayed fallback can wait through the real private sign-in/source verification. */
     fun prepareExistingEntry() = links.prepareExistingEntry()
 
     override fun close() {
         if (closed) return
         closed = true
+        personalApp?.close()
+        personalApp = null
         githubAccountEntry.close()
         personalBrowse?.close()
         personalActivityEpoch++
@@ -211,3 +281,6 @@ internal class IosGuestWorkspace(
         session.close()
     }
 }
+
+/** How long a saved GitHub login may take to be verified before Explore shows instead (Android's wait). */
+private const val SAVED_LOGIN_WAIT_MS = 10_000L

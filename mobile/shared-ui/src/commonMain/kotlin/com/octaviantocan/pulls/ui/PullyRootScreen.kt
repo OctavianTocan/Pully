@@ -28,7 +28,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PullyRootScreen(
     root: PullyRootState,
-    account: AccountRuntime,
+    account: RootAccount,
     settings: AppSettings,
     native: NativeHomeActions,
     createHome: (RootSource) -> HomeScreenServices,
