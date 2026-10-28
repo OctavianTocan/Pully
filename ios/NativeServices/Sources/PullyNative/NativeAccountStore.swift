@@ -18,6 +18,8 @@ public final class NativeAccountStore {
     private let invalidated: @MainActor () -> Void
     private let identityWillChange: @MainActor () -> Void
     private var access: NativeAccessCredentials?
+    /// A Cloudflare Access sign-in's `CF_Authorization` token for this server; the service token wins when both exist.
+    private var accessToken: String?
     private var session: SessionRecord?
     private var invalidationDepth = 0
     private let encoder = JSONEncoder()
@@ -42,6 +44,7 @@ public final class NativeAccountStore {
         verificationSource = NativeConfigurationSource(initial)
         if preferences.allowsRestoringAccess {
             access = try decode(NativeAccessCredentials.self, key: accessKey(serverConfiguration.server))
+            accessToken = savedAccessToken(serverConfiguration.server)
         }
         if preferences.allowsRestoringSession,
            let active = try decode(ActiveAccount.self, key: activeKey(serverConfiguration.server)),
@@ -80,8 +83,26 @@ public final class NativeAccountStore {
         preferences.allowsRestoringAccess = true
         serverConfiguration = value
         access = credentials.isEmpty ? nil : credentials
+        if changedServer { accessToken = savedAccessToken(value.server) }
         if changedServer || changedAccess { invalidate() }
         else { publishConfiguration() }
+    }
+
+    /// Keeps the token a Cloudflare Access sign-in ended with for the configured server. A token for the same Access
+    /// email keeps this source's caches; a first sign-in or another email is a new identity.
+    public func signedInToAccess(token: String, expectedGeneration: Int64) throws {
+        guard isCurrent(expectedGeneration) else { throw NativeAccountError.staleIdentity }
+        guard NativeAccessToken.isWellFormed(token) else { throw NativeAccountError.invalidCredential }
+        try secrets.write(encoder.encode(SavedAccessToken(token: token)), for: accessTokenKey(serverConfiguration.server))
+        preferences.allowsRestoringAccess = true
+        let previousEmail = accessToken.flatMap(NativeAccessToken.email)
+        let sameIdentity = previousEmail != nil && previousEmail == NativeAccessToken.email(token)
+        accessToken = token
+        if sameIdentity { publishConfiguration() }
+        else {
+            identityWillChange()
+            invalidate()
+        }
     }
 
     /// A model change is a preference, not a new account/Access identity.
@@ -155,6 +176,7 @@ public final class NativeAccountStore {
         identityWillChange()
         session = nil
         access = nil
+        accessToken = nil
         sessionState = .signedOut
         preferences.allowsRestoringSession = false
         preferences.allowsRestoringAccess = false
@@ -176,6 +198,8 @@ public final class NativeAccountStore {
         if let access {
             headers["CF-Access-Client-Id"] = access.clientID
             headers["CF-Access-Client-Secret"] = access.secret
+        } else if let accessToken {
+            headers["cf-access-token"] = accessToken
         }
         if let session, session.server == serverConfiguration.server.url,
            sessionState == .verified || (includeRestoredSession && sessionState == .verificationRequired) {
@@ -213,6 +237,14 @@ public final class NativeAccountStore {
 
     private func serverKey(_ server: NativeServerAddress) -> String { digest(server.url) }
     private func accessKey(_ server: NativeServerAddress) -> String { "access:\(serverKey(server))" }
+    private func accessTokenKey(_ server: NativeServerAddress) -> String { "access-token:\(serverKey(server))" }
+
+    /// An unreadable or malformed saved token is dropped: the server asks for a fresh Access sign-in.
+    private func savedAccessToken(_ server: NativeServerAddress) -> String? {
+        guard let saved = try? decode(SavedAccessToken.self, key: accessTokenKey(server)),
+              NativeAccessToken.isWellFormed(saved.token) else { return nil }
+        return saved.token
+    }
     private func activeKey(_ server: NativeServerAddress) -> String { "active:\(serverKey(server))" }
     private func sessionKey(_ server: NativeServerAddress, _ email: String) -> String {
         "session:\(serverKey(server)):\(digest(email))"
@@ -222,5 +254,6 @@ public final class NativeAccountStore {
     }
 
     private struct ActiveAccount: Codable { let email: String }
+    private struct SavedAccessToken: Codable { let token: String }
     private struct SessionRecord: Codable { let server: String; let email: String; let token: String }
 }

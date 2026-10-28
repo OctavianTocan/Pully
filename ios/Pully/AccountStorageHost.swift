@@ -202,6 +202,44 @@ final class AccountStorageHost: NSObject, AccountStorage {
         }
     }
 
+    /// Cloudflare Access's sign-in page for the configured server; its token goes straight to Keychain.
+    nonisolated func accessSignIn(
+        title: String, hint: String, expectedGeneration: Int64, completed: AccessSignInObserver
+    ) -> AccountStorageSubscription {
+        MainActor.assumeIsolated {
+            guard !disconnected, let store, store.isCurrent(expectedGeneration),
+                  let presenting, presenting.viewIfLoaded?.window != nil,
+                  presenting.presentedViewController == nil else {
+                completed.ended(problem: NativeAccountError.staleIdentity.errorDescription)
+                return AccountNativeSubscription {}
+            }
+            let page: NativeAccessSignInController
+            do {
+                page = try NativeAccessSignInController(
+                    server: store.serverConfiguration.server.url, title: title, hint: hint
+                ) { [weak self] result in
+                    guard let self else { return }
+                    switch result {
+                    case .success(nil):
+                        completed.ended(problem: nil)
+                    case .success(let token?):
+                        let problem = self.mutate {
+                            try self.requireStorage().signedInToAccess(token: token, expectedGeneration: expectedGeneration)
+                        }
+                        if let problem { completed.ended(problem: problem) } else { completed.signedIn() }
+                    case .failure(let error):
+                        completed.ended(problem: self.safeMessage(error))
+                    }
+                }
+            } catch {
+                completed.ended(problem: safeMessage(error))
+                return AccountNativeSubscription {}
+            }
+            presenting.present(page.presentable(), animated: true)
+            return AccountNativeSubscription { [weak page] in page?.cancel() }
+        }
+    }
+
     func disconnect() {
         guard !disconnected else { return }
         invalidateObservers()

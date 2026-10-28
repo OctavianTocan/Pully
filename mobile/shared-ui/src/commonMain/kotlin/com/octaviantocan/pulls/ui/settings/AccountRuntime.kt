@@ -7,7 +7,10 @@ import com.octaviantocan.pulls.data.Repo
 import com.octaviantocan.pulls.data.RepoConfiguration
 import com.octaviantocan.pulls.data.RpcSource
 import com.octaviantocan.pulls.data.RpcObserver
+import com.octaviantocan.pulls.data.RpcTimeoutException
 import com.octaviantocan.pulls.data.RpcTransport
+import com.octaviantocan.pulls.data.ConnectionProblem
+import com.octaviantocan.pulls.data.connectionProblem
 import com.octaviantocan.pulls.data.ServerError
 import com.octaviantocan.pulls.data.ServerErrorKind
 import com.octaviantocan.pulls.data.SignInController
@@ -26,7 +29,11 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 enum class AccountPhase { Checking, SignIn, Ready, Problem }
-class AccountState(val phase: AccountPhase, val email: String? = null, val googleClientId: String? = null, val problem: String? = null)
+/** [connection] says what kind of connection problem [problem] is, so the setup screen can offer its way out. */
+class AccountState(
+    val phase: AccountPhase, val email: String? = null, val googleClientId: String? = null, val problem: String? = null,
+    val connection: ConnectionProblem? = null,
+)
 
 /** Existing account RPCs and native session verification, owned above individual routes. */
 class AccountRuntime(
@@ -149,6 +156,8 @@ class AccountRuntime(
                         storage.account().email,
                         previous.googleClientId,
                         failure.message ?: "Pully could not reach the server. Try again or check Server settings.",
+                        // Saved-credential problems are not the server's; they keep the reset page.
+                        if (failure is ServerError || failure is RpcTimeoutException || failure !is IllegalStateException) connectionProblem(failure) else null,
                     )
                 }
             }
@@ -210,6 +219,25 @@ class AccountRuntime(
                 controller.google { googleIdToken(clientId, config.generation) }
             }
             override fun close() { active = false }
+        }
+    }
+
+    /**
+     * Signs in to the server's Cloudflare Access in the host's page. True once its token is saved, when the storage
+     * observers start a fresh check; false when the person closed the page.
+     */
+    suspend fun accessSignIn(title: String, hint: String): Boolean {
+        val generation = configuration(false).generation
+        return suspendCancellableCoroutine { continuation ->
+            val selection = storage.accessSignIn(title, hint, generation, object : AccessSignInObserver {
+                override fun signedIn() { if (continuation.isActive) continuation.resume(true) }
+                override fun ended(problem: String?) {
+                    if (!continuation.isActive) return
+                    if (problem == null) continuation.resume(false)
+                    else continuation.resumeWithException(IllegalStateException(problem))
+                }
+            })
+            continuation.invokeOnCancellation { selection.cancel() }
         }
     }
 

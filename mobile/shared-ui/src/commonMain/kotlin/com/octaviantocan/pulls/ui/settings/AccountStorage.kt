@@ -18,6 +18,14 @@ class StoredAccount(val email: String?, val verificationRequired: Boolean, val p
 interface AccountStorageSubscription { fun cancel() }
 interface AccountTokenObserver { fun completed(token: String?, problem: String?) }
 
+/** How a native Cloudflare Access sign-in ended. The token stays in the host's secure storage and never comes here. */
+interface AccessSignInObserver {
+    /** The token was saved for the server it was asked for; the storage observers have been told. */
+    fun signedIn()
+    /** Null [problem] means the person closed the page. */
+    fun ended(problem: String?)
+}
+
 interface AccountStorageObserver {
     /** Synchronous: old routes and observers must be retired before a replacement is usable. */
     fun invalidating()
@@ -44,4 +52,12 @@ interface AccountStorage {
     fun googleAvailable(serverClientId: String): Boolean
     /** Null token plus null problem is native selection cancellation. */
     fun googleToken(serverClientId: String, expectedGeneration: Long, completed: AccountTokenObserver): AccountStorageSubscription
+    /**
+     * Opens the configured server's Cloudflare Access sign-in in a page of the host's, titled [title] with [hint] under
+     * it, and keeps the `CF_Authorization` token it ends with as that server's Access sign-in.
+     */
+    fun accessSignIn(title: String, hint: String, expectedGeneration: Long, completed: AccessSignInObserver): AccountStorageSubscription {
+        completed.ended("Signing in to Access is not available here. Add the service token in Server settings.")
+        return object : AccountStorageSubscription { override fun cancel() {} }
+    }
 }

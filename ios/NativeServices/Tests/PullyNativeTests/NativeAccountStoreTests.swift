@@ -134,6 +134,37 @@ final class NativeAccountStoreTests: XCTestCase {
         XCTAssertEqual(store.configuration().headers["X-Pully-Session"], "fixture-session")
     }
 
+    func testAccessSignInTokenIsSentRestoredAndKeepsSourceForTheSameEmail() async throws {
+        let preferences = MemoryPreferences()
+        let secrets = MemorySecrets()
+        let store = try NativeAccountStore(preferences: preferences, secrets: secrets, invalidated: {})
+        let first = store.generation
+        try store.signedInToAccess(token: accessToken(email: "Person@octaviantocan.com"), expectedGeneration: first)
+        XCTAssertFalse(store.isCurrent(first))
+        XCTAssertEqual(store.configuration().headers["cf-access-token"], accessToken(email: "Person@octaviantocan.com"))
+        XCTAssertNil(store.configuration().headers["CF-Access-Client-Id"])
+
+        let renewed = store.generation
+        try store.signedInToAccess(token: accessToken(email: "person@octaviantocan.com", nonce: "2"), expectedGeneration: renewed)
+        XCTAssertTrue(store.isCurrent(renewed))
+        XCTAssertEqual(store.configuration().headers["cf-access-token"], accessToken(email: "person@octaviantocan.com", nonce: "2"))
+
+        let restored = try NativeAccountStore(preferences: preferences, secrets: secrets, invalidated: {})
+        XCTAssertEqual(restored.configuration().headers["cf-access-token"], accessToken(email: "person@octaviantocan.com", nonce: "2"))
+        try restored.updateServer(preferences.value, access: NativeAccessCredentials(clientID: "fixture-id", secret: "fixture-secret"))
+        XCTAssertNil(restored.configuration().headers["cf-access-token"])
+        XCTAssertEqual(restored.configuration().headers["CF-Access-Client-Id"], "fixture-id")
+        XCTAssertThrowsError(try restored.signedInToAccess(token: "not-a-token", expectedGeneration: restored.generation))
+        XCTAssertThrowsError(try restored.signedInToAccess(token: accessToken(email: "x@y"), expectedGeneration: restored.generation - 1))
+    }
+
+    func testAccessTokenEmailIsReadFromItsClaims() {
+        XCTAssertEqual(NativeAccessToken.email(accessToken(email: "Person@Example.com")), "person@example.com")
+        XCTAssertNil(NativeAccessToken.email("a.b.c"))
+        XCTAssertFalse(NativeAccessToken.isWellFormed("a.b"))
+        XCTAssertTrue(NativeAccessToken.isWellFormed(accessToken(email: "p@x")))
+    }
+
     func testRejectedVerificationClearsSavedSession() async throws {
         let preferences = MemoryPreferences()
         let secrets = MemorySecrets()
@@ -333,6 +364,16 @@ private final class MemoryPreferences: NativeServerPreferences {
     var allowsRestoringAccess = true
     func load() throws -> NativeServerConfiguration { value }
     func save(_ configuration: NativeServerConfiguration) { value = configuration }
+}
+
+/// A JWT-shaped Access token naming [email]; the signature part is a placeholder.
+private func accessToken(email: String, nonce: String = "1") -> String {
+    func encode(_ object: [String: String]) -> String {
+        (try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])).base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+    return encode(["alg": "RS256"]) + "." + encode(["email": email, "nonce": nonce]) + ".signature"
 }
 
 private final class MemorySecrets: NativeSecretStore {
