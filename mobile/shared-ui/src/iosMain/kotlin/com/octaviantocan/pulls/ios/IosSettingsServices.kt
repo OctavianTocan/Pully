@@ -1,6 +1,5 @@
 package com.octaviantocan.pulls.ios
 
-import com.octaviantocan.pulls.data.sourceStorageNamespace
 import com.octaviantocan.pulls.settings.UserDefaultsSettings
 import com.octaviantocan.pulls.sound.ControlFeedback
 import com.octaviantocan.pulls.sound.Cue
@@ -16,32 +15,30 @@ import platform.Foundation.NSUserDefaults
 internal fun iosSettingsServices(
     source: RootSource,
     home: HomeScreenServices,
-    runtime: AccountRuntime,
+    namespace: String,
+    readModel: () -> ModelConfiguration,
+    writeModel: (ModelConfiguration) -> Unit,
+    signOut: suspend () -> Unit,
     defaults: NSUserDefaults,
     accountOwner: () -> String?,
     server: () -> ServerPageServices,
     screen: () -> String,
     place: () -> String?,
     showScreen: (String) -> Unit,
+    agentKeysUnavailableReason: String? = null,
 ): SettingsServices {
-    val connection = requireNotNull(runtime.connection()) { "Pully could not open its saved credentials." }
-    val owner = accountOwner()
-    val namespace = requireNotNull(sourceStorageNamespace(connection.server, owner, owner != null, connection.headers)) {
-        "Check the Server URL in Settings."
-    }
     val current = { source.current && home.data.current }
     val engine = ControlFeedback.installed() as? IosCueEngine
         ?: error("Install the native Pully cue engine before presenting Settings.")
     val models = SourceModelSettingsServices(
         home.repo, UserDefaultsSettings(defaults, "pully-models.$namespace"),
-        read = {
-            val saved = requireNotNull(runtime.connection()) { "Pully could not open its saved model choice." }
-            ModelConfiguration(saved.engine, saved.model)
-        },
-        write = { runtime.saveAnalysis(it.engine, it.model) },
+        read = readModel,
+        write = writeModel,
         owner = current,
     )
-    val account = SourceAccountPagesServices(home.repo, accountOwner, current, runtime::signOut, home.native::copyText)
+    val account = SourceAccountPagesServices(
+        home.repo, accountOwner, current, signOut, home.native::copyText, agentKeysUnavailableReason = agentKeysUnavailableReason,
+    )
     val stats = SourceStatsServices(home.repo, UserDefaultsSettings(defaults, "pully-stats.$namespace"), { home.settings.usageStats }, current)
     val feedback = SourceFeedbackServices(home.repo, home.settings, nativeFeedbackMetadata(), screen, place, current)
     return SettingsServices(home.settings, models, account, stats, feedback, server, object : SettingsFeedback {
