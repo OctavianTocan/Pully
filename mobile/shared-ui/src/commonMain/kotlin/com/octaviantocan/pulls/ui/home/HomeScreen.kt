@@ -956,8 +956,7 @@ fun SearchDim(focused: Boolean, empty: Boolean, keepWhileTyping: Boolean = false
     var imeShown by remember { mutableStateOf(false) }
     LaunchedEffect(focused) { if (!focused) imeShown = false }
     SideEffect { if (focused && imeUp) imeShown = true }
-    // Verify branch A only: the dim lifts once typed, as before #135, to test whether keeping it drops typed letters.
-    val waiting = focused && empty && (imeUp || !imeShown)
+    val waiting = focused && (empty || keepWhileTyping) && (imeUp || !imeShown)
     val dim by animateFloatAsState(
         if (waiting) 1f else 0f,
         if (waiting) tween(PullsMotion.QUICK, easing = PullsMotion.SmoothOut) else tween(PullsMotion.MEDIUM, easing = PullsMotion.InOut),
