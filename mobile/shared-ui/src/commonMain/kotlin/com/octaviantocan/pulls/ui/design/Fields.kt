@@ -130,6 +130,9 @@ private class FieldScroll {
     }
 }
 
+/** Verify branch only: reports every keystroke the field sees, to find the dropped letters on iPhone. */
+object TypingTrace { var log: ((String) -> Unit)? = null }
+
 /**
  * The one text field: [FieldStyle] words in the text ink, the placeholder in the same style in the muted ink, the teal
  * cursor. Words that run past the field's edge fade into [fade], its background, on the side where they are hidden, as a
@@ -166,6 +169,7 @@ fun FieldText(
     // a pasted link opened) puts the cursor at its end.
     var kept by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
     val field = if (kept.text == value) kept else TextFieldValue(value, TextRange(value.length))
+    SideEffect { TypingTrace.log?.invoke("compose value=[$value] kept=[${kept.text}] sel=${kept.selection} comp=${kept.composition} reset=${field !== kept}") }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var placed by remember { mutableStateOf(false) }
     var window by remember { mutableStateOf(IntSize.Zero) }
@@ -192,6 +196,7 @@ fun FieldText(
     BasicTextField(
         value = field,
         onValueChange = { next ->
+            TypingTrace.log?.invoke("change next=[${next.text}] sel=${next.selection} comp=${next.composition} value=[$value] kept=[${kept.text}]")
             kept = next
             if (next.text != value) onChange(next.text)
         },
