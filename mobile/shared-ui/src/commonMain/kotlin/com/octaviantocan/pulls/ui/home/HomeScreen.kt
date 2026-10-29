@@ -965,8 +965,7 @@ fun SearchDim(focused: Boolean, empty: Boolean, keepWhileTyping: Boolean = false
     if (dim > 0f) {
         Box(
             Modifier.fillMaxSize().graphicsLayer { alpha = dim * SEARCH_DIM }.background(c.scrim)
-                // Verify branch B only: the dim stays while typing but stops taking touches, to test dropped letters.
-                .then(if (waiting && empty) Modifier.pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } } else Modifier),
+                .then(if (waiting) Modifier.pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } } else Modifier),
         )
     }
 }
