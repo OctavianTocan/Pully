@@ -237,7 +237,7 @@ and a skeleton MUST hold the place while it draws. Source: Tavi, 28 Oct 2026, "F
 
 @cc [owner:OctavianTocan,label:product;architecture] foot-field-keeps-fast-typing
 A field drawn in the foot bar (the Inbox search and the Ask bars) MUST keep every
-letter typed, however fast, while its page passes the new text a frame late. It MUST
+letter typed, however fast, while its page passes the new text back late. It MUST
 NOT put the field back to the page's earlier text in between, which reset the iPhone
 keyboard's text and dropped every other letter in the Tour's Ask bar on the simulator
 suite (28 Oct 2026, "What changed in this shared review?" arrived as "Wa hne nti
