@@ -356,7 +356,7 @@ fun PrTourScreen(
             }
             LaunchedEffect(session.key, owner, canAsk) { if (actions.current && canAsk) session.loadChatHistory() }
             if (canAsk) key(session, owner) { AskBar(
-                "ask-tour", askText, { value -> actions.ask { question.text = value } }, "Ask about this tour", onSend = { question -> actions.ask { latestAsk?.invoke(question) } },
+                "ask-tour", askText, { value -> com.octaviantocan.pulls.ui.design.TypingTrace.log?.invoke("tour onText [$value]"); actions.ask { question.text = value; com.octaviantocan.pulls.ui.design.TypingTrace.log?.invoke("tour set [$value]") } }, "Ask about this tour", onSend = { question -> actions.ask { latestAsk?.invoke(question) } },
                 modifier = Modifier.align(Alignment.BottomCenter),
                 onFocus = { focused -> actions.ask { question.focused = focused } },
                 // Only when there are earlier chats to open (P4).

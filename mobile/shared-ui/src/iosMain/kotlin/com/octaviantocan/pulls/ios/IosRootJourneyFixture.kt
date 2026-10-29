@@ -51,5 +51,6 @@ fun rootJourneyFixtureApplication(homeActions: NativeHomeActions, accountStorage
         }
     }, fixtureIdentifier = identifier, scenario = scenario) else RootJourneyTransport.readOnly(identifier)
     transport.rejected = { NSLog("Pully route stack: fixture rejected " + it.replace("%", "%%")) }
+    com.octaviantocan.pulls.ui.design.TypingTrace.log = { NSLog("Pully route stack: typing " + it.replace("%", "%%")) }
     return IosPullyApp(homeActions, accountStorage, defaults, transport)
 }
