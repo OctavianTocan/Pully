@@ -345,16 +345,18 @@ fun PrTourScreen(
             // earlier chats, and a question sent continues the conversation in the Ask sheet (N28). The earlier chats open
             // on their own sheet, without the conversation under them (P5).
             val question = rememberTourQuestionState(session, owner)
-            val askText = question.text
-            val askFocused = question.focused
             val canAsk = tour != null && capabilities.canAsk && onAsk != null
-            LaunchedEffect(askFocused, askText.isEmpty(), canAsk, owner) { actions.read { latestDim(canAsk && askFocused, askText.isEmpty()) } }
             DisposableEffect(Unit) { onDispose { latestDim(false, true) } }
-            if (canAsk) SearchDim(askFocused, askText.isEmpty(), keepWhileTyping = true)
             if (writing && onProgress != null) key(session, owner) {
                 WritingLip(session, { actions.read { latestProgress?.invoke() } }, Modifier.align(Alignment.BottomCenter))
             }
             LaunchedEffect(session.key, owner, canAsk) { if (actions.current && canAsk) session.loadChatHistory() }
+            // Verify branch only: what is typed recomposes this scope alone, not the whole tour.
+            TypingScope {
+            val askText = question.text
+            val askFocused = question.focused
+            LaunchedEffect(askFocused, askText.isEmpty(), canAsk, owner) { actions.read { latestDim(canAsk && askFocused, askText.isEmpty()) } }
+            if (canAsk) SearchDim(askFocused, askText.isEmpty(), keepWhileTyping = true)
             if (canAsk) key(session, owner) { AskBar(
                 "ask-tour", askText, { value -> com.octaviantocan.pulls.ui.design.TypingTrace.log?.invoke("tour onText [$value]"); actions.ask { question.text = value; com.octaviantocan.pulls.ui.design.TypingTrace.log?.invoke("tour set [$value]") } }, "Ask about this tour", onSend = { question -> actions.ask { latestAsk?.invoke(question) } },
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -362,6 +364,7 @@ fun PrTourScreen(
                 // Only when there are earlier chats to open (P4).
                 onOpenHistory = if (onAskHistory != null && session.key != null && !session.chatHistory.isNullOrEmpty()) ({ actions.ask { latestHistory?.invoke() } }) else null,
             ) }
+            }
         }
     }
 
@@ -587,3 +590,7 @@ private fun Modifier.arrive(order: Int, play: Boolean): Modifier {
 
 /** After this many stops the rest arrive together, so a long tour is not a slow parade. */
 private const val ARRIVE_STEPS = 6
+
+/** Verify branch only: a restartable scope of its own. */
+@Composable
+private fun TypingScope(content: @Composable () -> Unit) { content() }
