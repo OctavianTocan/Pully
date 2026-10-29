@@ -133,6 +133,22 @@ private class FieldScroll {
 /** Verify branch only: reports every keystroke the field sees, to find the dropped letters on iPhone. */
 object TypingTrace { var log: ((String) -> Unit)? = null }
 
+/** The caller's text as of the field's last composition. */
+private class FieldEcho(var value: String)
+
+/**
+ * What the field shows: [kept] while it holds the caller's text [value], else [value] with the cursor at its end. A
+ * field in the foot bar is drawn by the bar from the page's last composition, so after a keystroke it composes once
+ * more with the page's earlier text, [before], until the page passes the new one: with [lagging], a [value] that has
+ * not moved since then keeps the keystroke. Going back to it reset the keyboard's text and lost every other letter
+ * typed quickly on iPhone. The cost is that a page refusing a keystroke in the foot shows it until its own text moves.
+ */
+internal fun fieldShown(value: String, before: String, kept: TextFieldValue, lagging: Boolean): TextFieldValue = when {
+    kept.text == value -> kept
+    lagging && value == before -> kept
+    else -> TextFieldValue(value, TextRange(value.length))
+}
+
 /**
  * The one text field: [FieldStyle] words in the text ink, the placeholder in the same style in the muted ink, the teal
  * cursor. Words that run past the field's edge fade into [fade], its background, on the side where they are hidden, as a
@@ -168,8 +184,10 @@ fun FieldText(
     // The field keeps its own cursor and composition; the text is the caller's, so a text set from outside (a clear,
     // a pasted link opened) puts the cursor at its end.
     var kept by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
-    val field = if (kept.text == value) kept else TextFieldValue(value, TextRange(value.length))
-    SideEffect { TypingTrace.log?.invoke("compose value=[$value] kept=[${kept.text}] sel=${kept.selection} comp=${kept.composition} reset=${field !== kept}") }
+    val before = remember { FieldEcho(value) }
+    val field = fieldShown(value, before.value, kept, lagging = foot != null)
+    SideEffect { TypingTrace.log?.invoke("compose value=[$value] before=[${before.value}] kept=[${kept.text}] reset=${field !== kept}") }
+    SideEffect { before.value = value }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var placed by remember { mutableStateOf(false) }
     var window by remember { mutableStateOf(IntSize.Zero) }
@@ -196,7 +214,7 @@ fun FieldText(
     BasicTextField(
         value = field,
         onValueChange = { next ->
-            TypingTrace.log?.invoke("change next=[${next.text}] sel=${next.selection} comp=${next.composition} value=[$value] kept=[${kept.text}]")
+            TypingTrace.log?.invoke("change next=[${next.text}] value=[$value] kept=[${kept.text}]")
             kept = next
             if (next.text != value) onChange(next.text)
         },
