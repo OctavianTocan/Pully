@@ -130,19 +130,40 @@ private class FieldScroll {
     }
 }
 
-/** The caller's text as of the field's last composition. */
-private class FieldEcho(var value: String)
+/**
+ * What a foot field's caller has been passed and not yet shown back: [before] is the caller's text at the field's last
+ * composition and [sent] the texts handed to it since, oldest first.
+ */
+internal class FieldEcho(var before: String) {
+    val sent = ArrayDeque<String>()
+
+    /** Remembers [text] as handed to the caller; a caller that never takes them back keeps only the latest few. */
+    fun send(text: String) {
+        sent.addLast(text)
+        if (sent.size > ECHO_LIMIT) sent.removeFirst()
+    }
+
+    /** After a composition with [value]: forgets what the caller has moved past, or everything once it caught up or set its own text. */
+    fun seen(value: String, settled: Boolean) {
+        if (settled) sent.clear() else repeat(sent.indexOf(value).coerceAtLeast(0)) { sent.removeFirst() }
+        before = value
+    }
+}
+
+/** How many unanswered texts a foot field remembers. */
+private const val ECHO_LIMIT = 32
 
 /**
  * What the field shows: [kept] while it holds the caller's text [value], else [value] with the cursor at its end. A
- * field in the foot bar is drawn by the bar from the page's last composition, so after a keystroke it composes once
- * more with the page's earlier text, [before], until the page passes the new one: with [lagging], a [value] that has
- * not moved since then keeps the keystroke. Going back to it reset the keyboard's text and lost every other letter
- * typed quickly on iPhone. The cost is that a page refusing a keystroke in the foot shows it until its own text moves.
+ * field in the foot bar is drawn by the bar from the page's last composition, so it composes with the page's text a
+ * keystroke or more behind: the text it had before ([before]) or one this field handed it since ([sent]). With
+ * [lagging], such a [value] is the page catching up and keeps the keystroke. Going back to it reset the keyboard's text
+ * and lost every other letter typed quickly on iPhone. The cost is that a page refusing a keystroke in the foot shows
+ * it until its own text moves.
  */
-internal fun fieldShown(value: String, before: String, kept: TextFieldValue, lagging: Boolean): TextFieldValue = when {
+internal fun fieldShown(value: String, before: String, sent: List<String>, kept: TextFieldValue, lagging: Boolean): TextFieldValue = when {
     kept.text == value -> kept
-    lagging && value == before -> kept
+    lagging && (value == before || value in sent) -> kept
     else -> TextFieldValue(value, TextRange(value.length))
 }
 
@@ -181,9 +202,9 @@ fun FieldText(
     // The field keeps its own cursor and composition; the text is the caller's, so a text set from outside (a clear,
     // a pasted link opened) puts the cursor at its end.
     var kept by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
-    val before = remember { FieldEcho(value) }
-    val field = fieldShown(value, before.value, kept, lagging = foot != null)
-    SideEffect { before.value = value }
+    val echo = remember { FieldEcho(value) }
+    val field = fieldShown(value, echo.before, echo.sent, kept, lagging = foot != null)
+    SideEffect { echo.seen(value, settled = field !== kept || value == kept.text) }
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     var placed by remember { mutableStateOf(false) }
     var window by remember { mutableStateOf(IntSize.Zero) }
@@ -211,7 +232,10 @@ fun FieldText(
         value = field,
         onValueChange = { next ->
             kept = next
-            if (next.text != value) onChange(next.text)
+            if (next.text != value) {
+                echo.send(next.text)
+                onChange(next.text)
+            }
         },
         modifier = if (foot != null) modifier.focusRequester(foot) else modifier,
         enabled = enabled,
