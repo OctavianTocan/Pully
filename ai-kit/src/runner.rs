@@ -2,6 +2,7 @@
 //! lists and sign-ins, done with a native server's own code ([`crate::process`],
 //! [`crate::login`]) as plain processes, since the container is the sandbox. Only the login's own
 //! Durable Object can reach it; [`crate::remote`] is its client.
+use crate::login_files::{kept, LOGIN_FILES};
 use crate::{
     config::{config, Preparation},
     login::{self as agent_login, AgentLogin},
@@ -258,28 +259,6 @@ impl Runner {
             .home(&self.volume)
             .context("Not a local runtime")
     }
-}
-
-/// The login files kept while the container sleeps, by their path in the CLI home: the field
-/// that makes each a subscription sign-in, then the others kept with it. Nothing else of the
-/// home is kept, so an API key or a setting a CLI wrote never leaves the container.
-const LOGIN_FILES: [(&str, &str, &[&str]); 3] = [
-    (".codex/auth.json", "tokens", &["auth_mode", "last_refresh"]),
-    (".claude/.credentials.json", "claudeAiOauth", &[]),
-    (".claude.json", "oauthAccount", &[]),
-];
-
-/// The kept part of the login file at `path`, or `None` when it holds no sign-in.
-fn kept(path: &str, file: &Value) -> Option<Value> {
-    let (_, main, others) = LOGIN_FILES.iter().find(|(name, ..)| *name == path)?;
-    let mut kept = serde_json::Map::new();
-    kept.insert(main.to_string(), file.get(*main)?.clone());
-    for field in *others {
-        if let Some(value) = file.get(*field) {
-            kept.insert(field.to_string(), value.clone());
-        }
-    }
-    Some(Value::Object(kept))
 }
 
 /// The login's sign-in files as one JSON object of path to kept content, for its Durable

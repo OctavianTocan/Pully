@@ -8,7 +8,13 @@
 //! The host exports [`AgentHome`] from its Worker (`pub use ai_kit::home::AgentHome;`), binds it
 //! with a container in its Wrangler file, configures the kit in its `#[event(start)]`, and calls
 //! [`install`] before any AI work.
+//!
+//! ThyMind's feedback sandboxes borrow a login with `POST /feedback/checkout` and give it back
+//! with `POST /feedback/checkin` (ThyMind `docs/feedback.md`). While it is checked out the
+//! container stays stopped and every other call answers 403 `{"error":"busy"}`, until the checkin
+//! or the end of the [`Lease`].
 use crate::config::config;
+use crate::lease::Lease;
 use crate::login::AgentLogin;
 use crate::remote::{AgentRemote, Body};
 use futures_util::{future::BoxFuture, lock::Mutex, StreamExt};
@@ -29,6 +35,8 @@ const START_TIMEOUT_MS: f64 = 60_000.0;
 const IDLE_MS: f64 = 5.0 * 60_000.0;
 /// The storage key of the login's sign-in files, the JSON text the AI kit's runner gives.
 const LOGIN_FILES: &str = "login-files";
+/// The storage key of the end of a checkout, in Unix milliseconds, while one is out.
+const BUSY_UNTIL: &str = "feedback_busy_until";
 /// Names the login a call is for; only the host's server sets it, as nothing else reaches the object.
 const LOGIN_HEADER: &str = "x-agent-login";
 
@@ -105,7 +113,7 @@ impl worker::DurableObject for AgentHome {
         }
     }
 
-    async fn fetch(&self, request: Request) -> Result<Response> {
+    async fn fetch(&self, mut request: Request) -> Result<Response> {
         let volume = request
             .headers()
             .get(LOGIN_HEADER)?
@@ -120,8 +128,18 @@ impl worker::DurableObject for AgentHome {
             Some(_) => {}
             None => storage.put("login", &volume).await?,
         }
-        let container = self.ready(&volume).await?;
         let path = request.path();
+        match (path.as_str(), request.method()) {
+            ("/feedback/checkout", Method::Post) => return self.checkout().await,
+            ("/feedback/checkin", Method::Post) => {
+                let body = request.text().await?;
+                return self.checkin(&body).await;
+            }
+            _ => {}
+        }
+        let Some(container) = self.ready(&volume).await? else {
+            return busy();
+        };
         let response = forward(&container, &to_container(request.inner(), &path)?).await?;
         // A Codex sign-in can end after its finish call gave up waiting, so status saves too.
         if !matches!(
@@ -151,13 +169,22 @@ impl worker::DurableObject for AgentHome {
 }
 
 impl AgentHome {
-    /// The running container, started and given back its login's home when it was asleep.
-    async fn ready(&self, volume: &str) -> Result<JsValue> {
+    /// The running container, started and given back its login's home when it was asleep, or
+    /// `None` while the login is checked out. A lease that ran out is cleared here, so the
+    /// container restarts with the files the object had.
+    async fn ready(&self, volume: &str) -> Result<Option<JsValue>> {
         let container = self
             .state
             .container()
             .ok_or_else(|| worker::Error::RustError("This object has no container".into()))?;
         let mut started = self.lock.lock().await;
+        let storage = self.state.storage();
+        if let Some(until) = storage.get::<u64>(BUSY_UNTIL).await? {
+            if let Lease::Busy(_) = Lease::check(crate::now_ms(), Some(until)) {
+                return Ok(None);
+            }
+            storage.delete(BUSY_UNTIL).await?;
+        }
         let raw: JsValue = container.as_ref().clone();
         if !container.running() {
             *started = false;
@@ -184,8 +211,70 @@ impl AgentHome {
             let _ = call(&raw, "setInactivityTimeout", &[IDLE_MS.into()]);
             *started = true;
         }
-        Ok(raw)
+        Ok(Some(raw))
     }
+
+    /// Hands the login's sign-in files to a feedback sandbox: saves them from the container if it
+    /// is awake, stops it, and marks the login busy for a [`Lease`]. Answers `{"files": {...}}`,
+    /// 403 busy while another checkout holds it, and 409 when the login has no sign-in.
+    async fn checkout(&self) -> Result<Response> {
+        let container = self
+            .state
+            .container()
+            .ok_or_else(|| worker::Error::RustError("This object has no container".into()))?;
+        let mut started = self.lock.lock().await;
+        let storage = self.state.storage();
+        let now = crate::now_ms();
+        let Ok(until) = Lease::take(now, storage.get::<u64>(BUSY_UNTIL).await?) else {
+            return busy();
+        };
+        let raw: JsValue = container.as_ref().clone();
+        if container.running() {
+            if *started {
+                save_files(&raw, &storage).await?;
+            }
+            let promise = call(&raw, "destroy", &[])?;
+            wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise))
+                .await
+                .map_err(|e| {
+                    worker::Error::RustError(format!("Stopping the AI container failed: {e:?}"))
+                })?;
+        }
+        *started = false;
+        let Some(files) = storage.get::<String>(LOGIN_FILES).await? else {
+            return Response::error(r#"{"error":"signed-out"}"#, 409);
+        };
+        storage.put(BUSY_UNTIL, until).await?;
+        Response::ok(format!(r#"{{"files":{files},"busyUntil":{until}}}"#))
+    }
+
+    /// Takes a login back from a feedback sandbox: lays the files it returns (`{"files"?: {...}}`,
+    /// the CLIs may have refreshed them) over the saved ones and ends the checkout. The container
+    /// stays stopped, so its next start restores them. Answers 409 when nothing is checked out,
+    /// because the container may since have started with the saved files.
+    async fn checkin(&self, body: &str) -> Result<Response> {
+        let _held = self.lock.lock().await;
+        let storage = self.state.storage();
+        if storage.get::<u64>(BUSY_UNTIL).await?.is_none() {
+            return Response::error(r#"{"error":"not-checked-out"}"#, 409);
+        }
+        let body: serde_json::Value =
+            serde_json::from_str(if body.is_empty() { "{}" } else { body })
+                .map_err(|_| worker::Error::RustError("Invalid checkin".into()))?;
+        if let Some(files) = body.get("files") {
+            let saved = storage.get::<String>(LOGIN_FILES).await?;
+            if let Some(merged) = crate::login_files::merge(saved.as_deref(), files) {
+                storage.put(LOGIN_FILES, merged).await?;
+            }
+        }
+        storage.delete(BUSY_UNTIL).await?;
+        Response::ok(r#"{"ok":true}"#)
+    }
+}
+
+/// The answer to any call while the login is checked out.
+fn busy() -> Result<Response> {
+    Response::error(r#"{"error":"busy"}"#, 403)
 }
 
 /// Saves a login's sign-in files from its container into the object's storage.
@@ -199,23 +288,33 @@ impl Saver {
     async fn save(&self) {
         let _held = self.lock.lock().await;
         let result = async {
-            let mut files = send(&self.container, "GET", "/login-files", None).await?;
-            if files.status_code() != 200 {
+            // A checkout stopped the container and owns the files until it checks in.
+            if self.storage.get::<u64>(BUSY_UNTIL).await?.is_some() {
                 return Ok(());
             }
-            let files = files.text().await?;
-            if files == "{}" {
-                self.storage.delete(LOGIN_FILES).await?;
-            } else {
-                self.storage.put(LOGIN_FILES, files).await?;
-            }
-            Ok::<_, worker::Error>(())
+            save_files(&self.container, &self.storage).await
         }
         .await;
         if let Err(error) = result {
             worker::console_error!("Saving an AI login failed: {error}");
         }
     }
+}
+
+/// Copies the login's sign-in files from a running container into storage. The caller holds the
+/// object's lock.
+async fn save_files(container: &JsValue, storage: &Storage) -> Result<()> {
+    let mut files = send(container, "GET", "/login-files", None).await?;
+    if files.status_code() != 200 {
+        return Ok(());
+    }
+    let files = files.text().await?;
+    if files == "{}" {
+        storage.delete(LOGIN_FILES).await?;
+    } else {
+        storage.put(LOGIN_FILES, files).await?;
+    }
+    Ok(())
 }
 
 /// Polls the runner's `/health` until it answers or the start timeout passes.
