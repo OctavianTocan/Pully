@@ -1,0 +1,33 @@
+name: Check out ai-kit
+description: >
+  Checks out the private ai-kit submodule (github.com/OctavianTocan/ai-kit) with the read-only deploy
+  key in the AI_KIT_DEPLOY_KEY secret. The job's own token cannot read another private repository.
+inputs:
+  key:
+    description: The AI_KIT_DEPLOY_KEY secret, the private half of ai-kit's read-only deploy key
+    required: true
+  path:
+    description: Where the repository keeps the submodule
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        KEY: ${{ inputs.key }}
+        KIT_PATH: ${{ inputs.path }}
+      run: |
+        set -euo pipefail
+        if [[ -z "$KEY" ]]; then
+          echo "::error::AI_KIT_DEPLOY_KEY is not set, so ai-kit (a private repository) cannot be checked out." >&2
+          exit 1
+        fi
+        dir="$(mktemp -d)"
+        trap 'rm -rf "$dir"' EXIT
+        printf '%s\n' "$KEY" > "$dir/key"
+        chmod 600 "$dir/key"
+        # GitHub's published SSH host key, so the first connection is verified rather than trusted.
+        echo 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > "$dir/known_hosts"
+        GIT_SSH_COMMAND="ssh -i $dir/key -o IdentitiesOnly=yes -o UserKnownHostsFile=$dir/known_hosts -o StrictHostKeyChecking=yes" \
+          git -c url."git@github.com:OctavianTocan/ai-kit".insteadOf=https://github.com/OctavianTocan/ai-kit \
+          submodule update --init -- "$KIT_PATH"

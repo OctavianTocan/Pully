@@ -26,6 +26,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: ./.github/actions/ai-kit
+        with:
+          key: ${{ secrets.AI_KIT_DEPLOY_KEY }}
+          path: ai-kit
       - name: Record compiler and revision
         run: |
           git rev-parse HEAD
