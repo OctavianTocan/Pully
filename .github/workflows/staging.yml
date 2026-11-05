@@ -40,6 +40,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: ./.github/actions/ai-kit
+        if: steps.setup.outputs.ready == 'true'
+        with:
+          key: ${{ secrets.AI_KIT_DEPLOY_KEY }}
+          path: ai-kit
       - uses: pnpm/action-setup@v6
         if: steps.setup.outputs.ready == 'true'
       - uses: actions/setup-node@v7

@@ -1,0 +1,3 @@
+[submodule "ai-kit"]
+	path = ai-kit
+	url = https://github.com/OctavianTocan/ai-kit

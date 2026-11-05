@@ -93,6 +93,7 @@ Every release is described, with pictures, in [`android/CHANGELOG.md`](./android
 | [`ios/`](./ios)                          | The iPhone host for the shared app.                                                   |
 | [`mobile/`](./mobile)                    | Kotlin Multiplatform code shared by Android and iOS.                                  |
 | [`backend/`](./backend)                  | The Rust server: GitHub, review state, AI runs, accounts, sync.                       |
+| [`ai-kit/`](./ai-kit)                    | Claude Code, Codex and embeddings shared with ThyMind; a private submodule.           |
 | [`packages/worker`](./packages/worker)   | The same server built for Cloudflare Workers.                                         |
 | [`packages/app`](./packages/app)         | The Vue web app.                                                                      |
 | [`packages/core`](./packages/core)       | Diff parsing, providers and analysis used by the web app and the Action.              |
@@ -103,9 +104,11 @@ Every release is described, with pictures, in [`android/CHANGELOG.md`](./android
 
 ## Development
 
-You need Node.js 24 with pnpm, Rust, and for the app JDK 21 and the Android SDK.
+You need Node.js 24 with pnpm, Rust, and for the app JDK 21 and the Android SDK. The server and
+the apps build on `ai-kit/`, a submodule from a private repository, so fetch it once per clone.
 
 ```sh
+git submodule update --init
 pnpm install
 
 # Android app: unit tests and a debug APK

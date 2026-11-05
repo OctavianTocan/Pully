@@ -54,7 +54,10 @@ Four pnpm workspace packages, plus the native backend, the shared AI kit and And
 - `ai-kit` - the Claude Code and Codex layer Pully shares with ThyMind: the CLIs' own
   sign-ins, runs, model lists and efforts, the Docker and hosted-container runtimes, the `rt`
   shim, secret redaction and Gemini embeddings (Rust), plus the sign-in, model and effort logic
-  both phones use (`ai-kit/kotlin`). See its [README](../ai-kit/README.md).
+  both phones use (`ai-kit/kotlin`). It lives in its own private repository,
+  [OctavianTocan/ai-kit](https://github.com/OctavianTocan/ai-kit), checked out here as the `ai-kit`
+  git submodule (`git submodule update --init` after cloning); CI reads it with the read-only deploy
+  key in the `AI_KIT_DEPLOY_KEY` secret (`.github/actions/ai-kit`). See its [README](../ai-kit/README.md).
 - `android` - Kotlin/Compose client for the user-run server, retaining the shared
   design tokens and locale sources from the web app.
 
