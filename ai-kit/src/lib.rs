@@ -25,8 +25,10 @@ pub mod config;
 pub mod embed;
 #[cfg(all(feature = "worker", target_arch = "wasm32"))]
 pub mod home;
+pub mod lease;
 #[cfg(feature = "agents")]
 pub mod login;
+pub mod login_files;
 #[cfg(feature = "agents")]
 mod preview;
 #[cfg(feature = "agents")]

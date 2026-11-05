@@ -7,6 +7,10 @@ answer preparations), and the kit MUST NOT hard-code a host's volume, container,
 hint outside its tests. A host MUST NOT change its `volume` or `lock_file` once people have
 signed in, because their sign-ins live there. Source: Tavi, 28 Oct 2026 ("make it a separate
 package, which then you'll use for this too ... changes it to use this new shared package").
+Exception: ThyMind's feedback sandboxes (ThyMind `docs/feedback.md`) run the CLIs outside the
+kit, with a shell, on a login's files checked out from its `AgentHome`, and port `redact`.
+Source: Tavi, 5 Nov 2026 ("implements the feedback in a clone of the repo", "using the user's
+own Claude Code or Codex subscription").
 
 @cc [owner:OctavianTocan,label:security;product] kit-subscription-sign-in-only
 The kit MUST run Claude Code and Codex only on a person's own subscription sign-in (claude.ai,
@@ -18,6 +22,10 @@ tokens and passes the person's pasted code only to that CLI's stdin. A phone MUS
 links on the providers' own sign-in hosts, and status MUST count only subscription sign-ins.
 Source: backend `ai-runs-on-the-callers-own-sign-in` and `ai-sign-in-is-the-clis-own` (Tavi,
 23 Oct 2026 13:39).
+Exception: ThyMind's feedback sandboxes (ThyMind `docs/feedback.md`) run the CLIs outside the
+kit, with a shell, on a login's files checked out from its `AgentHome`, and port `redact`.
+Source: Tavi, 5 Nov 2026 ("implements the feedback in a clone of the repo", "using the user's
+own Claude Code or Codex subscription").
 
 @cc [owner:OctavianTocan,label:security] kit-jobs-fail-closed
 On a native server every CLI process MUST run in Docker with only its job folder read-write and
@@ -30,6 +38,19 @@ gives it tools. Stopping a run MUST kill its container or process. Source: backe
 `server-every-cli-through-start-agent`, `rust-ai-capabilities-fail-closed`,
 `rust-container-tools-use-scoped-capabilities`, `jobs-codex-pr-tools-only`; packages/worker
 `hosted-ai-in-the-logins-own-container`.
+Exception: ThyMind's feedback sandboxes (ThyMind `docs/feedback.md`) run the CLIs outside the
+kit, with a shell, on a login's files checked out from its `AgentHome`, and port `redact`.
+Source: Tavi, 5 Nov 2026 ("implements the feedback in a clone of the repo", "using the user's
+own Claude Code or Codex subscription").
+
+@cc [owner:OctavianTocan,label:security] kit-login-checkout-is-exclusive
+`AgentHome` MUST hand a login's sign-in files to at most one checkout at a time
+(`POST /feedback/checkout`), and MUST stop the login's container before answering, so the
+container and the sandbox never use the same refresh token at once. While checked out, every
+other call MUST answer 403 `{"error":"busy"}` without starting the container, and saves after a
+run MUST be skipped. The checkout MUST end at `checkin`, which keeps only the sign-in part of
+returned files, or after 60 minutes, when the container restarts with the files the object had.
+Source: Tavi, 5 Nov 2026 (ThyMind feedback agent, decision 9 of its design).
 
 @cc [owner:OctavianTocan,label:security] kit-jobs-settle-and-clean-up
 A job that acquired a concurrency slot MUST release it and settle even when its folder cannot be
@@ -42,6 +63,10 @@ Model output, streamed activity, previews and errors MUST pass through `redact` 
 a host's caller. Any environment value whose name says TOKEN, KEY, SECRET or PASSWORD is redacted
 where it appears, and the provider keys plus the host's own `Config::secrets` are redacted
 whatever their length. Source: root `secrets-come-from-the-environment`.
+Exception: ThyMind's feedback sandboxes (ThyMind `docs/feedback.md`) run the CLIs outside the
+kit, with a shell, on a login's files checked out from its `AgentHome`, and port `redact`.
+Source: Tavi, 5 Nov 2026 ("implements the feedback in a clone of the repo", "using the user's
+own Claude Code or Codex subscription").
 
 @cc [owner:OctavianTocan,label:architecture] kit-structured-answers-fit-their-schema
 A structured answer MUST be checked against the schema the caller asked for before the caller
