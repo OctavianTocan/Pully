@@ -4,7 +4,7 @@ import type { DiffsStoreReviews } from '../../stores/types'
 import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
 import ActionToggleGroup from '@antfu/design/components/Action/ActionToggleGroup.vue'
 import FormTextarea from '@antfu/design/components/Form/FormTextarea.vue'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppModal from '../AppModal.vue'
 
@@ -12,6 +12,8 @@ const props = defineProps<{
   open: boolean
   reviews: DiffsStoreReviews
   document?: Document | ShadowRoot
+  initialVerdict?: ReviewVerdict
+  fixedVerdict?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -20,6 +22,7 @@ const emit = defineEmits<{
 
 const body = ref('')
 const verdict = ref<ReviewVerdict>('COMMENT')
+watch(() => [props.open, props.initialVerdict] as const, ([open, value]) => { if (open) verdict.value = value ?? 'COMMENT' }, { immediate: true })
 const busy = ref(false)
 const error = ref<string>()
 
@@ -50,7 +53,7 @@ async function run(action: () => Promise<void>) {
 
 <template>
   <AppModal
-    :title="$t('review.reviewChanges')"
+    :title="fixedVerdict ? $t(verdict === 'APPROVE' ? 'review.approve' : verdict === 'REQUEST_CHANGES' ? 'review.requestChanges' : 'mobile.leaveComment') : $t('review.reviewChanges')"
     :open="open"
     :document="document"
     @update:open="emit('update:open', $event)"
@@ -72,6 +75,7 @@ async function run(action: () => Promise<void>) {
       </p>
       <div class="flex flex-wrap items-center justify-end gap-2">
         <ActionToggleGroup
+          v-if="!fixedVerdict"
           v-model="verdict"
           :options="verdictOptions"
         />

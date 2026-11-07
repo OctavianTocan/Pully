@@ -1,0 +1,31 @@
+/* The additional code faces from CodeFonts.kt, using the APK's own font files. */
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../../../../android/app/src/main/res/font/jetbrains_mono_regular.ttf') format('truetype');
+  font-weight: 400 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Fira Code';
+  src: url('../../../../android/app/src/main/res/font/fira_code_regular.ttf') format('truetype');
+  font-weight: 400 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Source Code Pro';
+  src: url('../../../../android/app/src/main/res/font/source_code_pro_regular.ttf') format('truetype');
+  font-weight: 400 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('../../../../android/app/src/main/res/font/ibm_plex_mono_regular.ttf') format('truetype');
+  font-weight: 400 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Roboto Mono';
+  src: url('../../../../android/app/src/main/res/font/roboto_mono_regular.ttf') format('truetype');
+  font-weight: 400 600;
+  font-display: swap;
+}

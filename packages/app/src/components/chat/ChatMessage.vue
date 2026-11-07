@@ -10,6 +10,7 @@ import { keepRepoLinks } from '../ai/ai-format'
 const props = defineProps<{
   message: AgentMessage
   retryable?: boolean
+  phone?: boolean
 }>()
 
 defineEmits<{ retry: [] }>()
@@ -50,8 +51,8 @@ function toolCallLabel(call: ToolCall) {
 </script>
 
 <template>
-  <div v-if="message.role === 'user'" class="flex justify-end">
-    <div class="max-w-[85%] whitespace-pre-wrap break-words rounded-lg bg-active px-3 py-2 text-sm">
+  <div v-if="message.role === 'user'" class="flex" :class="phone ? '' : 'justify-end'">
+    <div class="whitespace-pre-wrap break-words" :class="phone ? 'text-lg font-medium' : 'max-w-[85%] rounded-lg bg-active px-3 py-2 text-sm'">
       {{ userText }}
     </div>
   </div>
@@ -59,7 +60,7 @@ function toolCallLabel(call: ToolCall) {
   <div v-else-if="message.role === 'assistant'" class="max-w-full flex flex-col items-start gap-1.5">
     <template v-for="(part, index) in message.content" :key="index">
       <Suspense v-if="part.type === 'text' && part.text.trim()">
-        <Markdown :value="part.text" :streaming="message.stopReason === 'pending'" class="chat-markdown min-w-0 self-stretch" @click="keepRepoLinks" />
+        <Markdown :value="part.text" :streaming="message.stopReason === 'pending'" class="chat-markdown min-w-0 self-stretch" :class="phone ? 'text-read! leading-6!' : ''" @click="keepRepoLinks" />
       </Suspense>
       <div v-else-if="part.type === 'toolCall'" class="flex items-center gap-1.5 text-xs op-mute">
         <span class="i-ph:wrench" aria-hidden="true" />

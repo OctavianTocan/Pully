@@ -10,12 +10,14 @@ import GithubTokenRecovery from '../settings/GithubTokenRecovery.vue'
 import { filterPullRequests } from './pull-request-list-query'
 import PullRequestList from './PullRequestList.vue'
 import PullsHeader from './PullsHeader.vue'
+import RepositoryTours from './RepositoryTours.vue'
 
 const props = defineProps<{
   store: PullRequestListStore
 }>()
 
 const query = ref('')
+const tab = ref('pulls')
 // Matches the order pages arrive in, so an unfinished load never looks mis-sorted.
 const sort = ref<PullRequestSort>('recently-updated')
 
@@ -37,10 +39,11 @@ const isSearching = computed(() => query.value.trim() !== '' && props.store.hasM
 </script>
 
 <template>
-  <div class="flex flex-col bg-base color-base min-h-dvh">
-    <PullsHeader v-model:query="query" v-model:sort="sort" :store="store" :scroll-y="scrollY" />
+  <div class="flex flex-col bg-base pb-28 color-base min-h-dvh">
+    <PullsHeader v-model:query="query" v-model:sort="sort" v-model:tab="tab" :store="store" :scroll-y="scrollY" />
 
-    <main class="mxa max-w-6xl w-full flex flex-1 flex-col">
+    <RepositoryTours v-if="tab === 'tours'" :owner="store.owner" :repo="store.repo" :query="query" />
+    <main v-show="tab === 'pulls'" class="w-full flex flex-1 flex-col pt-3">
       <template v-if="store.isLoading">
         <div class="px-4 py-12">
           <FeedbackLoading :text="$t('pulls.loading')" />
@@ -64,7 +67,7 @@ const isSearching = computed(() => query.value.trim() !== '' && props.store.hasM
       </template>
 
       <template v-else>
-        <div v-if="hasItems" class="overflow-hidden border border-base rounded-lg">
+        <div v-if="hasItems">
           <!-- The last row's bottom border hides under the container's own. -->
           <PullRequestList :store="store" :query="query" :sort="sort" class="-mb-px" />
           <div v-if="matchCount === 0 && !isSearching" class="px-4 py-12">

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { DiffsStore } from '../../stores/types'
-import ActionButton from '@antfu/design/components/Action/ActionButton.vue'
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
 import { useResizeObserver } from '@vueuse/core'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import { t } from '../../i18n'
@@ -9,9 +7,11 @@ import { useCommand } from '../../state/commands'
 import { COMMAND } from '../../state/keymap'
 import AiActivityLog from '../ai/AiActivityLog.vue'
 import ChatMessage from './ChatMessage.vue'
+import AppModal from '../AppModal.vue'
 
 const props = defineProps<{
   store: DiffsStore
+  document?: Document | ShadowRoot
 }>()
 
 const chat = computed(() => props.store.llm!.chat)
@@ -41,7 +41,8 @@ const replyOutcome = computed(() => {
   return last.stopReason === 'error' ? 'failed' : last.stopReason === 'aborted' ? 'stopped' : 'done'
 })
 
-const listEl = useTemplateRef<HTMLDivElement>('listEl')
+const sheet = useTemplateRef<InstanceType<typeof AppModal>>('sheet')
+const listEl = computed(() => sheet.value?.scroller)
 const contentEl = useTemplateRef<HTMLDivElement>('contentEl')
 const stuckToBottom = ref(true)
 
@@ -88,90 +89,25 @@ function onKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-[calc(1rem+env(safe-area-inset-right))] z-dropdown">
-    <ActionIconButton
-      v-if="!open"
-      icon="i-ph:chat-circle-dots"
-      :title="$t('chat.title')"
-      :label="$t('chat.title')"
-      class="border border-base bg-base text-xl shadow-lg"
-      @click="open = true"
-    />
-
-    <div
-      v-else
-      class="h-140 max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] w-100 flex flex-col overflow-hidden border border-base rounded-lg bg-base shadow-xl max-sm:(fixed inset-0 h-auto max-h-none max-w-none w-auto border-0 rounded-none)"
-    >
-      <div class="flex items-center gap-2 border-b border-base px-3 py-2 max-sm:pt-[calc(0.5rem+env(safe-area-inset-top))]">
-        <span class="i-ph:chat-circle-dots op-mute" aria-hidden="true" />
-        <span class="flex-auto text-sm font-semibold">{{ $t('chat.title') }}</span>
-        <ActionButton v-if="chat.available" size="sm" variant="text" @click="chat.clear()">
-          {{ $t('common.clear') }}
-        </ActionButton>
-        <ActionIconButton compact icon="i-lu-chevd" :label="$t('chat.collapse')" :tooltip="$t('chat.collapse')" @click="open = false" />
-      </div>
-
-      <div v-if="!chat.available" class="flex flex-auto items-center justify-center p-6 text-center text-sm op-mute">
-        {{ $t('chat.reanalyzeToEnable') }}
-      </div>
-
-      <template v-else>
-        <div ref="listEl" class="min-w-0 flex-auto overflow-y-auto overscroll-contain p-3" @scroll="onScroll">
-          <div ref="contentEl" class="flex flex-col gap-3">
-            <template v-for="(message, index) in chat.messages" :key="index">
-              <ChatMessage
-                :message="message"
-                :retryable="index === lastIndex && !chat.isStreaming"
-                @retry="chat.retry()"
-              />
-              <AiActivityLog
-                v-if="index === lastQuestionIndex && !chat.isStreaming && chat.activities.length"
-                :activities="chat.activities"
-                :running="false"
-                :started-at="chat.startedAt"
-                :ended-at="chat.endedAt"
-                :outcome="replyOutcome"
-                compact
-              />
-            </template>
-            <AiActivityLog
-              v-if="chat.isStreaming && chat.activities.length"
-              :activities="chat.activities"
-              running
-              :started-at="chat.startedAt"
-              compact
-            />
-            <div v-if="showThinking" class="flex items-center gap-1.5 text-xs op-mute" role="status">
-              <span class="i-lu-redo animate-spin" aria-hidden="true" />
-              {{ $t('chat.thinking') }}
-            </div>
-          </div>
-        </div>
-
-        <p v-if="chat.error && !lastIsError" class="break-words px-3 pb-2 text-xs text-red-500">
-          {{ chat.error.message }}
-        </p>
-
-        <div class="flex items-end gap-2 border-t border-base p-2 max-sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
-          <textarea
-            ref="field"
-            v-model="input"
-            rows="2"
-            enterkeyhint="send"
-            :placeholder="$t('chat.placeholder')"
-            :aria-label="$t('chat.title')"
-            :disabled="busy"
-            class="flex-auto resize-none border border-base rounded bg-raised p-2 text-sm outline-none disabled:op-mute focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            @keydown="onKeydown"
-          />
-          <ActionButton v-if="chat.isStreaming" size="sm" icon="i-lu-stop" @click="chat.stop()">
-            {{ $t('common.stop') }}
-          </ActionButton>
-          <ActionButton v-else size="sm" variant="primary" icon="i-ph:paper-plane-right" :disabled="busy || !input.trim()" @click="submit()">
-            {{ $t('common.send') }}
-          </ActionButton>
-        </div>
+  <button v-if="!open" class="press-tint fixed bottom-6 right-4 z-dropdown h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button" :aria-label="$t('chat.title')" @click="open = true"><span class="i-lu-reply text-5" /></button>
+  <AppModal ref="sheet" :document="document" v-model:open="open" :title="$t('chat.title')" spacious tall @scroll="onScroll">
+    <template #trailing><button class="press-tint h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button disabled:op40" :disabled="busy" :aria-label="$t('mobile.newChat')" @click="chat.clear()"><span class="i-lu-new-chat text-5" /></button></template>
+    <div v-if="!chat.available" class="py-8 text-center text-sm color-muted">{{ $t('chat.reanalyzeToEnable') }}</div>
+    <div v-else ref="contentEl" class="flex flex-col gap-5">
+      <template v-for="(message, index) in chat.messages" :key="index">
+        <ChatMessage :message="message" :retryable="index === lastIndex && !chat.isStreaming" phone @retry="chat.retry()" />
+        <AiActivityLog v-if="index === lastQuestionIndex && !chat.isStreaming && chat.activities.length" :activities="chat.activities" :running="false" :started-at="chat.startedAt" :ended-at="chat.endedAt" :outcome="replyOutcome" compact />
       </template>
+      <AiActivityLog v-if="chat.isStreaming && chat.activities.length" :activities="chat.activities" running :started-at="chat.startedAt" compact />
+      <p v-if="showThinking" class="ai-shimmer text-sm" role="status">{{ $t('chat.thinking') }}</p>
+      <p v-if="chat.error && !lastIsError" class="break-words text-sm color-error">{{ chat.error.message }}</p>
     </div>
-  </div>
+    <template #footer>
+      <form class="min-h-13 w-full flex items-center gap-2 rounded-full bg-raised pl-4 pr-1.5 shadow-search" @submit.prevent="submit()">
+        <textarea ref="field" v-model="input" rows="1" enterkeyhint="send" :placeholder="$t('chat.placeholder')" :aria-label="$t('chat.title')" :disabled="busy" class="min-w-0 flex-1 resize-none bg-transparent py-3 text-row color-base outline-none placeholder:color-muted" @keydown="onKeydown" />
+        <button v-if="chat.isStreaming" type="button" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-paper-2" :aria-label="$t('common.stop')" @click="chat.stop()"><span class="i-lu-stop text-5" /></button>
+        <button v-else type="submit" :disabled="busy || !input.trim()" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-primary color-white disabled:op40" :aria-label="$t('common.send')" data-emphasis="normal"><span class="i-lu-arrow text-5" /></button>
+      </form>
+    </template>
+  </AppModal>
 </template>

@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import type { Command } from '../state/commands'
-import DisplayKbd from '@antfu/design/components/Display/DisplayKbd.vue'
 import { computed, nextTick, ref, useId, useTemplateRef, watch } from 'vue'
 import { deepActiveElement, eventChord } from '../composables/useKeyboardShortcuts'
 import { t } from '../i18n'
 import { rankItems } from '../state/command-rank'
 import { commands, isAvailable } from '../state/commands'
-import { COMMAND, keysFor } from '../state/keymap'
+import { COMMAND } from '../state/keymap'
 import { paletteOpen, paletteScope } from '../state/palette'
 import AppModal from './AppModal.vue'
 
@@ -20,6 +19,7 @@ const PAGE = 10
 const id = useId()
 const query = ref('')
 const selected = ref(0)
+const expanded = ref(new Set<string>())
 const input = useTemplateRef<HTMLInputElement>('input')
 const list = useTemplateRef<HTMLElement>('list')
 let returnFocus: HTMLElement | undefined
@@ -50,19 +50,16 @@ const sections = computed(() => {
       groups.set(name, entries = [])
     entries.push({ command, index })
   })
-  return [...groups].map(([name, entries]) => ({ name, entries }))
+  return [...groups].sort(([a], [b]) => Number(a === t('palette.group.general')) - Number(b === t('palette.group.general'))).map(([name, entries]) => ({ name, entries }))
 })
 
 // Rendering follows the grouped order, so selection walks it too.
-const order = computed(() => sections.value.flatMap(section => section.entries.map(entry => entry.index)))
+const order = computed(() => sections.value.flatMap(section => (query.value || expanded.value.has(section.name) ? section.entries : section.entries.slice(0, 4)).map(entry => entry.index)))
 
 function optionId(index: number) {
   return `${id}-option-${index}`
 }
 
-function shortcutOf(command: Command) {
-  return command.shortcut ?? keysFor(command.id)
-}
 
 function move(delta: number) {
   const count = order.value.length
@@ -149,9 +146,9 @@ watch(paletteOpen, async (isOpen) => {
 </script>
 
 <template>
-  <AppModal v-model:open="paletteOpen" :document="document">
-    <div class="flex flex-col -m-3">
-      <div class="flex items-center gap-2 border-b border-base px-3 py-2">
+  <AppModal v-model:open="paletteOpen" :document="document" :title="t('mobile.commands')" tall>
+    <div class="flex flex-col">
+      <div class="flex min-h-13 items-center gap-2.5 rounded-card bg-raised px-4 shadow-note">
         <span class="i-lu-search shrink-0 op-mute" aria-hidden="true" />
         <button
           v-if="paletteScope"
@@ -179,32 +176,35 @@ watch(paletteOpen, async (isOpen) => {
           :aria-activedescendant="results.length ? optionId(selected) : undefined"
           :aria-label="t('palette.title')"
           :placeholder="t('palette.placeholder')"
-          class="min-w-0 flex-1 bg-transparent py-1 text-sm color-base outline-none"
+          class="min-w-0 flex-1 bg-transparent py-1 text-row color-base outline-none"
           @keydown="onKeydown"
         >
       </div>
-      <div :id="`${id}-list`" ref="list" role="listbox" class="max-h-[min(60dvh,28rem)] overflow-auto overscroll-contain py-1">
+      <div :id="`${id}-list`" ref="list" role="listbox" class="py-1">
         <div v-if="!results.length" class="px-3 py-6 text-center text-sm op-fade">
           {{ t('palette.empty') }}
         </div>
         <div v-for="section in sections" :key="section.name" role="group" :aria-label="section.name">
-          <div class="px-3 pb-1 pt-2 text-xs color-faint font-medium">
+          <div class="px-4 pb-3 pt-6 text-sm color-muted font-medium">
             {{ section.name }}
           </div>
+          <div class="overflow-hidden rounded-card bg-raised shadow-note">
           <div
-            v-for="{ command, index } in section.entries"
+            v-for="{ command, index } in (query || expanded.has(section.name) ? section.entries : section.entries.slice(0, 4))"
             :id="optionId(index)"
             :key="command.id"
             role="option"
             :aria-selected="index === selected"
-            class="mx-1 flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm coarse:min-h-11"
-            :class="index === selected ? 'bg-active color-base' : 'color-base op-fade'"
+            class="press-tint relative min-h-13 flex cursor-pointer items-center gap-3.5 px-4 py-3 text-row"
+            :class="index === selected ? 'bg-active color-base' : 'color-base'"
             @mousemove="selected = index"
             @click="run(command)"
           >
-            <span class="h-4 w-4 shrink-0" :class="command.icon ?? 'i-ph:dot-outline'" aria-hidden="true" />
-            <span class="min-w-0 flex-1 truncate">{{ command.title }}</span>
-            <DisplayKbd v-if="shortcutOf(command)" :keys="shortcutOf(command)" class="shrink-0" />
+            <span v-if="index !== section.entries[0]?.index" class="absolute left-4 right-0 top-0 h-px bg-border-mute" aria-hidden="true" />
+            <span class="min-w-0 flex-1">{{ command.title }}</span>
+
+          </div>
+          <button v-if="!query && !expanded.has(section.name) && section.entries.length > 4" class="press-tint min-h-13 w-full px-4 text-left text-row color-muted" @click="expanded.add(section.name)">{{ t('mobile.moreCommands', { n: section.entries.length - 4 }) }}</button>
           </div>
         </div>
         <div v-if="ranked.length > LIMIT" class="px-3 py-2 text-xs op-mute">
@@ -212,13 +212,6 @@ watch(paletteOpen, async (isOpen) => {
         </div>
       </div>
     </div>
-    <template #footer>
-      <!-- Key hints mean nothing without a keyboard. -->
-      <div class="flex flex-1 items-center gap-4 px-1 text-xs op-fade coarse:hidden">
-        <span class="flex items-center gap-1"><DisplayKbd keys="up" /><DisplayKbd keys="down" />{{ t('palette.navigate') }}</span>
-        <span class="flex items-center gap-1"><DisplayKbd keys="enter" />{{ t('palette.run') }}</span>
-        <span class="flex items-center gap-1"><DisplayKbd keys="esc" />{{ t('palette.close') }}</span>
-      </div>
-    </template>
+
   </AppModal>
 </template>

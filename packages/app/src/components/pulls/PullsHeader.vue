@@ -1,61 +1,42 @@
 <script setup lang="ts">
 import type { PullRequestListStore } from '../../stores/pull-request-list-store'
 import type { PullRequestSort } from './pull-request-list-query'
-import ActionIconButton from '@antfu/design/components/Action/ActionIconButton.vue'
-import FormSearchField from '@antfu/design/components/Form/FormSearchField.vue'
-import FormSelect from '@antfu/design/components/Form/FormSelect.vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FIELD, vField } from '../../directives/field'
+import AppModal from '../AppModal.vue'
 import GithubAvatar from '../GithubAvatar.vue'
-import NavControls from '../NavControls.vue'
+import KitFloatButton from '../kit/KitFloatButton.vue'
+import KitCapsuleTabs from '../kit/KitCapsuleTabs.vue'
+import KitSearchPill from '../kit/KitSearchPill.vue'
 import { PULL_REQUEST_SORTS } from './pull-request-list-query'
 
-defineProps<{
-  store: PullRequestListStore
-  scrollY: number
-}>()
-
+defineProps<{ store: PullRequestListStore, scrollY: number }>()
 const query = defineModel<string>('query', { required: true })
 const sort = defineModel<PullRequestSort>('sort', { required: true })
-
+const tab = defineModel<string>('tab', { default: 'pulls' })
+const sortOpen = ref(false)
 const { t } = useI18n()
-const sortOptions = computed(() => PULL_REQUEST_SORTS.map(value => ({ value, label: t(`pulls.sort.${value}`) })))
+const tabs = computed(() => [{ value: 'pulls', label: t('mobile.pullRequests') }, { value: 'tours', label: t('mobile.tours') }])
 </script>
 
 <template>
-  <header
-    class="sticky left-0 right-0 top-0 z-nav flex flex-col gap-2 border-b bg-base px4 pb2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all"
-    :class="scrollY > 20 ? 'border-base shadow-md' : 'border-transparent'"
-  >
-    <div class="mxa max-w-6xl w-full flex flex-col gap-2">
-      <div class="flex flex-wrap items-center gap-2">
-        <RouterLink to="/" class="flex">
-          <span class="i-ph-house-line text-lg color-accent-teal" aria-hidden="true" />
-        </RouterLink>
-        <h1 class="flex flex-auto items-center gap-1.5 text-lg font-semibold">
-          <a :href="`https://github.com/${store.owner}`" target="_blank" rel="noopener" class="flex items-center gap-1.5 op-fade hover:underline">
-            <GithubAvatar :login="store.owner" :size="20" />
-            {{ store.owner }}
-          </a>
-          <span class="op-mute">/</span>
-          <a :href="`https://github.com/${store.owner}/${store.repo}/pulls`" target="_blank" rel="noopener" class="hover:underline">{{ store.repo }}</a>
-          <span v-if="store.totalCount !== undefined" class="ml-1 text-sm font-normal op-fade">{{ $t('pulls.open', { n: store.totalCount }) }}</span>
-          <ActionIconButton
-            icon="i-lu-refresh"
-            :label="$t('common.refresh')" :tooltip="$t('common.refresh')"
-            class="shrink-0 text-sm" :class="{ 'animate-spin': store.isRefreshing }" @click="store.refresh()"
-          />
-        </h1>
-        <div class="shrink-0">
-          <NavControls />
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <FormSearchField v-model="query" v-field="FIELD.search" :placeholder="$t('pulls.search')" size="sm" class="min-w-60 flex-1" />
-        <FormSelect v-model="sort" :options="sortOptions" class="min-w-48 h-7!" :aria-label="$t('pulls.sort.label')" />
-      </div>
+  <header class="bg-base px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+    <div class="flex items-center justify-between">
+      <KitFloatButton icon="i-lu-back" to="/" :label="$t('keys.home')" />
+      <a :href="`https://github.com/${store.owner}/${store.repo}/pulls`" target="_blank" rel="noopener" class="press-tint h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button" :aria-label="$t('overview.viewOnGithub')"><span class="i-carbon-logo-github text-5" aria-hidden="true" /></a>
     </div>
+    <div class="mt-3.5 flex items-center gap-1.5 text-sm color-muted"><GithubAvatar :login="store.owner" :size="18" /><span>{{ store.owner }}</span><span v-if="store.totalCount !== undefined">· {{ $t('pulls.open', { n: store.totalCount }) }}</span></div>
+    <h1 class="mt-0.5 text-xxl font-medium">{{ store.repo }}</h1>
+    <KitCapsuleTabs v-model="tab" :options="tabs" class="mt-3.5 w-full" />
   </header>
+  <div class="pointer-events-none fixed inset-x-0 bottom-0 z-nav flex items-center gap-2.5 bg-gradient-to-t from-base via-base/90 to-transparent px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-5">
+    <KitSearchPill v-model="query" class="pointer-events-auto min-w-0 flex-1" :placeholder="$t(tab === 'tours' ? 'mobile.searchTours' : 'pulls.search')" />
+    <KitFloatButton v-if="tab === 'pulls'" icon="i-lu-sort" :label="$t('pulls.sort.label')" class="pointer-events-auto h-13! w-13!" @click="sortOpen = true" />
+  </div>
+  <AppModal v-model:open="sortOpen" :title="$t('pulls.sort.label')">
+    <div class="overflow-hidden rounded-card bg-raised">
+      <button v-for="option in PULL_REQUEST_SORTS" :key="option" role="option" :aria-selected="sort === option" class="press-tint min-h-13 w-full flex items-center justify-between border-b border-mute px-4 text-left text-base last:border-0" @click="sort = option; sortOpen = false">{{ $t(`pulls.sort.${option}`) }}<span v-if="sort === option" class="i-lu-check color-primary" /></button>
+      <button class="press-tint min-h-13 w-full flex items-center gap-3 px-4 text-base" :disabled="store.isRefreshing" @click="store.refresh()"><span class="i-lu-refresh" :class="store.isRefreshing ? 'animate-spin' : ''" />{{ $t('common.refresh') }}</button>
+    </div>
+  </AppModal>
 </template>

@@ -9,6 +9,15 @@ export interface Settings {
   llm: LlmSettings
   /** UI language and the language the LLM writes summaries in; seeded from the browser's preference. */
   locale: Locale
+  sounds: boolean
+  soundMaterial: 'default' | 'mech' | 'bubble' | 'press'
+  haptics: boolean
+  motion: boolean
+  appFont: 'geist' | 'mona-sans' | 'system' | 'serif'
+  codeFont: 'geist-mono' | 'jetbrains-mono' | 'fira-code' | 'source-code-pro' | 'ibm-plex-mono' | 'roboto-mono' | 'system'
+  codeZoom: number
+  codeWrap: boolean
+  colorTheme: string
 }
 
 const defaultSettings: Settings = {
@@ -16,6 +25,15 @@ const defaultSettings: Settings = {
   // `mergeDefaults` never runs for a browser with nothing stored, so the local build's provider is set here too.
   llm: import.meta.env.PR_LOCAL ? { ...defaultLlmSettings, provider: 'claude-code' } : defaultLlmSettings,
   locale: detectLocale(),
+  sounds: true,
+  soundMaterial: 'default',
+  haptics: true,
+  motion: true,
+  appFont: 'geist',
+  codeFont: 'geist-mono',
+  codeZoom: 1,
+  codeWrap: false,
+  colorTheme: 'pulls',
 }
 
 /**

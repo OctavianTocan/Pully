@@ -82,6 +82,11 @@ export function createUnoConfig() {
       {
         'z-file-diff-header': 'z-[10]',
         'z-nav': 'z-[30]',
+        'z-inbox-group': 'z-[1]',
+        'z-diff-counts': 'z-[11]',
+        'z-tour-sections': 'z-[12]',
+        'z-search-dim': 'z-[31]',
+        'z-foot-bar': 'z-[32]',
         'z-dropdown': 'z-[40]',
         'z-tooltip': 'z-[45]',
         'z-toast': 'z-[50]',
