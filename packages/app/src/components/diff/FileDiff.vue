@@ -10,6 +10,7 @@ import { FileDiff as PierreFileDiff, processFile, VirtualizedFileDiff } from '@p
 import { computed, defineAsyncComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { isDark as globalIsDark, isDarkKey } from '../../state/dark'
 import { useFileNavigation } from '../../state/navigation'
+import { settings } from '../../state/settings'
 import { aiAnchors } from '../critique/file-annotations'
 import FileSummary from '../critique/FileSummary.vue'
 import { revealFinding } from '../critique/reveal'
@@ -19,6 +20,7 @@ import DiffStats from './DiffStats.vue'
 import FileHeaderLinks from './FileHeaderLinks.vue'
 import FileStatus from './FileStatus.vue'
 import { isNoisyFile } from './noisy-files'
+import phoneDiffCss from './phone-diff.css?raw'
 import { ensurePierreDiffsShadowRoot } from './pierre-diffs-shadow'
 import { reviewStatus } from './review-status'
 import ReviewCheckbox from './ReviewCheckbox.vue'
@@ -27,6 +29,8 @@ import ReviewThreadCard from './ReviewThreadCard.vue'
 const props = defineProps<{
   store: DiffsStore
   file: FileChange
+  /** The phone's Changes page: the chosen file opens even if already reviewed. */
+  mobile?: boolean
 }>()
 
 const AiAnnotations = defineAsyncComponent(() => import('../critique/AiAnnotations.vue'))
@@ -44,7 +48,7 @@ const isDark = inject(isDarkKey, globalIsDark)
 const virtualizer = inject(diffVirtualizerKey, undefined)
 
 const containerRef = useTemplateRef<HTMLDivElement>('container')
-const collapsed = ref(isReviewed.value || isNoisyFile(props.file.path))
+const collapsed = ref(!props.mobile && (isReviewed.value || isNoisyFile(props.file.path)))
 /** Phones only: whether the folded file actions are shown. */
 const actionsOpen = ref(false)
 let instance: PierreFileDiff | undefined
@@ -106,7 +110,10 @@ async function loadFullFile() {
 // Pierre can only expand "N unmodified lines" when it has the full file contents, which a
 // bare patch lacks - so the first click on one of its expand controls fetches the file, then
 // replays that click's expansion on the re-rendered diff (pierre keeps no state for it).
-interface PendingExpand { index: number, direction: 'up' | 'down' | 'both' }
+interface PendingExpand {
+  index: number
+  direction: 'up' | 'down' | 'both'
+}
 
 function readExpandTarget(event: Event): PendingExpand | undefined {
   for (const node of event.composedPath()) {
@@ -274,15 +281,16 @@ const MIN_SPLIT_WIDTH_PX = 640
 // (a file that's purely additions or purely deletions has nothing on the other side).
 const isOneSided = computed(() => props.file.additions === 0 || props.file.deletions === 0)
 const effectiveLayout = computed<'split' | 'unified'>(() => {
-  if (props.store.ui.layout === 'unified' || isOneSided.value)
+  if (props.store.ui.layout === 'unified' || (!props.mobile && isOneSided.value))
     return 'unified'
-  if (containerWidth.value > 0 && containerWidth.value < MIN_SPLIT_WIDTH_PX)
+  if (!props.mobile && containerWidth.value > 0 && containerWidth.value < MIN_SPLIT_WIDTH_PX)
     return 'unified'
   return props.store.ui.layout
 })
 
 const pierreOptions = computed((): FileDiffOptions<undefined, undefined> => ({
   diffStyle: effectiveLayout.value,
+  ...(props.mobile ? { unsafeCSS: phoneDiffCss, diffIndicators: 'classic' as const, overflow: settings.value.codeWrap ? 'wrap' as const : 'scroll' as const } : {}),
   themeType: isDark.value ? 'dark' : 'light',
   disableErrorHandling: false,
   disableFileHeader: true,
@@ -388,12 +396,16 @@ watch(() => props.store.critique?.focused, async (focus) => {
 
 defineExpose({
   /** Called by the file tree's "jump to file" navigation, which can't reach `collapsed` otherwise. */
-  expand: () => { collapsed.value = false },
+  expand: () => {
+    collapsed.value = false
+  },
+  loadFullFile,
 })
 </script>
 
 <template>
   <header
+    v-if="!mobile"
     :id="`file-${file.sha}`"
     class="press-tint relative sticky top-[calc(var(--diffs-header-height)-1px)] z-file-diff-header mt-2 flex flex-wrap items-center justify-between gap-x-2 overflow-hidden border border-base bg-base px-2 py-1.5 coarse:(py-0 pl-3)"
     role="button"
@@ -455,7 +467,7 @@ defineExpose({
       />
     </div>
   </header>
-  <div v-if="!collapsed" class="overflow-hidden border-x border-b border-base rounded-b-xl">
+  <div v-if="!collapsed" :id="mobile ? `file-${file.sha}` : undefined" class="overflow-hidden" :class="mobile ? '' : 'border-x border-b border-base rounded-b-xl'">
     <div v-if="status === 'changed'" class="flex flex-wrap items-center justify-between gap-2 border-b border-orange:20 bg-orange:10 px-3 py-1.5 text-sm text-orange-700 dark:text-orange-400">
       <span class="flex items-center gap-1.5">
         <span class="i-ph:warning-circle shrink-0" aria-hidden="true" />
@@ -472,7 +484,7 @@ defineExpose({
     <div v-else-if="file.truncated && !fullFileLoaded" class="p-4 text-sm op-fade">
       {{ $t('file.tooLarge') }}
     </div>
-    <div v-else ref="container" :class="status === 'changed' ? 'mb--2' : 'my--2'">
+    <div v-else ref="container" :class="mobile ? '' : status === 'changed' ? 'mb--2' : 'my--2'">
       <!--
         Light-DOM children projected into pierre's shadow-DOM annotation rows via
         named slots (`annotation-<side>-<line>`), mirroring the library's own
@@ -516,5 +528,6 @@ defineExpose({
       </div>
     <!-- eslint-enable vue/no-deprecated-slot-attribute -->
     </div>
+    <div v-if="mobile" class="h-[calc(84px+env(safe-area-inset-bottom))] bg-raised" aria-hidden="true" />
   </div>
 </template>

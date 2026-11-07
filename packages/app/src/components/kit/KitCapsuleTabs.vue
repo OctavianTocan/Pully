@@ -3,7 +3,10 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  options: { value: T, label: string }[]
+  options: {
+    value: T
+    label: string
+  }[]
   /** No shadow, for a capsule that sits on a raised surface already. */
   flat?: boolean
 }>()
@@ -29,7 +32,7 @@ const index = computed(() => Math.max(0, props.options.findIndex(o => o.value ==
       type="button"
       role="tab"
       :aria-selected="option.value === model"
-      class="relative min-w-24 flex-1 rounded-full px-4 transition-colors"
+      class="relative min-w-0 flex-1 rounded-full px-3 transition-colors"
       :class="option.value === model ? 'color-base' : 'color-muted hover:color-base'"
       @click="model = option.value"
     >

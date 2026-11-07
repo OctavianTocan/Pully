@@ -13,7 +13,10 @@ export type TypeRole = keyof typeof tokens.typography
 export type ShadowLevel = keyof typeof tokens.shadow
 export type ComponentName = keyof typeof tokens.components
 
-interface Channels { rgb: string, alpha: number }
+interface Channels {
+  rgb: string
+  alpha: number
+}
 
 /** `#RRGGBB[AA]` as space-separated channels and an alpha. */
 export function channels(hex: string): Channels {
@@ -73,8 +76,8 @@ export function preflightCss(): string {
   const { fontFamily } = designTheme()
   return [
     `:root,:host{${block('light')}${type(false)}${motion}${diffVariables()}}`,
-    `html,:host{font-family:${fontFamily.sans}}`,
-    `code,kbd,samp,pre{font-family:${fontFamily.mono}}`,
+    `html,:host{font-family:var(--pr-app-font,${fontFamily.sans})}`,
+    `code,kbd,samp,pre{font-family:var(--pr-code-font,${fontFamily.mono})}`,
     `@media (min-width:${WIDE_FROM}px){:root,:host{${type(true)}}}`,
     `html.dark,.dark{color-scheme:dark;${block('dark')}}`,
   ].join('\n')
@@ -107,7 +110,7 @@ function diffVariables(): string {
     '--diffs-bg-separator-override': v('paper'),
     '--diffs-bg-buffer-override': v('paper'),
     '--diffs-bg-hover-override': v('hover'),
-    '--diffs-font-family': designTheme().fontFamily.mono,
+    '--diffs-font-family': `var(--pr-code-font,${designTheme().fontFamily.mono})`,
     '--diffs-header-font-family': designTheme().fontFamily.sans,
   }
   return Object.entries(vars).map(([key, value]) => `${key}:${value};`).join('')
@@ -157,7 +160,10 @@ function themeFontSize() {
 function themeMotion() {
   const duration: Record<string, string> = {}
   const easing: Record<string, string> = {}
-  for (const [name, m] of Object.entries(tokens.motion) as [string, { ms: number, curve?: string }][]) {
+  for (const [name, m] of Object.entries(tokens.motion) as [string, {
+    ms: number
+    curve?: string
+  }][]) {
     duration[name] = `${m.ms}ms`
     if (m.curve?.startsWith('cubic-bezier'))
       easing[name] = m.curve
@@ -177,7 +183,7 @@ export function designTheme() {
     colors: themeColors(),
     fontFamily: {
       sans: family(tokens.fonts.sans, SANS_FALLBACK),
-      mono: family(tokens.fonts.mono, MONO_FALLBACK),
+      mono: `var(--pr-code-font,${family(tokens.fonts.mono, MONO_FALLBACK)})`,
       display: family(tokens.fonts.display, family(tokens.fonts.sans, SANS_FALLBACK)),
     },
     fontSize: themeFontSize(),
@@ -209,7 +215,10 @@ export function componentClasses(name: ComponentName): string {
     rounded?: string | number
     width?: number
     height?: number
-    padding?: { y: number, x: number }
+    padding?: {
+      y: number
+      x: number
+    }
   }
   const classes: string[] = []
   if (c.background)
@@ -245,6 +254,9 @@ const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--c
 export function antfuOverrides(): Record<string, string> {
   const c = arbitrary
   return {
+    // `base` is also a surface color. Resolve the type role before Wind can interpret
+    // `text-base` as paper-colored ink and make titles and sheet labels disappear.
+    'text-base': `text-[${tokens.typography.base.size}px] leading-[${tokens.typography.base.line}px]`,
     // Text: ink, and its two quieter steps. Text never fades further (rule 14).
     'color-base': `color-${c('text')}`,
     'color-base-light': `color-${c('text')}`,
@@ -277,13 +289,13 @@ export function antfuOverrides(): Record<string, string> {
 
     // Buttons, as the phone's: the teal pill for the main action (`primary`, as Review and Analyze),
     // a quiet paper pill beside it, a bare one for the least. No borders; pressing tints (rule 82).
-    'btn-primary': `inline-flex items-center justify-center gap-2 h-9 px-4 rounded-full border-none bg-${c('primary')} color-white font-medium transition hover:bg-${c('primary-600')} disabled:op50 disabled:pointer-events-none ${FOCUS}`,
-    'btn-action': `inline-flex items-center justify-center gap-2 h-9 px-4 rounded-full border-none bg-${c('paper-2')} color-${c('text')} font-medium transition hover:bg-${c('chip-on')} disabled:pointer-events-none disabled:op40! ${FOCUS}`,
+    'btn-primary': `kit-cta-button inline-flex items-center justify-center gap-2 border-none font-medium transition disabled:op50 disabled:pointer-events-none ${FOCUS}`,
+    'btn-action': `inline-flex items-center justify-center gap-2 h-11 px-5 rounded-full border-none bg-${c('paper-2')} color-${c('text')} text-sm font-medium transition hover:bg-${c('chip-on')} disabled:pointer-events-none disabled:op40! ${FOCUS}`,
     'btn-action-sm': 'btn-action h-8 px-3 text-sm',
     'btn-action-active': `bg-${c('chip-on')}! color-${c('text')}`,
-    'btn-text': `inline-flex items-center gap-2 h-9 px-3 rounded-full border-none color-${c('text')} transition hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40! ${FOCUS}`,
-    'btn-icon': `w-9 h-9 rounded-full color-${c('text')} transition flex items-center justify-center hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40 ${FOCUS}`,
-    'btn-icon-compact': `w-7 h-7 rounded-full color-${c('muted')} transition flex items-center justify-center hover:color-${c('text')} hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40 ${FOCUS}`,
+    'btn-text': `inline-flex items-center gap-2 h-11 px-3 rounded-full border-none color-${c('text')} transition hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40! ${FOCUS}`,
+    'btn-icon': `w-11 h-11 rounded-full color-${c('text')} transition flex items-center justify-center hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40 ${FOCUS}`,
+    'btn-icon-compact': `w-9 h-9 rounded-full color-${c('muted')} transition flex items-center justify-center hover:color-${c('text')} hover:bg-${c('hover')} disabled:pointer-events-none disabled:op40 ${FOCUS}`,
     'btn-icon-square': `kit-float-button shadow-button flex items-center justify-center transition disabled:pointer-events-none disabled:op40 ${FOCUS}`,
 
     // Badges: soft pills, never boxed.

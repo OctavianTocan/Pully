@@ -2,7 +2,7 @@ import type { EffectScope } from 'vue'
 import { defaultLlmSettings } from '@pulls.review/core/analyze'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
-import { settings } from '../state/settings'
+import { defaultSettings, settings } from '../state/settings'
 import { useLlmModels } from './useLlmModels'
 
 const STORAGE_KEY = 'diffs:llm-models'
@@ -20,7 +20,7 @@ describe('useLlmModels', () => {
   beforeEach(() => {
     scope = effectScope()
     localStorage.removeItem(STORAGE_KEY)
-    settings.value = { githubToken: '', llm: { ...defaultLlmSettings }, locale: 'en' }
+    settings.value = { ...defaultSettings, llm: { ...defaultLlmSettings }, locale: 'en' }
   })
 
   afterEach(() => {

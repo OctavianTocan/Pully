@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useGithubTokenMeta } from '../../composables/useGithubTokenMeta'
 import { useLlmModels } from '../../composables/useLlmModels'
 import { settings } from '../../state/settings'
@@ -16,16 +17,24 @@ const emit = defineEmits<{
 
 const githubToken = useGithubTokenMeta()
 const llmModels = useLlmModels()
+const panel = ref<{ back: () => void }>()
+const navigation = ref<{
+  title?: string
+  back: boolean
+}>({ back: false })
 </script>
 
 <template>
   <AppModal
-    :title="$t('common.settings')"
+    :title="navigation.title || $t('common.settings')"
+    :back="navigation.back"
     :open="open"
     :document="document"
     @update:open="emit('update:open', $event ?? false)"
+    @back="panel?.back()"
   >
     <SettingsPanel
+      ref="panel"
       :github-token-set="!!settings.githubToken"
       :github-token-meta="githubToken.meta.value"
       :github-token-busy="githubToken.busy.value"
@@ -34,6 +43,7 @@ const llmModels = useLlmModels()
       :models="llmModels.models.value"
       :models-loading="llmModels.loading.value"
       :models-error="llmModels.error.value"
+      @navigation="navigation = $event"
       @save-github-token="githubToken.saveToken($event)"
       @update:llm-settings="settings = { ...settings, llm: $event }"
     />

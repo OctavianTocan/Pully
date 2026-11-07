@@ -1,0 +1,13 @@
+/* FileDiff.kt: native paper, full-strength line washes, classic +/- gutters. */
+:host {
+  --diffs-gap-block: 0px;
+  --diffs-light-bg: rgb(var(--c-raised)) !important;
+  --diffs-dark-bg: rgb(var(--c-raised)) !important;
+  --diffs-light: rgb(var(--c-text)) !important;
+  --diffs-dark: rgb(var(--c-text)) !important;
+}
+[data-line-type='change-addition'],
+[data-line-type='change-deletion'] {
+  --mix-light: 0% !important;
+  --mix-dark: 0% !important;
+}

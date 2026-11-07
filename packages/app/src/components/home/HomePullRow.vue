@@ -8,10 +8,14 @@ import { routeForRef } from '../../source-routes'
 
 const props = defineProps<{
   pull: MyPull
+  risk?: boolean
+  repoLabel?: string
+  stackLayers?: MyPull[]
 }>()
 
 const emit = defineEmits<{
   /** The pointer or focus rests on the row: the click may follow. */
+  stack: [layers: MyPull[]]
   intent: [pull: MyPull]
   leave: [pull: MyPull]
 }>()
@@ -30,48 +34,57 @@ const check = computed(() => {
   if (checks === 'success')
     return { icon: 'i-lu-okc color-success', label: t('pulls.checks.success') }
   if (checks === 'pending')
-    return { icon: 'h-2 w-2 rounded-full bg-amber', label: t('pulls.checks.pending') }
+    return { icon: 'h-2 w-2 rounded-full bg-checks-pending', label: t('pulls.checks.pending') }
   return undefined
 })
 const requested = computed(() => props.pull.requestedFromMe ?? props.pull.role === 'review-requested')
+const state = computed(() => props.pull.merged ? 'merged' : props.pull.state === 'closed' ? 'closed' : props.pull.isDraft ? 'draft' : 'open')
+const tile = computed(() => ({
+  open: { icon: 'i-lu-pr-open', color: 'success' },
+  draft: { icon: 'i-lu-pr-draft', color: 'muted' },
+  merged: { icon: 'i-lu-pr-merged', color: 'purple' },
+  closed: { icon: 'i-lu-pr-closed', color: 'error' },
+})[state.value])
 const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.owner, repo: props.pull.repo, number: String(props.pull.number) }))
 </script>
 
 <!--
   The phone's `PullRowContent`: the number in its own column, the title, then who wrote it, the checks, the size and the age.
-  On a wide desktop the title and the meta share one line, with the meta in fixed columns at the end.
+  A collapsed stack uses the same frame and facts as a pull request.
 -->
 <template>
   <RouterLink
     :to="to"
-    class="press-tint relative flex gap-1.5 px-4 py-3.25 transition-colors hover:bg-hover"
+    class="press-tint relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover"
+    @click="stackLayers ? ($event.preventDefault(), emit('stack', stackLayers)) : undefined"
     @pointerenter="emit('intent', pull)"
     @pointerleave="emit('leave', pull)"
     @focus="emit('intent', pull)"
     @blur="emit('leave', pull)"
   >
-    <span class="w-13 shrink-0 text-num font-semibold font-display tabular-nums">#{{ pull.number }}</span>
-    <span class="min-w-0 flex flex-1 flex-col gap-1.25 xl:(flex-row items-baseline gap-6)">
-      <span class="text-row xl:(min-w-0 flex-1)">
-        <span v-if="pull.isDraft" class="color-muted">[{{ $t('local.home.draft') }}] </span>{{ pull.title }}
-      </span>
-      <span class="flex items-center gap-1.5 text-sm color-muted xl:flex-none">
-        <span class="min-w-0 flex flex-1 items-center gap-1.5 xl:(w-44 flex-none)">
-          <span v-if="requested" class="h-1.75 w-1.75 shrink-0 rounded-full bg-accent-teal" role="img" :aria-label="$t('triage.requested')" :title="$t('triage.requested')" />
-          <span class="min-w-0 break-words xl:truncate">{{ pull.author }}</span>
-          <span v-if="pull.stack" class="flex shrink-0 items-center gap-1 tabular-nums">
-            <span class="i-lu-layers text-3.75" aria-hidden="true" />
-            <template v-if="pull.stack.below">{{ $t('triage.stackedOn', { n: pull.stack.below }) }}</template>
+    <span class="[--tile-alpha:0.12] h-10.5 w-10.5 flex shrink-0 items-center justify-center rounded-lg dark:[--tile-alpha:0.18]" :style="{ color: `rgb(var(--c-${tile.color}))`, backgroundColor: stackLayers ? 'transparent' : `rgb(var(--c-${tile.color}) / var(--tile-alpha))`, boxShadow: stackLayers ? `inset 0 0 0 1px rgb(var(--c-${tile.color}) / 0.7)` : undefined }" role="img" :aria-label="$t(`mobile.state.${state}`)"><span :class="stackLayers ? 'i-lu-layers' : tile.icon" class="text-6" aria-hidden="true" /></span>
+    <span class="min-w-0 flex flex-1 flex-col gap-1">
+      <span class="line-clamp-2 text-base">{{ pull.title }}</span>
+      <span class="flex items-center gap-1.5 text-sm color-muted">
+        <span class="min-w-10 shrink-0 color-base font-medium font-display tabular-nums">#{{ pull.number }}</span>
+        <span class="min-w-0 flex flex-1 items-center gap-1.5">
+          <span v-if="stackLayers" class="flex shrink-0 items-center gap-0.75"><span class="i-lu-layers text-3.5" />{{ stackLayers.length }}</span>
+          <span v-else-if="pull.stack" class="flex shrink-0 items-center gap-1 tabular-nums" :class="risk && (pull.jev?.risk ?? 0) >= 2.5 ? 'color-amber' : ''">
+            <span class="i-lu-layers text-3.5" aria-hidden="true" />
+            <template v-if="pull.stack.size > 1">{{ pull.stack.position }}/{{ pull.stack.size }}</template>
           </span>
+          <span v-else-if="risk && pull.jev" class="shrink-0" :class="pull.jev.risk >= 2.5 ? 'color-amber' : ''">{{ $t(`mobile.riskWords.${Math.max(0, Math.min(3, Math.round(pull.jev.risk)))}`) }}</span>
+          <span v-if="requested" class="h-1.75 w-1.75 shrink-0 rounded-full bg-accent-teal" role="img" :aria-label="$t('triage.requested')" :title="$t('triage.requested')" />
+          <span class="min-w-0 truncate">{{ repoLabel ? `${repoLabel} · ${pull.author}` : pull.author }}</span>
         </span>
-        <span class="w-6 flex shrink-0 items-center">
+        <span class="w-5.5 flex shrink-0 items-center">
           <span v-if="check" :class="check.icon" class="text-4.5" role="img" :aria-label="check.label" :title="check.label" />
         </span>
         <span v-if="pull.additions !== undefined" class="flex shrink-0 justify-end gap-1 text-right font-medium font-mono" :title="pull.changedFiles !== undefined ? $t('triage.files', pull.changedFiles) : undefined">
-          <span class="w-12 color-success sm:w-14">+{{ compactCount(pull.additions) }}</span>
-          <span class="w-9 color-error sm:w-10">−{{ compactCount(pull.deletions ?? 0) }}</span>
+          <span class="w-12 color-success">+{{ compactCount(pull.additions) }}</span>
+          <span class="w-12 color-error">−{{ compactCount(pull.deletions ?? 0) }}</span>
         </span>
-        <time class="w-8 shrink-0 text-right tabular-nums" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
+        <time class="w-8.5 shrink-0 text-right tabular-nums" :datetime="pull.updatedAt" :title="new Date(pull.updatedAt).toLocaleString(locale)">
           {{ compactAge(new Date(pull.updatedAt), now.getTime()) }}
         </time>
       </span>

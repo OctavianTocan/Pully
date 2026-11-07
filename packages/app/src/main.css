@@ -15,12 +15,51 @@ body {
 html {
   /* Always reserve the scrollbar's width, even on short pages, so content doesn't
      shift horizontally when navigating between pages that do/don't need to scroll. */
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   /* iOS enlarges text in landscape unless told not to; the type scale is already sized for phones. */
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   /* The grey flash a tap paints over a whole link or row; every control below has its own `:active` state instead. */
   -webkit-tap-highlight-color: transparent;
+}
+
+/* The blank host surrounds a real, portrait browser viewport. All overlays and responsive
+   behavior therefore use the phone's width, including third-party portals and diff rendering. */
+html.mobile-host,
+.mobile-host body,
+.mobile-host #app {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  background: rgb(var(--c-base));
+}
+
+.mobile-host #app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+iframe[data-pully-screen] {
+  display: block;
+  border: 0;
+  width: min(100%, 430px, calc(100dvh * 9 / 19.5));
+  height: min(100dvh, calc(430px * 19.5 / 9));
+  color-scheme: normal;
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  iframe[data-pully-screen] {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+body {
+  color: rgb(var(--c-text));
+  background: rgb(var(--c-base));
 }
 
 /* No double-tap-to-zoom wait on controls, so a tap acts at once. Pinch zoom still works. */
@@ -208,5 +247,43 @@ html.dark,
 @media (prefers-reduced-motion: reduce) {
   .ai-shimmer {
     animation: none;
+  }
+}
+
+.mobile-sheet-enter-active,
+.mobile-sheet-leave-active {
+  transition: opacity var(--motion-slide) ease;
+}
+
+.mobile-sheet-enter-active .mobile-sheet-panel,
+.mobile-sheet-leave-active .mobile-sheet-panel {
+  transition: transform var(--motion-slide) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mobile-sheet-enter-from,
+.mobile-sheet-leave-to {
+  opacity: 0;
+}
+
+.mobile-sheet-enter-from .mobile-sheet-panel,
+.mobile-sheet-leave-to .mobile-sheet-panel {
+  transform: translateY(100%);
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-sheet-enter-active,
+  .mobile-sheet-leave-active,
+  .mobile-sheet-enter-active .mobile-sheet-panel,
+  .mobile-sheet-leave-active .mobile-sheet-panel {
+    transition-duration: 0.01ms;
   }
 }

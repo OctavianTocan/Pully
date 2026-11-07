@@ -20,6 +20,7 @@ import { diffVirtualizerKey } from './diff-virtualizer'
 import DiffGroup from './DiffGroup.vue'
 import DiffGroupSidebar from './DiffGroupSidebar.vue'
 import DiffsHeader from './DiffsHeader.vue'
+import MobileReview from './MobileReview.vue'
 import OfflineBanner from './OfflineBanner.vue'
 import ReviewSummaries from './ReviewSummaries.vue'
 import SharedAnalysisBanner from './SharedAnalysisBanner.vue'
@@ -28,6 +29,7 @@ const props = defineProps<{
   document?: Document | ShadowRoot
   store?: DiffsStore
 }>()
+const isEmbedded = import.meta.env.PR_EMBED
 
 // Compile-time: with LLM support off `store.llm` is never set, so the widget is dead code.
 const ChatWidget = import.meta.env.PR_LLM
@@ -173,7 +175,9 @@ function refreshFromBanner() {
 </script>
 
 <template>
+  <MobileReview v-if="!isEmbedded && store" :store="store" :document="document" />
   <div
+    v-else
     ref="root"
     class="diffs-page bg-base color-base"
     :style="styles"
@@ -281,7 +285,7 @@ function refreshFromBanner() {
           </div>
         </div>
 
-        <ChatWidget v-if="ChatWidget && store?.llm && store.aiResult" :store="store" />
+        <ChatWidget v-if="ChatWidget && store?.llm && store.aiResult" :store="store" :document="document" />
       </template>
       <template v-else>
         <div class="mxa max-w-500 w-full px-4 py-12">
