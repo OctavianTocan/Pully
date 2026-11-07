@@ -6,8 +6,8 @@ import { t } from '../../i18n'
 import { useCommand } from '../../state/commands'
 import { COMMAND } from '../../state/keymap'
 import AiActivityLog from '../ai/AiActivityLog.vue'
-import ChatMessage from './ChatMessage.vue'
 import AppModal from '../AppModal.vue'
+import ChatMessage from './ChatMessage.vue'
 
 const props = defineProps<{
   store: DiffsStore
@@ -89,24 +89,40 @@ function onKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <button v-if="!open" class="press-tint fixed bottom-6 right-4 z-dropdown h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button" :aria-label="$t('chat.title')" @click="open = true"><span class="i-lu-reply text-5" /></button>
-  <AppModal ref="sheet" :document="document" v-model:open="open" :title="$t('chat.title')" spacious tall @scroll="onScroll">
-    <template #trailing><button class="press-tint h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button disabled:op40" :disabled="busy" :aria-label="$t('mobile.newChat')" @click="chat.clear()"><span class="i-lu-new-chat text-5" /></button></template>
-    <div v-if="!chat.available" class="py-8 text-center text-sm color-muted">{{ $t('chat.reanalyzeToEnable') }}</div>
+  <button v-if="!open" class="press-tint fixed bottom-6 right-4 z-dropdown h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button" :aria-label="$t('chat.title')" @click="open = true">
+    <span class="i-lu-reply text-5" />
+  </button>
+  <AppModal ref="sheet" v-model:open="open" :document="document" :title="$t('chat.title')" spacious tall @scroll="onScroll">
+    <template #trailing>
+      <button class="press-tint h-11 w-11 flex items-center justify-center rounded-full bg-raised shadow-button disabled:op40" :disabled="busy" :aria-label="$t('mobile.newChat')" @click="chat.clear()">
+        <span class="i-lu-new-chat text-5" />
+      </button>
+    </template>
+    <div v-if="!chat.available" class="py-8 text-center text-sm color-muted">
+      {{ $t('chat.reanalyzeToEnable') }}
+    </div>
     <div v-else ref="contentEl" class="flex flex-col gap-5">
       <template v-for="(message, index) in chat.messages" :key="index">
         <ChatMessage :message="message" :retryable="index === lastIndex && !chat.isStreaming" phone @retry="chat.retry()" />
         <AiActivityLog v-if="index === lastQuestionIndex && !chat.isStreaming && chat.activities.length" :activities="chat.activities" :running="false" :started-at="chat.startedAt" :ended-at="chat.endedAt" :outcome="replyOutcome" compact />
       </template>
       <AiActivityLog v-if="chat.isStreaming && chat.activities.length" :activities="chat.activities" running :started-at="chat.startedAt" compact />
-      <p v-if="showThinking" class="ai-shimmer text-sm" role="status">{{ $t('chat.thinking') }}</p>
-      <p v-if="chat.error && !lastIsError" class="break-words text-sm color-error">{{ chat.error.message }}</p>
+      <p v-if="showThinking" class="ai-shimmer text-sm" role="status">
+        {{ $t('chat.thinking') }}
+      </p>
+      <p v-if="chat.error && !lastIsError" class="break-words text-sm color-error">
+        {{ chat.error.message }}
+      </p>
     </div>
     <template #footer>
       <form class="min-h-13 w-full flex items-center gap-2 rounded-full bg-raised pl-4 pr-1.5 shadow-search" @submit.prevent="submit()">
         <textarea ref="field" v-model="input" rows="1" enterkeyhint="send" :placeholder="$t('chat.placeholder')" :aria-label="$t('chat.title')" :disabled="busy" class="min-w-0 flex-1 resize-none bg-transparent py-3 text-row color-base outline-none placeholder:color-muted" @keydown="onKeydown" />
-        <button v-if="chat.isStreaming" type="button" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-paper-2" :aria-label="$t('common.stop')" @click="chat.stop()"><span class="i-lu-stop text-5" /></button>
-        <button v-else type="submit" :disabled="busy || !input.trim()" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-primary color-white disabled:op40" :aria-label="$t('common.send')" data-emphasis="normal"><span class="i-lu-arrow text-5" /></button>
+        <button v-if="chat.isStreaming" type="button" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-paper-2" :aria-label="$t('common.stop')" @click="chat.stop()">
+          <span class="i-lu-stop text-5" />
+        </button>
+        <button v-else type="submit" :disabled="busy || !input.trim()" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-primary color-white disabled:op40" :aria-label="$t('common.send')" data-emphasis="normal">
+          <span class="i-lu-arrow text-5" />
+        </button>
       </form>
     </template>
   </AppModal>

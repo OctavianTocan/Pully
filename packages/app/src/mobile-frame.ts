@@ -18,7 +18,9 @@ export function mountMobileFrame(): void {
     const child = frame.contentDocument
     if (!child)
       return
-    const syncTitle = () => { document.title = child.title }
+    const syncTitle = () => {
+      document.title = child.title
+    }
     syncTitle()
     new MutationObserver(syncTitle).observe(child.head, { subtree: true, childList: true, characterData: true })
   })
@@ -43,8 +45,12 @@ export function mobileHistory(base = '/'): RouterHistory {
   const syncChild = (to: string) => window.history.replaceState(null, '', memory.createHref(to))
   return {
     base: memory.base,
-    get location() { return memory.location },
-    get state() { return host.history.state ?? {} },
+    get location() {
+      return memory.location
+    },
+    get state() {
+      return host.history.state ?? {}
+    },
     createHref: memory.createHref,
     push(to, data) {
       const from = memory.location
@@ -58,7 +64,10 @@ export function mobileHistory(base = '/'): RouterHistory {
       host.history.replaceState({ ...host.history.state, ...data, current: to, position }, '', memory.createHref(to))
       syncChild(to)
     },
-    go(delta, triggerListeners = true) { paused = !triggerListeners; host.history.go(delta) },
+    go(delta, triggerListeners = true) {
+      paused = !triggerListeners
+      host.history.go(delta)
+    },
     listen(callback) {
       const pop = () => {
         const from = memory.location
@@ -68,14 +77,23 @@ export function mobileHistory(base = '/'): RouterHistory {
         position = next
         memory.replace(to)
         syncChild(to)
-        if (paused) { paused = false; return }
+        if (paused) {
+          paused = false
+          return
+        }
         callback(to, from, { delta, type: 'pop' as Parameters<Parameters<RouterHistory['listen']>[0]>[2]['type'], direction: (delta > 0 ? 'forward' : delta < 0 ? 'back' : '') as Parameters<Parameters<RouterHistory['listen']>[0]>[2]['direction'] })
       }
       host.addEventListener('popstate', pop)
-      const cleanup = () => { host.removeEventListener('popstate', pop); cleanups.delete(cleanup) }
+      const cleanup = () => {
+        host.removeEventListener('popstate', pop)
+        cleanups.delete(cleanup)
+      }
       cleanups.add(cleanup)
       return cleanup
     },
-    destroy() { cleanups.forEach(cleanup => cleanup()); memory.destroy() },
+    destroy() {
+      cleanups.forEach(cleanup => cleanup())
+      memory.destroy()
+    },
   }
 }

@@ -1,5 +1,5 @@
-import type { MyPull, MyPullState } from '@pulls.review/core/local-rpc'
 import type { GithubClient } from '@pulls.review/core/github'
+import type { MyPull, MyPullState } from '@pulls.review/core/local-rpc'
 
 interface Issue {
   number: number
@@ -19,9 +19,13 @@ export async function browserInbox(client: GithubClient, viewer: string, state: 
     const items: Issue[] = []
     for (let page = 1; page <= 10; page++) {
       const params = new URLSearchParams({ q: `is:pr is:${state} ${qualifier}:${viewer}`, sort: 'updated', order: 'desc', per_page: '100', page: String(page) })
-      const result = await (await client.request(`/search/issues?${params}`)).json() as { items: Issue[], total_count: number }
+      const result = await (await client.request(`/search/issues?${params}`)).json() as {
+        items: Issue[]
+        total_count: number
+      }
       items.push(...result.items)
-      if (result.items.length < 100 || items.length >= result.total_count) break
+      if (result.items.length < 100 || items.length >= result.total_count)
+        break
     }
     return items
   }

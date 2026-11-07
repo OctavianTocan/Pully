@@ -15,11 +15,15 @@ withDefaults(defineProps<{
   searchIcon?: boolean
 }>(), { searchIcon: true })
 
-const emit = defineEmits<{ open: [], send: [] }>()
+const emit = defineEmits<{
+  open: []
+  send: []
+}>()
 const model = defineModel<string>({ required: true })
 const { t } = useI18n()
 function focusField(event: MouseEvent) {
-  if (event.target instanceof Element && !event.target.closest('button')) (event.currentTarget as HTMLFormElement).querySelector('input')?.focus()
+  if (event.target instanceof Element && !event.target.closest('button'))
+    (event.currentTarget as HTMLFormElement).querySelector('input')?.focus()
 }
 </script>
 
@@ -43,7 +47,9 @@ function focusField(event: MouseEvent) {
     <button v-if="openLabel" type="submit" class="press-tint h-10 shrink-0 rounded-full bg-cta px-4 text-sm color-on-cta font-medium" :aria-label="openLabel">
       {{ t('local.home.open') }}
     </button>
-    <button v-if="sendLabel && !openLabel" type="submit" :disabled="sendDisabled" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-primary color-white disabled:op40" :aria-label="sendLabel" data-emphasis="normal"><span class="i-lu-arrow text-5" aria-hidden="true" /></button>
+    <button v-if="sendLabel && !openLabel" type="submit" :disabled="sendDisabled" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full bg-primary color-white disabled:op40" :aria-label="sendLabel" data-emphasis="normal">
+      <span class="i-lu-arrow text-5" aria-hidden="true" />
+    </button>
     <button v-else-if="model" type="button" class="press-tint h-10 w-10 flex shrink-0 items-center justify-center rounded-full color-muted hover:bg-hover" :aria-label="t('common.clear')" @click="model = ''">
       <span class="i-lu-close text-4.5" aria-hidden="true" />
     </button>

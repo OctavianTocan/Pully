@@ -17,12 +17,16 @@ export function claimSheet(lockScroll: boolean) {
     layer: currentLayer,
     topmost: () => stack.at(-1) === id,
     release() {
-      if (released) return
+      if (released)
+        return
       released = true
       const index = stack.indexOf(id)
-      if (index >= 0) stack.splice(index, 1)
-      if (!stack.length) layer = 0
-      if (lockScroll && --scrollLocks === 0) document.body.style.overflow = previousOverflow
+      if (index >= 0)
+        stack.splice(index, 1)
+      if (!stack.length)
+        layer = 0
+      if (lockScroll && --scrollLocks === 0)
+        document.body.style.overflow = previousOverflow
     },
   }
 }

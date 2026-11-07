@@ -9,8 +9,8 @@ import DisplayFilePath from '@antfu/design/components/Display/DisplayFilePath.vu
 import { FileDiff as PierreFileDiff, processFile, VirtualizedFileDiff } from '@pierre/diffs'
 import { computed, defineAsyncComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
 import { isDark as globalIsDark, isDarkKey } from '../../state/dark'
-import { settings } from '../../state/settings'
 import { useFileNavigation } from '../../state/navigation'
+import { settings } from '../../state/settings'
 import { aiAnchors } from '../critique/file-annotations'
 import FileSummary from '../critique/FileSummary.vue'
 import { revealFinding } from '../critique/reveal'
@@ -20,8 +20,8 @@ import DiffStats from './DiffStats.vue'
 import FileHeaderLinks from './FileHeaderLinks.vue'
 import FileStatus from './FileStatus.vue'
 import { isNoisyFile } from './noisy-files'
-import { ensurePierreDiffsShadowRoot } from './pierre-diffs-shadow'
 import phoneDiffCss from './phone-diff.css?raw'
+import { ensurePierreDiffsShadowRoot } from './pierre-diffs-shadow'
 import { reviewStatus } from './review-status'
 import ReviewCheckbox from './ReviewCheckbox.vue'
 import ReviewThreadCard from './ReviewThreadCard.vue'
@@ -110,7 +110,10 @@ async function loadFullFile() {
 // Pierre can only expand "N unmodified lines" when it has the full file contents, which a
 // bare patch lacks - so the first click on one of its expand controls fetches the file, then
 // replays that click's expansion on the re-rendered diff (pierre keeps no state for it).
-interface PendingExpand { index: number, direction: 'up' | 'down' | 'both' }
+interface PendingExpand {
+  index: number
+  direction: 'up' | 'down' | 'both'
+}
 
 function readExpandTarget(event: Event): PendingExpand | undefined {
   for (const node of event.composedPath()) {
@@ -393,7 +396,9 @@ watch(() => props.store.critique?.focused, async (focus) => {
 
 defineExpose({
   /** Called by the file tree's "jump to file" navigation, which can't reach `collapsed` otherwise. */
-  expand: () => { collapsed.value = false },
+  expand: () => {
+    collapsed.value = false
+  },
   loadFullFile,
 })
 </script>
@@ -462,7 +467,7 @@ defineExpose({
       />
     </div>
   </header>
-  <div v-if="!collapsed" class="overflow-hidden" :class="mobile ? '' : 'border-x border-b border-base rounded-b-xl'" :id="mobile ? `file-${file.sha}` : undefined">
+  <div v-if="!collapsed" :id="mobile ? `file-${file.sha}` : undefined" class="overflow-hidden" :class="mobile ? '' : 'border-x border-b border-base rounded-b-xl'">
     <div v-if="status === 'changed'" class="flex flex-wrap items-center justify-between gap-2 border-b border-orange:20 bg-orange:10 px-3 py-1.5 text-sm text-orange-700 dark:text-orange-400">
       <span class="flex items-center gap-1.5">
         <span class="i-ph:warning-circle shrink-0" aria-hidden="true" />

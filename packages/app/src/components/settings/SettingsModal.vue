@@ -18,7 +18,10 @@ const emit = defineEmits<{
 const githubToken = useGithubTokenMeta()
 const llmModels = useLlmModels()
 const panel = ref<{ back: () => void }>()
-const navigation = ref<{ title?: string, back: boolean }>({ back: false })
+const navigation = ref<{
+  title?: string
+  back: boolean
+}>({ back: false })
 </script>
 
 <template>
@@ -32,7 +35,6 @@ const navigation = ref<{ title?: string, back: boolean }>({ back: false })
   >
     <SettingsPanel
       ref="panel"
-      @navigation="navigation = $event"
       :github-token-set="!!settings.githubToken"
       :github-token-meta="githubToken.meta.value"
       :github-token-busy="githubToken.busy.value"
@@ -41,6 +43,7 @@ const navigation = ref<{ title?: string, back: boolean }>({ back: false })
       :models="llmModels.models.value"
       :models-loading="llmModels.loading.value"
       :models-error="llmModels.error.value"
+      @navigation="navigation = $event"
       @save-github-token="githubToken.saveToken($event)"
       @update:llm-settings="settings = { ...settings, llm: $event }"
     />

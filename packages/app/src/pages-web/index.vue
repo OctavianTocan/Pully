@@ -4,7 +4,9 @@ import HomeScreen from '../components/home/HomeScreen.vue'
 import { settings } from '../state/settings'
 
 const identity = ref(0)
-watch(() => settings.value.githubToken, () => { identity.value++ })
+watch(() => settings.value.githubToken, () => {
+  identity.value++
+})
 </script>
 
 <template>

@@ -17,11 +17,15 @@ const themeOptions = computed(() => [
 ])
 const theme = computed({
   get: () => isDark.value ? 'dark' as const : 'light' as const,
-  set: (value) => { isDark.value = value === 'dark' },
+  set: (value) => {
+    isDark.value = value === 'dark'
+  },
 })
 const locale = computed({
   get: () => settings.value.locale,
-  set: (value: Locale) => { settings.value = { ...settings.value, locale: value } },
+  set: (value: Locale) => {
+    settings.value = { ...settings.value, locale: value }
+  },
 })
 // The GitHub embed follows GitHub's own theme, so it offers no choice.
 const isEmbedded = import.meta.env.PR_EMBED

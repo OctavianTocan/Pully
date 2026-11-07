@@ -14,17 +14,21 @@ const palette = computed(() => {
 })
 export const isDark = computed({
   get: () => palette.value.dark,
-  set: (dark: boolean) => { mode.value = dark ? 'dark' : 'light' },
+  set: (dark: boolean) => {
+    mode.value = dark ? 'dark' : 'light'
+  },
 })
-if (!import.meta.env.PR_EMBED) watchEffect(() => {
-  document.documentElement.classList.toggle('dark', palette.value.dark)
-  const style = document.documentElement.style
-  for (const [name, hex] of Object.entries(palette.value.colors)) {
-    const value = channels(hex)
-    style.setProperty(`--c-${name}`, value.rgb)
-    style.setProperty(`--a-${name}`, String(value.alpha))
-  }
-})
+if (!import.meta.env.PR_EMBED) {
+  watchEffect(() => {
+    document.documentElement.classList.toggle('dark', palette.value.dark)
+    const style = document.documentElement.style
+    for (const [name, hex] of Object.entries(palette.value.colors)) {
+      const value = channels(hex)
+      style.setProperty(`--c-${name}`, value.rgb)
+      style.setProperty(`--a-${name}`, String(value.alpha))
+    }
+  })
+}
 
 /**
  * Lets a subtree override the ambient dark-mode ref that pierre-diffs theming reads

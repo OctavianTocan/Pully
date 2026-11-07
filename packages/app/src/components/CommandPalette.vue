@@ -42,7 +42,10 @@ const ranked = computed(() => rankItems(candidates.value, query.value, command =
 const results = computed(() => ranked.value.slice(0, LIMIT))
 
 const sections = computed(() => {
-  const groups = new Map<string, { command: Command, index: number }[]>()
+  const groups = new Map<string, {
+    command: Command
+    index: number
+  }[]>()
   results.value.forEach((command, index) => {
     const name = command.group ?? t('palette.group.general')
     let entries = groups.get(name)
@@ -59,7 +62,6 @@ const order = computed(() => sections.value.flatMap(section => (query.value || e
 function optionId(index: number) {
   return `${id}-option-${index}`
 }
-
 
 function move(delta: number) {
   const count = order.value.length
@@ -148,7 +150,7 @@ watch(paletteOpen, async (isOpen) => {
 <template>
   <AppModal v-model:open="paletteOpen" :document="document" :title="t('mobile.commands')" tall>
     <div class="flex flex-col">
-      <div class="flex min-h-13 items-center gap-2.5 rounded-card bg-raised px-4 shadow-note">
+      <div class="min-h-13 flex items-center gap-2.5 rounded-card bg-raised px-4 shadow-note">
         <span class="i-lu-search shrink-0 op-mute" aria-hidden="true" />
         <button
           v-if="paletteScope"
@@ -189,22 +191,23 @@ watch(paletteOpen, async (isOpen) => {
             {{ section.name }}
           </div>
           <div class="overflow-hidden rounded-card bg-raised shadow-note">
-          <div
-            v-for="{ command, index } in (query || expanded.has(section.name) ? section.entries : section.entries.slice(0, 4))"
-            :id="optionId(index)"
-            :key="command.id"
-            role="option"
-            :aria-selected="index === selected"
-            class="press-tint relative min-h-13 flex cursor-pointer items-center gap-3.5 px-4 py-3 text-row"
-            :class="index === selected ? 'bg-active color-base' : 'color-base'"
-            @mousemove="selected = index"
-            @click="run(command)"
-          >
-            <span v-if="index !== section.entries[0]?.index" class="absolute left-4 right-0 top-0 h-px bg-border-mute" aria-hidden="true" />
-            <span class="min-w-0 flex-1">{{ command.title }}</span>
-
-          </div>
-          <button v-if="!query && !expanded.has(section.name) && section.entries.length > 4" class="press-tint min-h-13 w-full px-4 text-left text-row color-muted" @click="expanded.add(section.name)">{{ t('mobile.moreCommands', { n: section.entries.length - 4 }) }}</button>
+            <div
+              v-for="{ command, index } in (query || expanded.has(section.name) ? section.entries : section.entries.slice(0, 4))"
+              :id="optionId(index)"
+              :key="command.id"
+              role="option"
+              :aria-selected="index === selected"
+              class="press-tint relative min-h-13 flex cursor-pointer items-center gap-3.5 px-4 py-3 text-row"
+              :class="index === selected ? 'bg-active color-base' : 'color-base'"
+              @mousemove="selected = index"
+              @click="run(command)"
+            >
+              <span v-if="index !== section.entries[0]?.index" class="absolute left-4 right-0 top-0 h-px bg-border-mute" aria-hidden="true" />
+              <span class="min-w-0 flex-1">{{ command.title }}</span>
+            </div>
+            <button v-if="!query && !expanded.has(section.name) && section.entries.length > 4" class="press-tint min-h-13 w-full px-4 text-left text-row color-muted" @click="expanded.add(section.name)">
+              {{ t('mobile.moreCommands', { n: section.entries.length - 4 }) }}
+            </button>
           </div>
         </div>
         <div v-if="ranked.length > LIMIT" class="px-3 py-2 text-xs op-mute">
@@ -212,6 +215,5 @@ watch(paletteOpen, async (isOpen) => {
         </div>
       </div>
     </div>
-
   </AppModal>
 </template>

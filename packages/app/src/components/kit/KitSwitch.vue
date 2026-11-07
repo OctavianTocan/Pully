@@ -1,5 +1,8 @@
 <script setup lang="ts">
-defineProps<{ label: string, disabled?: boolean }>()
+defineProps<{
+  label: string
+  disabled?: boolean
+}>()
 const model = defineModel<boolean>({ required: true })
 </script>
 

@@ -3,7 +3,10 @@
 import { computed } from 'vue'
 
 const props = defineProps<{
-  options: { value: T, label: string }[]
+  options: {
+    value: T
+    label: string
+  }[]
   /** No shadow, for a capsule that sits on a raised surface already. */
   flat?: boolean
 }>()

@@ -13,7 +13,10 @@ export type TypeRole = keyof typeof tokens.typography
 export type ShadowLevel = keyof typeof tokens.shadow
 export type ComponentName = keyof typeof tokens.components
 
-interface Channels { rgb: string, alpha: number }
+interface Channels {
+  rgb: string
+  alpha: number
+}
 
 /** `#RRGGBB[AA]` as space-separated channels and an alpha. */
 export function channels(hex: string): Channels {
@@ -157,7 +160,10 @@ function themeFontSize() {
 function themeMotion() {
   const duration: Record<string, string> = {}
   const easing: Record<string, string> = {}
-  for (const [name, m] of Object.entries(tokens.motion) as [string, { ms: number, curve?: string }][]) {
+  for (const [name, m] of Object.entries(tokens.motion) as [string, {
+    ms: number
+    curve?: string
+  }][]) {
     duration[name] = `${m.ms}ms`
     if (m.curve?.startsWith('cubic-bezier'))
       easing[name] = m.curve
@@ -209,7 +215,10 @@ export function componentClasses(name: ComponentName): string {
     rounded?: string | number
     width?: number
     height?: number
-    padding?: { y: number, x: number }
+    padding?: {
+      y: number
+      x: number
+    }
   }
   const classes: string[] = []
   if (c.background)

@@ -55,14 +55,14 @@ const to = computed(() => routeForRef({ kind: 'github-pr', owner: props.pull.own
 <template>
   <RouterLink
     :to="to"
-    @click="stackLayers ? ($event.preventDefault(), emit('stack', stackLayers)) : undefined"
     class="press-tint relative flex items-center gap-3 px-4 py-3 transition-colors hover:bg-hover"
+    @click="stackLayers ? ($event.preventDefault(), emit('stack', stackLayers)) : undefined"
     @pointerenter="emit('intent', pull)"
     @pointerleave="emit('leave', pull)"
     @focus="emit('intent', pull)"
     @blur="emit('leave', pull)"
   >
-    <span class="h-10.5 w-10.5 flex shrink-0 items-center justify-center rounded-lg [--tile-alpha:0.12] dark:[--tile-alpha:0.18]" :style="{ color: `rgb(var(--c-${tile.color}))`, backgroundColor: stackLayers ? 'transparent' : `rgb(var(--c-${tile.color}) / var(--tile-alpha))`, boxShadow: stackLayers ? `inset 0 0 0 1px rgb(var(--c-${tile.color}) / 0.7)` : undefined }" role="img" :aria-label="$t(`mobile.state.${state}`)"><span :class="stackLayers ? 'i-lu-layers' : tile.icon" class="text-6" aria-hidden="true" /></span>
+    <span class="[--tile-alpha:0.12] h-10.5 w-10.5 flex shrink-0 items-center justify-center rounded-lg dark:[--tile-alpha:0.18]" :style="{ color: `rgb(var(--c-${tile.color}))`, backgroundColor: stackLayers ? 'transparent' : `rgb(var(--c-${tile.color}) / var(--tile-alpha))`, boxShadow: stackLayers ? `inset 0 0 0 1px rgb(var(--c-${tile.color}) / 0.7)` : undefined }" role="img" :aria-label="$t(`mobile.state.${state}`)"><span :class="stackLayers ? 'i-lu-layers' : tile.icon" class="text-6" aria-hidden="true" /></span>
     <span class="min-w-0 flex flex-1 flex-col gap-1">
       <span class="line-clamp-2 text-base">{{ pull.title }}</span>
       <span class="flex items-center gap-1.5 text-sm color-muted">

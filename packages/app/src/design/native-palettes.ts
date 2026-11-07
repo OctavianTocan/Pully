@@ -1,8 +1,16 @@
 import source from '../../../../mobile/shared-ui/src/commonMain/kotlin/com/octaviantocan/pulls/ui/design/OpenCodeThemes.kt?raw'
 import tokens from './tokens.generated.json'
 
-interface Palette { dark: boolean, colors: Record<string, string> }
-export interface NativeTheme { id: string, name: string, light: Palette, dark?: Palette }
+interface Palette {
+  dark: boolean
+  colors: Record<string, string>
+}
+export interface NativeTheme {
+  id: string
+  name: string
+  light: Palette
+  dark?: Palette
+}
 
 function palette(body: string): Palette {
   const colors: Record<string, string> = {}
@@ -20,15 +28,19 @@ const converted: NativeTheme[] = []
 for (const block of source.split(/\bColorTheme\(\s*\n/).slice(1)) {
   const id = /id = "([^"]+)"/.exec(block)?.[1]
   const name = /name = "([^"]+)"/.exec(block)?.[1]
-  const light = /light = PullsColors\(([\s\S]*?)\n        \),/.exec(block)?.[1]
-  const dark = /dark = PullsColors\(([\s\S]*?)\n        \),/.exec(block)?.[1]
-  if (id && name && light) converted.push({ id, name, light: palette(light), ...(dark ? { dark: palette(dark) } : {}) })
+  const light = /light = PullsColors\(([\s\S]*?)\n {8}\),/.exec(block)?.[1]
+  const dark = /dark = PullsColors\(([\s\S]*?)\n {8}\),/.exec(block)?.[1]
+  if (id && name && light)
+    converted.push({ id, name, light: palette(light), ...(dark ? { dark: palette(dark) } : {}) })
 }
 
 export const nativeThemes: NativeTheme[] = [{
-  id: 'pulls', name: 'Pully',
+  id: 'pulls',
+  name: 'Pully',
   light: { dark: false, colors: Object.fromEntries(Object.entries(tokens.colors).map(([name, value]) => [name, value.light])) },
   dark: { dark: true, colors: Object.fromEntries(Object.entries(tokens.colors).map(([name, value]) => [name, value.dark])) },
 }, ...converted]
 
-export function nativeTheme(id: string): NativeTheme { return nativeThemes.find(theme => theme.id === id) ?? nativeThemes[0]! }
+export function nativeTheme(id: string): NativeTheme {
+  return nativeThemes.find(theme => theme.id === id) ?? nativeThemes[0]!
+}

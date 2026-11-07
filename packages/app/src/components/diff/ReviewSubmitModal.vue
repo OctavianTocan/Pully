@@ -22,7 +22,10 @@ const emit = defineEmits<{
 
 const body = ref('')
 const verdict = ref<ReviewVerdict>('COMMENT')
-watch(() => [props.open, props.initialVerdict] as const, ([open, value]) => { if (open) verdict.value = value ?? 'COMMENT' }, { immediate: true })
+watch(() => [props.open, props.initialVerdict] as const, ([open, value]) => {
+  if (open)
+    verdict.value = value ?? 'COMMENT'
+}, { immediate: true })
 const busy = ref(false)
 const error = ref<string>()
 

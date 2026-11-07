@@ -17,7 +17,10 @@ defineEmits<{ retry: [] }>()
 
 const { t } = useI18n()
 
-function textOf(content: string | { type: string, text?: string }[]) {
+function textOf(content: string | {
+  type: string
+  text?: string
+}[]) {
   return typeof content === 'string' ? content : content.map(part => part.text ?? '').join('\n')
 }
 

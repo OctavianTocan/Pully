@@ -1,16 +1,25 @@
 import type { MyPull } from '@pulls.review/core/local-rpc'
 
 /** Fold a section's stack where its first member appeared, with its bottom layer first. */
-export function inboxStacks(pulls: MyPull[]): { pull: MyPull, layers?: MyPull[] }[] {
+export function inboxStacks(pulls: MyPull[]): {
+  pull: MyPull
+  layers?: MyPull[]
+}[] {
   const key = (pull: MyPull) => pull.stack ? `${pull.owner}/${pull.repo}/${pull.stack.id}` : undefined
   const stacks = new Map<string, MyPull[]>()
-  for (const pull of pulls) { const id = key(pull); if (id) stacks.set(id, [...(stacks.get(id) ?? []), pull]) }
+  for (const pull of pulls) {
+    const id = key(pull)
+    if (id)
+      stacks.set(id, [...(stacks.get(id) ?? []), pull])
+  }
   const placed = new Set<string>()
-  return pulls.flatMap(pull => {
+  return pulls.flatMap((pull) => {
     const id = key(pull)
     const layers = id ? stacks.get(id) : undefined
-    if (!id || !layers || layers.length < 2) return [{ pull }]
-    if (placed.has(id)) return []
+    if (!id || !layers || layers.length < 2)
+      return [{ pull }]
+    if (placed.has(id))
+      return []
     placed.add(id)
     layers.sort((a, b) => a.stack!.position - b.stack!.position || a.number - b.number)
     const bottom = layers[0]!

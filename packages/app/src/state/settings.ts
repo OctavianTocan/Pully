@@ -20,7 +20,7 @@ export interface Settings {
   colorTheme: string
 }
 
-const defaultSettings: Settings = {
+export const defaultSettings: Settings = {
   githubToken: '',
   // `mergeDefaults` never runs for a browser with nothing stored, so the local build's provider is set here too.
   llm: import.meta.env.PR_LOCAL ? { ...defaultLlmSettings, provider: 'claude-code' } : defaultLlmSettings,

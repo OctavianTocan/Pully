@@ -8,7 +8,11 @@ import { compactAge, compactCount } from '../../i18n/time-ago'
 import { routeForRef } from '../../source-routes'
 import { tourProgress, tourProgressKey } from '../../state/tour-progress'
 
-const props = defineProps<{ meta: PrCacheMeta, tour: TourResult, pull?: MyPull }>()
+const props = defineProps<{
+  meta: PrCacheMeta
+  tour: TourResult
+  pull?: MyPull
+}>()
 const now = useNow({ interval: 60_000 })
 const progress = computed(() => tourProgress.value[tourProgressKey(props.meta.key, props.tour.generatedAt)])
 const completed = computed(() => !!props.tour.stops.length && (progress.value?.current ?? 0) >= props.tour.stops.length)

@@ -12,7 +12,7 @@ defineEmits<{ fold: [] }>()
 </script>
 
 <template>
-  <div role="button" tabindex="0" :aria-expanded="!folded" class="press-tint min-h-11 flex items-center pt-1.5 -mx-4 pl-2 pr-4" @click="$emit('fold')" @keydown.enter.self.prevent="$emit('fold')" @keydown.space.self.prevent="$emit('fold')">
+  <div role="button" tabindex="0" :aria-expanded="!folded" class="press-tint min-h-11 flex items-center pl-2 pr-4 pt-1.5 -mx-4" @click="$emit('fold')" @keydown.enter.self.prevent="$emit('fold')" @keydown.space.self.prevent="$emit('fold')">
     <component
       :is="to ? 'RouterLink' : 'span'"
       :to="to"
