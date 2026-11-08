@@ -65,6 +65,30 @@ stand-in server.
 
 Every release is described, with pictures, in [`android/CHANGELOG.md`](./android/CHANGELOG.md).
 
+## Why it works this way
+
+**Two panes when the phone unfolds.** An unfolded foldable has room for the list and the pull
+request at once, so the Inbox stays on the left and the pull request you open sits beside it, with
+its row marked. Every screen is the same screen in each shape; only where it sits changes. With the
+list right there, the Back arrow on the right pane had nothing to go back to, so it's gone (0.66.0).
+Inside a pull request, like a layer of its stack, Back still returns to the first one.
+
+**Motion goes the way you went.** Swiping between a pull request's tabs used to spring the rows back
+toward the tab you were leaving before the new one slid in, so every change looked like it went
+backwards. Now the direction is decided once, in the UI kit, never by a screen: the next tab or file
+comes in from the right, Back always goes backward, and a quick flick counts however short. A design
+check keeps it that way ([#28](https://github.com/OctavianTocan/Pully/pull/28)).
+
+**A stack is one row.** A stack of pull requests is one change split up so it can be reviewed in
+pieces, so the Inbox shows it as a single row with its count, checks and changes together. Tap it
+for every layer, from the top one down to the branch they merge into, each with its number, author
+and place, like 2/3.
+
+**Any OpenCode theme.** Settings and Commands offer OpenCode's colour themes as well as Pully's own.
+A script converts OpenCode's theme files into the app's palette, mapping each one onto the same
+roles: background, panel, text and accent. Pully's own palette has a dark pair for every colour, and
+a check fails if one is missing.
+
 ## How it fits together
 
 ```
@@ -137,6 +161,8 @@ the `release` branch through a promotion pull request that runs the full Android
 checks. [`docs/RELEASE_TRACK.md`](./docs/RELEASE_TRACK.md) has the details.
 
 ## Credits
+
+Designed and built by [Octavian Tocan](https://octaviantocan.com), working with Claude Code and Codex.
 
 Pully started as a fork of [pulls.review](https://github.com/antfu/pulls.review) by
 [Anthony Fu](https://github.com/antfu), which was itself inspired by
