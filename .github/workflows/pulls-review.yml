@@ -2,7 +2,8 @@ name: pulls.review
 
 on:
   # Checks out and runs the base branch, never PR code, so `pull_request_target`
-  # is safe with the secret and lets fork PRs get a comment too.
+  # is safe with the secret. Pull requests from forks are skipped (the job's `if`),
+  # so an outside pull request can't spend the AI Gateway key.
   pull_request_target:
     types: [opened, synchronize, reopened]
 
@@ -16,6 +17,7 @@ concurrency:
 
 jobs:
   analyze:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, linux, x64, pully-linux]
     steps:
       # Without a key there is nothing to analyze with, so the job skips instead of failing.
