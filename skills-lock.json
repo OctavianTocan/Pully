@@ -67,12 +67,6 @@
       "skillPath": "skills/productivity/handoff/SKILL.md",
       "computedHash": "20e5f4afdef502637510bc5c64d27645d3c85c88df9cb006824bbb0980166319"
     },
-    "i-have-adhd": {
-      "source": "ayghri/i-have-adhd",
-      "sourceType": "github",
-      "skillPath": "skills/i-have-adhd/SKILL.md",
-      "computedHash": "2be8f3214ebd0907429eafacc95c1cc3b4f21fe9d1892a30df9be7f32dc09d65"
-    },
     "improve": {
       "source": "shadcn/improve",
       "sourceType": "github",
