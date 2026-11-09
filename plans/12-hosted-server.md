@@ -100,7 +100,7 @@ Railway.
 | Work that outlives the page (AI tasks, the 3-minute PR store refresh) | The same Durable Object holds tasks in memory and wakes on its alarm | Request-scoped; needs Cron plus Queues or Workflow              | A long-running process, as today |
 | Claude Code and Codex in our Docker image                             | Containers (Sandbox SDK), started from the Durable Object            | Vercel Sandbox, a different image format                        | No Docker inside a service       |
 | Who may reach it (contract `phone-api-no-login`)                      | Cloudflare Access, already set up; the phone keeps its headers       | Vercel's own protection; new headers on the phone               | Its own; new headers             |
-| Octavian's plans                                                          | Covered                                                              | Covered                                                         | Not covered                      |
+| Octavian's plans                                                      | Covered                                                              | Covered                                                         | Not covered                      |
 
 Vercel stays where it is good at: the public static site (`vercel.json`). Railway would be
 the smallest move, but it cannot start the review containers and is not on his plans.
