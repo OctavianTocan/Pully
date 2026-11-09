@@ -16,7 +16,7 @@ where the two disagree, the packages' `src/` and test suites win, and the docs g
 
 Use the `code-contracts` skill (`.agents/skills/code-contracts/SKILL.md`) for every code
 change and review: find the contracts that govern what you touch before you design the
-change, keep them true, and add one for each new behaviour Tavi asks for or rejects.
+change, keep them true, and add one for each new behaviour Octavian asks for or rejects.
 
 - Contracts live in `CONTRACTS` files and apply to their directory and everything under
   it. The root [`CONTRACTS`](CONTRACTS) holds cross-package architecture and security;

@@ -35,10 +35,6 @@
       "package": "@antfu/skills",
       "source": "anthropics/skills/skills/frontend-design"
     },
-    "i-have-adhd": {
-      "package": "@antfu/skills",
-      "source": "ayghri/i-have-adhd"
-    },
     "improve": {
       "package": "@antfu/skills",
       "source": "shadcn/improve"
