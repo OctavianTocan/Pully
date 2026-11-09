@@ -6,5 +6,5 @@ Inbox and MUST NOT show raw responses, parser/native exception details or imply
 GitHub/account authorization from HTML alone. A returning verified account MUST
 retain offline access. Public-capable hosts MUST offer public browsing as the
 ordinary signed-out path rather than requiring operator Access credentials.
-Source: Tavi's 21 Oct 2026 reinstall screenshot and follow-up asking for personal
+Source: Octavian's 21 Oct 2026 reinstall screenshot and follow-up asking for personal
 GitHub sign-in plus public-repository browsing without sign-in.

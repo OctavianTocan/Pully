@@ -92,7 +92,7 @@ internal fun ContractsPage() {
     val motion = rememberMotionEnabled()
     Column(Modifier.fillMaxWidth()) {
         PageColumn {
-            PageTitle("Code contracts", "What the code must keep, from Tavi's recordings and DESIGN.md: $total contracts in ${areas.sumOf { it.files.size }} files.")
+            PageTitle("Code contracts", "What the code must keep, from Octavian's recordings and DESIGN.md: $total contracts in ${areas.sumOf { it.files.size }} files.")
             SheetSearch(query, { query = it }, "Find a contract")
             val scroll = rememberScrollState()
             Row(

@@ -7,7 +7,7 @@ import androidx.compose.runtime.setValue
 
 /**
  * The phone's account (plan 13): the session it signed in with, kept until Sign out ("once you sign in it's just signed
- * in", Tavi, 16 Oct 12:47), whether the server takes a sign-in at all (with Google or the test account's password), and
+ * in", Octavian, 16 Oct 12:47), whether the server takes a sign-in at all (with Google or the test account's password), and
  * its Google client ID. The session rides on every call as `X-Pully-Session`, next to the Access headers. A server with
  * no way to sign in asks for none, so the app never locks out a server that has not been set up.
  */

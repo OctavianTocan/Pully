@@ -13,7 +13,7 @@ Promotion to the release branch which changes APK runtime sources, resources, bu
 inputs, bundled changelogs or any bundled CONTRACTS file MUST fail release CI unless
 versionCode rises above the actual release base and the current release notes change.
 A missing comparison base MUST fail the check. Main feature integration MUST NOT
-require an app version or release note for each change. Source: Tavi's 22 Oct 2026
+require an app version or release note for each change. Source: Octavian's 22 Oct 2026
 decision that main merges be fast and all strong checks protect the release branch,
 superseding the 21 Oct per-main-PR release requirement.
 
@@ -21,7 +21,7 @@ superseding the 21 Oct per-main-PR release requirement.
 The CI release gate MUST enforce the changelog rules used by `android:design`: matching
 newest version, unique sections in newest-first order, a summary, change bullets and valid
 version-specific pictures. Editing only an older section MUST NOT satisfy the requirement
-for changed current-release notes. Source: Tavi, 21 Oct 2026, "We need to enforce proper
+for changed current-release notes. Source: Octavian, 21 Oct 2026, "We need to enforce proper
 changelogs for the versions too"; DESIGN.md rule 104 and the changelog check.
 
 @cc [owner:OctavianTocan,label:architecture] android-publish-clean-newer-builds
@@ -40,7 +40,7 @@ writers MUST publish complete JSON atomically using their own short index lock.
 Shallow or unavailable version history MUST preserve the existing historical index,
 rather than publishing a partial allowed set. Source: the 22 Oct independent
 release-history preservation review.
-Source: Tavi, 21 Oct 2026, "fix all the things you mentioned", after a manual release left
+Source: Octavian, 21 Oct 2026, "fix all the things you mentioned", after a manual release left
 uncommitted version edits blocking deployment; "Resolve all reviews and merge those PRs",
 concurrent-publication review.
 
@@ -52,9 +52,9 @@ can never replace it; it MUST read updates only from `/download/staging/` and be
 under `staging/`, never over the stable files. Its versionCode is the number of commits on
 main, so each merge is newer, and it is signed with the pinned key. It starts on the staging
 server, and its personal GitHub sign-in MUST go to the staging server too, never to
-production's (`personal-origin-is-app-configured`; Tavi's server agent found staging's Connect
+production's (`personal-origin-is-app-configured`; Octavian's server agent found staging's Connect
 GitHub pointing at production, 25 Oct 2026). This is the only exception to `android-publish-clean-newer-builds`' release source.
-Source: Tavi, 24 Oct 2026 20:46, "set up a staging app that updates when we merge to main.
+Source: Octavian, 24 Oct 2026 20:46, "set up a staging app that updates when we merge to main.
 And put it on the downloads."
 
 @cc [owner:OctavianTocan,label:security] android-pinned-signing-key
@@ -88,7 +88,7 @@ Every heading that folds rows away is `GroupHeading`: the name, the count, a che
 turns as it folds, a line under it while folded, and the rows leaving and returning with
 motion. The Inbox, Tours, the Overview's file sections and any new folding list on a
 page use it (rule 119; recording 15 Oct 12:39, J18). Sheets never fold: they use the plain
-heading of `kit-sheet-headings` (M7, rule 141; changed 16 Oct by Tavi's 0.37.0 recording).
+heading of `kit-sheet-headings` (M7, rule 141; changed 16 Oct by Octavian's 0.37.0 recording).
 
 @cc [owner:OctavianTocan,label:design] android-one-dialect
 Every screen is in the mobile style of `ui/design/Kit.kt` and the `Lu` icons. The
@@ -108,13 +108,13 @@ dark pair, and dark surfaces are a neutral grey with no colour cast (rule 76; F1
 Every element on a screen carries a fact or does something; anything that carries
 neither is cut. No initial avatars, decorative glyphs, FAB or Share (rule 1).
 The reader-enabled cross-app browser helper is the narrow exception: its button carries
-its verified repository and opens that repository (Tavi, 18 Oct 2026, browser helper).
+its verified repository and opens that repository (Octavian, 18 Oct 2026, browser helper).
 
 @cc [owner:OctavianTocan,label:product] android-not-wanted
 The app MUST NOT have voice input or dictation, a suggestion mode, Share on a pull
 request or tour, "Up next" inside a tour, a floating action button, "Later" as a row
 action, numbered step pips or step counters in progress (rule 11). The cross-app browser
-helper requested by Tavi on 18 Oct 2026 MAY show its repository-specific button outside
+helper requested by Octavian on 18 Oct 2026 MAY show its repository-specific button outside
 Pully, only after accessibility opt-in and while the actual browser URL is verified.
 
 @cc [owner:OctavianTocan,label:product;design] android-no-explaining-lines
@@ -125,7 +125,7 @@ Settings, the lines under the sounds). If a control needs explaining, the contro
 
 @cc [owner:OctavianTocan,label:design] android-no-tiny-text
 Text is never below 15sp and never uppercase or tracked; a section label is one word. The
-only exception is the footnote under a model list, which Tavi asked to be tiny (rules 14
+only exception is the footnote under a model list, which Octavian asked to be tiny (rules 14
 and 89).
 
 @cc [owner:OctavianTocan,label:product;design] android-whole-identifiers
@@ -133,14 +133,14 @@ Titles of pull requests, commits, tours and files wrap whole and are never cut w
 ellipsis. Names (an author, a branch) keep to one line and give way only at their end,
 and a path is cut from the left by whole folders (rules 2, 90 and 111; F23, F24, H15).
 The PR hold sheet's dedicated summary is an exception: its complete repository and
-author MUST wrap in their own full-width blocks (Tavi, 20 Oct 2026, screenshot 79142:
+author MUST wrap in their own full-width blocks (Octavian, 20 Oct 2026, screenshot 79142:
 "Here it needs to all be visible"); compact list rows and Tours keep their existing rules.
 The title exceptions are a pull request's title pinned at the top of its scrolled Overview,
 which is one line and MAY end in an ellipsis (recording of 16 Oct 12:10, 20:34 to 21:03;
-N38, Tavi's decision), and a pull request's title on a list row (the Inbox, Tours, a
+N38, Octavian's decision), and a pull request's title on a list row (the Inbox, Tours, a
 repository), which takes at most two lines and MUST end in an ellipsis when it runs
 longer, so the title is never three lines (recording of 17 Oct 14:45, 00:07 to 00:25; Q1;
-Tavi's message of 17 Oct 17:14, "I meant the title should also be in two rows", which
+Octavian's message of 17 Oct 17:14, "I meant the title should also be in two rows", which
 replaced the one-line title of 0.48.0).
 
 @cc [owner:OctavianTocan,label:product] android-no-loading-screens
@@ -160,7 +160,7 @@ web app. We don't open links, not like this." A row that goes to GitHub carries 
 own mark; any other row says in words what it does (rule 100).
 
 @cc [owner:OctavianTocan,label:design] android-launcher-icon-torch
-The launcher icon is "Torch", which Tavi picked on 15 Oct 2026 from the Pulls Icon Ideas
+The launcher icon is "Torch", which Octavian picked on 15 Oct 2026 from the Pulls Icon Ideas
 canvas: a nine by nine grid of days in GitHub's dark greens, with a beam of light from the
 bottom left corner lighting a wedge of them. It is flat: solid fills only, no gradients,
 shadows or highlights ("3d look is lame"). The themed icon and the notification icon are the
@@ -235,7 +235,7 @@ Components; book check).
 A button names its effect in words a GitHub reviewer would use, on one line: a wrapped
 button label is a defect ("Next unreviewed" becomes "Next"). The summary and the
 description are told apart by the link that switches them, never by a label over the text
-(rules 6, 24 and 138; M6, Tavi's 0.37.0 recording).
+(rules 6, 24 and 138; M6, Octavian's 0.37.0 recording).
 
 @cc [owner:OctavianTocan,label:design] android-no-number-cards
 Counts are never stat tiles, KPI cards or boxed mini-widgets, and never a run-on sentence
@@ -279,7 +279,7 @@ the same size and measure the gaps; "close" is not accepted and "different" is a
 (rule 47).
 
 @cc [owner:OctavianTocan,label:product] android-liked-things-stay
-What Tavi said he liked MUST NOT regress without his word: pull down for Commands and its
+What Octavian said he liked MUST NOT regress without his word: pull down for Commands and its
 search, the profile sheet, Settings, sheets at their normal height, the scope chips
 rearranging, the Files list, the description on the Overview, the Diff, mark reviewed
 then the next file, the Tour's sections and Glossary, the "Look for problems" row, and
@@ -292,11 +292,11 @@ over: a tapped link (after Settings, GitHub links allows it), Share, and selecte
 Open in Pully. The shared text only has to contain the link. A link that arrives while
 Pully is open MUST open over the page on screen, so Back returns there, and text Pully
 cannot open MUST say so. Issue, code and other GitHub pages MUST stay in the browser
-(Tavi, 16 Oct: "Open link in Pulls or Share with Pulls for any GitHub links on my phone").
+(Octavian, 16 Oct: "Open link in Pulls or Share with Pulls for any GitHub links on my phone").
 
 @cc [owner:OctavianTocan,label:product;architecture] android-app-is-called-pully
 The app MUST be called Pully everywhere a person reads its name: the launcher label, the
 update screen and notification, Search, Ask, Commands, Settings, the AI's notes and the
-web app's wordmark and tab title (Tavi, 16 Oct: "Let's rename the app to Pully"). The
+web app's wordmark and tab title (Octavian, 16 Oct: "Let's rename the app to Pully"). The
 `applicationId`, Kotlin package, repository, server and domain keep the pulls name, since
 a new `applicationId` is a different app to Android and would stop in-app updates.

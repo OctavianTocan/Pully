@@ -7,4 +7,4 @@ snapshots. Saved Inbox answers used as later context MUST retain and reauthorize
 their complete provenance; failed and stopped turns MUST retain the same trusted
 run provenance alongside saved activities, including a captured empty set before
 repository context is consumed. An old turn without provenance MUST fail closed.
-Source: confirmed ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.
+Source: confirmed ce-code-review finding 4 and Octavian's 25 Oct 2026 assigned fix batch.

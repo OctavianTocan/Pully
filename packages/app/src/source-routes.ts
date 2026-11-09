@@ -51,7 +51,7 @@ export function routeForRef(ref: SourceRef): string | undefined {
       // Only the local server can open it (plans/09).
       return undefined
     case 'posted':
-      // Only the phone app opens it (plan 13; Tavi, 16 Oct 14:17).
+      // Only the phone app opens it (plan 13; Octavian, 16 Oct 14:17).
       return undefined
   }
 }

@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 /// lookup. Neither the token nor subprocess output may be returned or logged
 /// (github-token-stays-on-server; original credentials.ts; Rust parity 16 Oct 2026).
 /// Guest and personal contexts MUST use their explicit authority instead of this lookup
-/// (Tavi's 21 Oct 2026 public browsing and personal GitHub decision).
+/// (Octavian's 21 Oct 2026 public browsing and personal GitHub decision).
 /// The entire cache/lookup transaction, including mutex acquisition, MUST run off
 /// Tokio workers (16 Oct 2026 CE review, credential lookup responsiveness).
 async fn legacy_token() -> Option<String> {
@@ -620,7 +620,7 @@ pub(crate) async fn fetch_with(read: &dyn GitHubRead, r: &Value) -> Result<Value
 /// Refreshing a selected open inbox PR MUST probe its base and head even if the
 /// cached review is closed or merged. Changed revisions MUST reload the complete
 /// snapshot before the warmer's captured-snapshot admission (16 Oct 2026 CE review,
-/// reopened-head regression; Tavi's Rust parity request).
+/// reopened-head regression; Octavian's Rust parity request).
 pub async fn refresh_cached(state: &AppState, diff: &Value) -> Result<Option<Value>> {
     let r = &diff["ref"];
     let p = prefix(r)?;
@@ -727,7 +727,7 @@ async fn refreshed_snapshot(
 /// @cc [owner:OctavianTocan,label:product] github-rest-lifecycle-preserves-merged-state
 /// A merged flag or merge timestamp MUST produce merged before closed or draft.
 /// Missing or unrecognized state without terminal evidence MUST NOT become open
-/// (Tavi, 20 Oct 2026, "On PRs that have already been merged, we have no indication that
+/// (Octavian, 20 Oct 2026, "On PRs that have already been merged, we have no indication that
 /// they've been merged").
 fn rest_pr_state(pr: &Value) -> &'static str {
     if pr["merged"] == true || pr["merged_at"].as_str().is_some_and(|at| !at.is_empty()) {

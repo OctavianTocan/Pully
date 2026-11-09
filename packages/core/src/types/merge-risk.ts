@@ -19,7 +19,7 @@ export type MergeRiskAssessment = v.InferOutput<typeof MergeRiskAssessmentSchema
  * @cc [owner:OctavianTocan,label:product] merge-risk-weighted-verdicts
  * The overall level MUST use Warp merge-risk's category weights and thresholds from
  * merge-risk-rubric.json, including N/A as score 1. Numerical scores MUST stay internal.
- * Source: Tavi's 21 Oct 2026 request to build warpdotdev/common-skills merge-risk into Pully.
+ * Source: Octavian's 21 Oct 2026 request to build warpdotdev/common-skills merge-risk into Pully.
  */
 export function mergeRiskLevel(assessment: MergeRiskAssessment): v.InferOutput<typeof MergeRiskLevelSchema> {
   let weighted = 0

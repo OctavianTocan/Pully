@@ -100,7 +100,7 @@ impl PublicGitHub {
     /// with redirects refused, bounded bodies/time/concurrency/cache and request budget.
     /// It MUST NOT receive caller headers or fall back to environment, gh CLI, legacy or
     /// personal authority after a rate limit or failure. Diagnostics MUST be fixed safe
-    /// errors without upstream bodies, URLs or credentials. Source: Tavi, 21 Oct 2026,
+    /// errors without upstream bodies, URLs or credentials. Source: Octavian, 21 Oct 2026,
     /// public browsing without GitHub login and isolation-before-public-exposure decision.
     pub(super) fn new() -> anyhow::Result<Self> {
         let http = crate::net::client()
@@ -198,7 +198,7 @@ impl PublicGitHub {
     /// visibility with this tokenless client. A missing/private/invalid response MUST
     /// prevent cached PR disclosure and discard that repository's cached pages. Only
     /// typed public fields MAY enter this cache; no legacy or authenticated cache MAY
-    /// be adopted. Source: Tavi's 21 Oct 2026 anonymous public repositories request.
+    /// be adopted. Source: Octavian's 21 Oct 2026 anonymous public repositories request.
     /// A confirmed visibility denial or immutable repository-ID replacement MUST retire
     /// older in-flight reads and their cache writes. Name reuse MUST NOT relabel the old
     /// repository's PRs; bounded ownership slots MUST reject older identity confirmations.
@@ -554,7 +554,7 @@ pub(crate) fn repository(value: &Value) -> Result<PublicRepository> {
 /// Callers MUST separately enforce public visibility or a current explicit personal
 /// repository-consent capability before publishing this validated metadata. This
 /// parser MUST NOT turn a repository ID or a response body into authorization.
-/// Source: Tavi's 22 Oct 2026 own-account private repository access clarification.
+/// Source: Octavian's 22 Oct 2026 own-account private repository access clarification.
 pub(crate) fn repository_metadata(value: &Value) -> Result<PublicRepository> {
     let owner = bounded_text(&value["owner"]["login"], 128)?;
     let name = bounded_text(&value["name"], 128)?;

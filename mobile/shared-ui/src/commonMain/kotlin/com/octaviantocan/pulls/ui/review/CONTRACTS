@@ -2,7 +2,7 @@
 Android and iOS MUST use this same review-session implementation, including Compose
 state, task observation, saved results, file marks and commit selection. Native services
 MUST enter through the clock, effects and tour-cache interfaces; this module MUST NOT
-depend on Android services. Source: Tavi's 21 Oct 2026 maximum-reuse iOS decision.
+depend on Android services. Source: Octavian's 21 Oct 2026 maximum-reuse iOS decision.
 
 @cc [owner:OctavianTocan,label:security;architecture] shared-review-state-belongs-to-source
 An application-owned review cache MUST contain data for only its current opaque RPC
@@ -22,9 +22,9 @@ An opened review MUST show its kept diff before waiting for a request and MUST j
 its in-flight warm. The in-memory recent-review cache MUST retain at most twelve reviews
 and warming MUST be bounded. A host that keeps no pages on the phone warms the Inbox's
 top four; one that does reads the Inbox's pages ahead (pages-are-read-before-the-tap).
-Source: the existing ReviewSession policy, retained by Tavi's 21 Oct iOS reuse decision;
+Source: the existing ReviewSession policy, retained by Octavian's 21 Oct iOS reuse decision;
 recording 16 Oct 13:06, 09:09 to 09:17 (O20; DESIGN.md rule 187); the top-four set
-widened by Tavi's 28 Oct 2026 15:36 ask in thread "Build a sync engine like Wholana's".
+widened by Octavian's 28 Oct 2026 15:36 ask in thread "Build a sync engine like Wholana's".
 
 @cc [owner:OctavianTocan,label:product;architecture;security] pages-are-read-before-the-tap
 Once the Inbox has shown, the page of each of its first 150 rows, top first, MUST be
@@ -35,12 +35,12 @@ kept page MUST show its diff, overview, reviews and stack from it in the first f
 then refresh as any opening does. On Android and iPhone the pages outlive the app, in a
 folder of the account's own (on iPhone under Caches), at most 400 pages and 200 MB, the
 least recently used dropped first; a store MUST NOT read or write once its account is
-gone. Source: Tavi, 28 Oct 2026 15:36, "even the things that the user hasn't actually
+gone. Source: Octavian, 28 Oct 2026 15:36, "even the things that the user hasn't actually
 opened yet load immediately ... We should have those already. It should just basically display immediately". Widened from forty
-rows, sixty pages and 48 MB by Tavi, 28 Oct 2026 17:30, on the "How Pully works" page:
+rows, sixty pages and 48 MB by Octavian, 28 Oct 2026 17:30, on the "How Pully works" page:
 "We can keep more of them than this. 200mb easy."; 150 rows are the ones the server's
 warm round keeps fresh, so a read ahead takes the server's kept copies. iPhone keeps the
-same files since Tavi's 28 Oct 2026 ask that the iPhone app be "100% up to date".
+same files since Octavian's 28 Oct 2026 ask that the iPhone app be "100% up to date".
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-late-responses-match-view
 Patches, saved work, file marks and task updates MUST match the current diff key,
@@ -57,7 +57,7 @@ Source: the accepted 21 Oct iOS lifecycle plan and existing ReviewSession detach
 A failed observation or unknown status MUST NOT become an authoritative failed or
 successful task, outcome cue or completion callback. Only server-reported done, failed
 or cancelled snapshots MAY settle a task; cancellation MUST remain silent. Source:
-Tavi's 21 Oct notification expansion and the existing shared-ai-outcome-owned-task policy.
+Octavian's 21 Oct notification expansion and the existing shared-ai-outcome-owned-task policy.
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-invalid-source-is-actionable
 An invalid saved server MUST open a load-error state without warming or exposing a
@@ -80,14 +80,14 @@ another layer opens it (DESIGN.md checklist 51).
 Every layer in the Stack sheet MUST show its place in the stack in the leading column
 ("2/3") and, under its title, the Inbox rows' meta line: its number and its author, then
 Merged or Closed, checks and + and − ("I cannot see the user's name ... It's like its
-missing the PR number (not the in-stack one; that one is there), and the username": Tavi,
+missing the PR number (not the in-stack one; that one is there), and the username": Octavian,
 17 Oct 20:13; rule 203). The server's stack carries each layer's author for it.
 
 @cc [owner:OctavianTocan,label:product;security] shared-overview-actions-belong-to-route
 Overview action state MUST run at most one action at a time and retain a rejected
 action's error for recovery. A confirmed action MUST refresh before its completion
 callback. Route/account cancellation MUST NOT publish a success/failure cue, error or
-completion callback for a response that arrives after invalidation. Source: Tavi's
+completion callback for a response that arrives after invalidation. Source: Octavian's
 21 Oct 2026 shared state/source ownership plan and the existing ReviewTopUi action policy.
 
 @cc [owner:OctavianTocan,label:product] pr-opens-at-once
@@ -111,14 +111,14 @@ half transparent over the numbers and tabs, and nothing sits under the status ba
 The title is a plain 26sp heading that wraps whole, never cut and never in a bubble
 (rules 2 and 12). The one exception is the Overview's pinned head: once the page scrolls,
 the title folds to one line and MAY end in an ellipsis, and it is whole again at rest
-("ellipsis allowed", recording of 16 Oct 12:10, 20:34 to 21:03; N38, Tavi's decision).
+("ellipsis allowed", recording of 16 Oct 12:10, 20:34 to 21:03; N38, Octavian's decision).
 
 @cc [owner:OctavianTocan,label:product] pr-edit-in-place
 On a pull request the person may edit, a tap on the title turns it into a field with the
 caret where the finger landed; the text is underlined in the accent and the rest of the
 page fades to a quarter; leaving it saves. There is no Edit button (rules 83 and 110; F20,
 H34, H35). The description is edited on a sheet instead: a tap opens it in a proper text
-field and leaving the sheet saves; the page never scrolls under it (Tavi, recording 15 Oct
+field and leaving the sheet saves; the page never scrolls under it (Octavian, recording 15 Oct
 15:37, 08:29 to 08:56; L13). The sheet MUST open with the cursor at the place in the text
 the tap was over, never at its end ("it scrolls me all the way down instead of stopping
 where I was gonna edit", recording 17 Oct 14:45, 01:51 to 01:59; Q3; rule 199).
@@ -165,12 +165,12 @@ reader already looks, with no box over the page: the Diff's file pill names the 
 the Overview's Commits number reads just "3" (or "12–15") so it fits its cell, and opens the
 Commits sheet whose first row "All commits" goes back (rule 80; F26). The pill says "Only
 commit 4", never "Commit 4 of 8", which read like a page count (recording 15 Oct 15:37,
-07:06 to 07:17; L11). Tavi's K25 replaced the pinned "Viewing commit" bar
+07:06 to 07:17; L11). Octavian's K25 replaced the pinned "Viewing commit" bar
 (recording 15 Oct 13:54, 10:48 to 11:18).
 
 @cc [owner:OctavianTocan,label:design] pr-tabs-are-light
 The Overview's tabs are underline tabs with no counts and no box, easy to hit, and close
-together from the start of the line, not spread across the width (K7, Tavi's call); they
+together from the start of the line, not spread across the width (K7, Octavian's call); they
 never cut a label. While the tabs swipe, the gap between the pages is narrow, never a wide
 empty band (rules 38, 54 and 91; recording 15 Oct 13:54, 02:20 to 02:38; K7).
 
@@ -217,7 +217,7 @@ with their counts, and a narrowed list shows all of its comments (rule 129; J19)
 Conversation MUST NOT show the pull request's description as its first comment: Summary
 already shows it, so the tab starts with what was said after it, and one muted line says
 so when nobody has commented ("the first comment is just the PR's description", recording
-of 16 Oct 12:10, 15:44 to 16:01, N30, Tavi's decision).
+of 16 Oct 12:10, 15:44 to 16:01, N30, Octavian's decision).
 
 @cc [owner:OctavianTocan,label:product] pr-bots-are-githubs-word
 People and Bots split on GitHub's own data: an author is a bot when the server marks it
@@ -251,7 +251,7 @@ A file row's whole path runs on after "Worth a look ·" and wraps under it, as o
 Opening a pull request, coming back to it, or tapping a link to the one on screen MUST put
 the title and description GitHub holds now in place of a kept copy as soon as the small
 `pr-text` answer arrives, without waiting for the whole overview; a link to the page on
-screen reads it again rather than doing nothing (Tavi, thread message 16 Oct 13:52, "the
+screen reads it again rather than doing nothing (Octavian, thread message 16 Oct 13:52, "the
 description was not updated").
 
 @cc [owner:OctavianTocan,label:design] pr-metadata-stays-one-line
@@ -279,13 +279,13 @@ basically. Something like Obsidian", recording 17 Oct 14:45, 02:00 to 02:25; Q4;
 Tapping a pull request number in its metadata MUST open
 https://github.com/{owner}/{repo}/pull/{number} in an external browser using an explicitly
 selected package, bypassing Pully app-link capture. Commit, compare and posted-diff
-metadata MUST NOT invent a PR link (Tavi, 20 Oct 2026: "Pressing on the PRs number should
+metadata MUST NOT invent a PR link (Octavian, 20 Oct 2026: "Pressing on the PRs number should
 open the PR on GitHub... Pully captures GitHub links... needs to not do that").
 
 @cc [owner:OctavianTocan,label:product;design] pr-files-reviewed-strikethrough
 In the Files bottom sheet, a file whose existing review state is Reviewed MUST strike
 through its filename and folder path. Unreviewed and Changed files MUST remain unstruck;
-the checkbox and existing review state remain the source of truth (Tavi, 20 Oct 2026
+the checkbox and existing review state remain the source of truth (Octavian, 20 Oct 2026
 controls feedback).
 
 @cc [owner:OctavianTocan,label:product;design] pr-lifecycle-is-visible
@@ -297,7 +297,7 @@ MAY replace a previously closed copy after reopening. Missing or unrecognized li
 without terminal evidence MUST NOT be treated as open. A current diff's known state MUST
 replace a cached overview's older state; lifecycle and same-PR link refreshes MUST update
 the displayed status without a manual Refresh. A known lifecycle from the list MUST
-survive the opening preview (Tavi, 20 Oct 2026: "On PRs that have already been merged,
+survive the opening preview (Octavian, 20 Oct 2026: "On PRs that have already been merged,
 we have no indication that they've been merged").
 
 @cc [owner:OctavianTocan,label:architecture;product;security] shared-overview-requires-real-host-services
@@ -306,7 +306,7 @@ sheets. Clipboard, external GitHub/browser destinations and lifecycle MUST use t
 required native actions service. Inline-edit Back MUST cancel the field before the
 shared route pops, through the host's existing Back dispatcher; iOS MUST NOT install a
 second competing edge recognizer. A host without that dispatcher MUST keep text editing
-unavailable even when the server grants permission. Source: Tavi's accepted 21 Oct 2026
+unavailable even when the server grants permission. Source: Octavian's accepted 21 Oct 2026
 shared Overview and native-service plan, preserving pr-edit-in-place and pr-number-opens-github.
 
 @cc [owner:OctavianTocan,label:product;architecture;security] shared-overview-capabilities-precede-ai-actions
@@ -326,7 +326,7 @@ English weekday/date labels in the device's time zone. A missing commit date MUS
 follow the preceding group or read Undated when first. Android MUST retain its current
 java.time formatter; native calendar adaptation MUST NOT change the commit indices or
 selection behavior. Source: existing CommitsSheet/commitDays behavior retained by
-Tavi's 21 Oct 2026 maximum-reuse decision.
+Octavian's 21 Oct 2026 maximum-reuse decision.
 
 @cc [owner:OctavianTocan,label:product;motion] shared-code-pinch-reflows-and-keeps-the-line
 A two-finger code pinch MUST resize the existing font and line height and ease layout
@@ -334,7 +334,7 @@ at most once per frame. When the diff supplies its optional PinchKeeper, the lin
 under the starting pivot MUST stay there. Finger changes
 MUST NOT jerk or pan the code, one finger MUST keep scrolling the list, and the final
 bounded size MUST be saved once on release. Source: existing CodeView behavior, M9,
-L17 and O21, preserved by Tavi's 21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 93.
+L17 and O21, preserved by Octavian's 21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 93.
 
 @cc [owner:OctavianTocan,label:product;security] shared-file-sheet-focus-belongs-to-its-view
 The existing changed and unchanged file sheets MUST use the same shared diff rows,
@@ -342,20 +342,20 @@ line-focus positioning, left-edge reset and mark timer. A stale file/view MUST N
 consume a newer focus or move its viewport after suspension; a full revision change
 MUST restart the sheet's file/highlight work even when the path and text are unchanged.
 Source: existing diff-focus-lands-whole and tour-code-opens-in-a-sheet, N20/N21/L28,
-preserved by Tavi's 21 Oct 2026 shared session/source ownership plan.
+preserved by Octavian's 21 Oct 2026 shared session/source ownership plan.
 
 @cc [owner:OctavianTocan,label:product;security] shared-thread-actions-belong-to-the-route
 A thread card MUST issue at most one write at a time and keep rejected writes recoverable
 on that card. After route or account cancellation, a late response MUST NOT clear a
 draft, reload another route, show an error, or play completion feedback. Source: existing
-ThreadActions write policy and Tavi's 21 Oct 2026 shared session/source ownership plan.
+ThreadActions write policy and Octavian's 21 Oct 2026 shared session/source ownership plan.
 
 @cc [owner:OctavianTocan,label:product;security] shared-diff-reads-belong-to-the-view
 Full-file contents, syntax tokens, expanded gaps and line drafts MUST belong to the
 session's current source, key, head and view revision. An earlier read MUST NOT refill
 or overwrite a newer view, even when the transport completes after cancellation.
 Highlight requests MUST keep the existing 400-line limit and missing-row retry policy.
-Source: existing diff-highlight-respects-server-batches and Tavi's 21 Oct 2026 shared
+Source: existing diff-highlight-respects-server-batches and Octavian's 21 Oct 2026 shared
 session/source ownership plan.
 
 @cc [owner:OctavianTocan,label:design;product] shared-file-diff-retains-its-rows-and-annotations
@@ -363,9 +363,9 @@ Both hosts MUST use the existing full-bleed unified/split diff rows, exact palet
 word emphasis, gap and full-file behavior, gutters, selection/drag targets and thread
 card placement. AI results MUST use the actual shared annotation renderer for notes, findings and asks;
 a host without complete result support MUST suppress those results through the single
-host capability policy, never substitute an empty renderer. Tavi's 21 Oct extraction now
+host capability policy, never substitute an empty renderer. Octavian's 21 Oct extraction now
 shares the saved Ask forms and the complete annotation renderer with the diff. Source: existing
-FileDiff.kt and diff contracts, DESIGN.md rules 49, 92 and 94, preserved by Tavi's
+FileDiff.kt and diff contracts, DESIGN.md rules 49, 92 and 94, preserved by Octavian's
 21 Oct 2026 maximum-reuse iOS decision.
 
 @cc [owner:OctavianTocan,label:product;security] shared-line-input-belongs-to-the-drawn-file
@@ -373,7 +373,7 @@ Line taps, long presses, gutter positions and drag completion/cancellation MUST 
 mutate the exact file and full view which drew those handlers. Retired callbacks,
 including a head A to B to A transition, MUST NOT create or clear a newer selection,
 draft or line-action sheet. Pinch and focus callbacks MUST reject a retired file even
-when its path matches. Source: existing diff line-selection behavior and Tavi's
+when its path matches. Source: existing diff line-selection behavior and Octavian's
 21 Oct 2026 shared session/source ownership plan.
 
 @cc [owner:OctavianTocan,label:product;security] shared-diff-comments-keep-the-drawn-target
@@ -382,7 +382,7 @@ range and drawn head commit. Both host readiness and the session's server write
 permission MUST precede the request. One send MUST run at a time; rejected sends MUST
 remain retryable. A retired field or late write MUST NOT clear a newer input, reload
 another view or publish its feedback. Source: existing DiffBar comment behavior,
-DESIGN.md rule 94 and Tavi's 21 Oct 2026 shared session/source ownership plan.
+DESIGN.md rule 94 and Octavian's 21 Oct 2026 shared session/source ownership plan.
 
 @cc [owner:OctavianTocan,label:design;product;security] shared-diff-screen-keeps-the-original-file-journey
 The shared Diff screen MUST retain the original side-by-side file motion, code-first
@@ -393,7 +393,7 @@ auto-advance MUST NOT move a replacement view or a reader who has moved to anoth
 file. Hosts MUST suppress unavailable writes, Ask and viewer-progress controls before
 work; viewer progress MUST NOT require GitHub comment permission. Android Full MUST
 retain its existing comment and Reviewed workflows. Source: existing PrDiffScreen.kt,
-DESIGN.md rules 40, 42, 90, 92, 94, 105 and 107, and Tavi's 21 Oct shared iOS plan.
+DESIGN.md rules 40, 42, 90, 92, 94, 105 and 107, and Octavian's 21 Oct shared iOS plan.
 
 @cc [owner:OctavianTocan,label:product;security] shared-thread-writes-require-current-host-readiness
 Reply, Resolve and the viewer's comment edit/delete controls MUST require both the
@@ -402,7 +402,7 @@ Retained callbacks MUST recheck those permissions and their captured session/vie
 before sending. A disposed or retired thread's late response MUST NOT clear a draft,
 reload reviews or publish feedback/error in its replacement. Unsent reply/edit state
 MUST belong to its session, full view and thread. Android Full MUST retain the existing
-requests and busy/retry behavior. Source: Tavi's 21 Oct shared iOS readiness and source
+requests and busy/retry behavior. Source: Octavian's 21 Oct shared iOS readiness and source
 isolation plan, preserving existing review thread ownership and permissions.
 
 @cc [owner:OctavianTocan,label:motion] tour-stops-arrive-with-motion
@@ -428,18 +428,18 @@ to 14:26, N29).
 The Overview's and the Tour's Ask bars MUST dim the page behind them and the review's
 header for as long as the bar is focused, while typing too; only Home's search lifts its
 dim once something is typed, because there the list is what the text filters. Source:
-Tavi's recording of 26 Oct 2026, 07:15 to 07:30.
+Octavian's recording of 26 Oct 2026, 07:15 to 07:30.
 
 @cc [owner:OctavianTocan,label:product] tour-ask-bar-continues-the-chat
 Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button when the pull request
 has earlier chats, and the grey Send when it has none (recording of 17 Oct 13:26, 01:26 to
 01:43, P4); once something is typed it shows Send. Sending continues the last conversation
 and opens the Ask sheet on it. A tap on the bar opens the bar itself, never the
-conversation (Tavi changed this on 17 Oct 14:45 with Q5; it opened the conversation before).
+conversation (Octavian changed this on 17 Oct 14:45 with Q5; it opened the conversation before).
 The earlier-chats button opens the Chats sheet alone, never the Ask sheet
 under it, and a chat picked there opens Ask on that chat (01:45 to 01:57, P5). The bar is
 one component (`AskBar`) any page that asks reuses (recording of 16 Oct 12:10, 13:25 to
-14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24). Tavi changed P4
+14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24). Octavian changed P4
 and P5 on 17 Oct.
 
 @cc [owner:OctavianTocan,label:product;motion] tour-stops-fold
@@ -466,7 +466,7 @@ The Tour has no text size, wrap or review-comment controls, since it shows no di
 (rule 60).
 
 @cc [owner:OctavianTocan,label:product;motion] tour-previews-while-writing
-While a tour is written its plan and each stop already written show under the tour's card, in the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
+While a tour is written its plan and each stop already written show under the tour's card, in the places the stops will take, and the page is never scrolled for the reader (Octavian's idea,
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:product] tour-code-opens-in-a-sheet
@@ -492,14 +492,14 @@ tour, while source/account/Access invalidation MUST discard their app-owned stor
 Native retained fold entries MUST be bounded. A retained Tour command, citation,
 reading-progress callback or paid action MUST NOT act after its originating displayed
 tour or full review revision retires. Paid controls MUST consult the current canonical
-host capability before any action. Source: Tavi's accepted 21 Oct 2026 maximum-reuse
+host capability before any action. Source: Octavian's accepted 21 Oct 2026 maximum-reuse
 and source-isolation plan, retaining tour-stops-fold and pr-tabs-keep-their-place.
 
 @cc [owner:OctavianTocan,label:architecture;product] shared-review-frame-is-the-existing-journey
 Android and iOS MUST use the same ReviewScreen session, Overview/Diff/Tour page stack,
 header, saved reading positions and sheet ownership. Native services MUST use Home's
 active source, row facts, size lease and application review cache. Uninstalled action
-or paid-work surfaces MUST have no active controls or automatic work. Source: Tavi's
+or paid-work surfaces MUST have no active controls or automatic work. Source: Octavian's
 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 49, 93, 105, 123 and 128.
 
 @cc [owner:OctavianTocan,label:product;security] shared-overview-progress-requires-the-drawn-view
@@ -507,7 +507,7 @@ Overview swipe/check and file-sheet Reviewed actions MUST require the same host
 canMarkReviewed readiness as Diff. A retained action MUST also belong to its session's
 full view revision and exact file. ReadOnly and a retired, disposed or head A-to-B-to-A
 view MUST NOT write or optimistically change viewer progress. GitHub comment write
-permission MUST NOT gate viewer progress. Source: Tavi's 21 Oct shared iOS readiness
+permission MUST NOT gate viewer progress. Source: Octavian's 21 Oct shared iOS readiness
 plan and the preserved session.setReviewed viewer-progress semantics.
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-frame-callbacks-belong-to-the-drawn-view
@@ -516,7 +516,7 @@ opening or full view, current source and composition lifetime. They MUST recheck
 latest canonical read/paid readiness before navigation or work, including after a
 file was already opened. A critique callback MUST recheck ownership before showing
 its feedback, and a head A-to-B-to-A transition MUST retire its old callback. Source:
-Tavi's 21 Oct 2026 shared iOS source/readiness plan and the accepted review-frame review.
+Octavian's 21 Oct 2026 shared iOS source/readiness plan and the accepted review-frame review.
 
 @cc [owner:OctavianTocan,label:product;security] shared-finding-click-keeps-its-displayed-view
 A retained inline finding click MUST NOT move the current focus after its originating
@@ -537,7 +537,7 @@ error instead of an endless initial skeleton. Its loading state, error and answe
 MUST belong to the exact source, full view and request attempt. Cancellation or an
 old response MUST NOT replace a newer view's history or problem, and a repeated retry
 tap MUST NOT cancel the in-flight retry. Source: ask-history-of-chats,
-android-no-dead-ends and Tavi's 21 Oct 2026 shared error/source ownership plan.
+android-no-dead-ends and Octavian's 21 Oct 2026 shared error/source ownership plan.
 
 @cc [owner:OctavianTocan,label:security;product] shared-review-confirmations-keep-the-drawn-target
 Submit, Discard, Merge and the pull request's state confirmations MUST use the same
@@ -564,7 +564,7 @@ and shared-diff-screen-keeps-the-original-file-journey.
 The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
 A tour starts from the tour icon, and Analyze changes in ⋯ opens the model-visible setup
 before its preset action starts work. The pull request's ⋯ has no separate Model or
-Analyze options row (rule 113; H30; N39). Tavi's 20 Oct 2026 feedback and accompanying
+Analyze options row (rule 113; H30; N39). Octavian's 20 Oct 2026 feedback and accompanying
 recording 01:01 to 01:35 replace the old immediate-run Analyze tile with setup.
 
 @cc [owner:OctavianTocan,label:product;motion] pr-sheet-opens-pages-not-sheets
@@ -576,11 +576,11 @@ only from the first (rule 115; J27, J32, J33).
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-is-short
 The pull request's ⋯ sheet holds GitHub, Copy link and Analyze as tiles, then
 Leave a comment, "Approve, merge or close" and Find problems. Copy link puts the pull
-request's GitHub link on the clipboard and says so (Tavi, 20 Oct 2026 12:10). Analyze
+request's GitHub link on the clipboard and says so (Octavian, 20 Oct 2026 12:10). Analyze
 changes (opened by Analyze) and Find problems open their own model-visible setup pages. It MUST NOT offer
 separate Model, Analyze options, Review progress or Checks rows (N39). The distinct
 labels and setup replace the old Analyze and Review with AI direct-run entries by
-Tavi's 20 Oct 2026 feedback and accompanying recording 00:37 to 01:35.
+Octavian's 20 Oct 2026 feedback and accompanying recording 00:37 to 01:35.
 
 @cc [owner:OctavianTocan,label:product;security] pr-decisions-sit-a-page-in
 Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to
@@ -591,7 +591,7 @@ in the error colour). Leave a comment stays in the ⋯ sheet (rule 116; J29).
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-on-every-view
 The ⋯ sheet is reachable from the Overview, the Diff and the Tour of a pull request, and
 it holds no Commands row (rules 29 and 61; J30). On the Tour, ⋯ opens the tour's own
-sheet and the pull request's sheet is its last row, by Tavi's change ("the pull request's
+sheet and the pull request's sheet is its last row, by Octavian's change ("the pull request's
 sheet is not needed there", recording of 16 Oct 12:10, 10:49 to 11:24, N23).
 
 @cc [owner:OctavianTocan,label:product] diff-text-and-tools-shows-itself
@@ -607,7 +607,7 @@ A host scene stop MUST cancel the cache's local warming and ReviewSession-owned 
 jobs, task polls and their retries while retaining the source, full view, drafts and accepted
 write requests. It MUST NOT start or cancel a remote task. A late response from an
 earlier observation generation MUST NOT publish results, outcomes or callbacks after
-stop or resume, even when the final source and head match. Source: Tavi's accepted
+stop or resume, even when the final source and head match. Source: Octavian's accepted
 21 Oct 2026 shared iOS lifecycle plan and shared-review-detach-keeps-server-work.
 
 @cc [owner:OctavianTocan,label:product;security] shared-review-resume-reconciles-before-observation
@@ -617,7 +617,7 @@ Interrupted reconciliation MUST keep known content and drafts and retry with cap
 cancellable backoff; it MUST NOT invent a task outcome. A task observed before stop
 MUST settle at most once after its authoritative terminal state and saved results
 are reconciled. A fresh session MUST read existing server work without replaying its
-start or announcing historical terminal work. Source: Tavi's accepted 21 Oct 2026
+start or announcing historical terminal work. Source: Octavian's accepted 21 Oct 2026
 shared iOS lifecycle plan, retaining server-owned Standard/Deep follow-up passes.
 
 @cc [owner:OctavianTocan,label:architecture;product] native-and-android-review-actions-use-the-same-sheets
@@ -625,7 +625,7 @@ Both hosts' Review frame actions MUST use the same Analyze/model, Tour, Brief,
 critique, Ask/history and review-submit bodies and request owners. The native frame
 MUST use its source's existing Settings model service and the same tour-copy adapter
 as Home. Optional platform check notifications MUST remain absent until an actual
-notification workflow is installed. Source: Tavi's accepted 21 Oct 2026 maximum-reuse
+notification workflow is installed. Source: Octavian's accepted 21 Oct 2026 maximum-reuse
 Compose iOS plan and complete ordinary-source AI and review journeys.
 
 @cc [owner:OctavianTocan,label:product;security] explicit-task-stop-requires-the-server-receipt
@@ -635,7 +635,7 @@ Queued Stop requests MUST recheck their drawn task, full view, source, capabilit
 and live host eligibility before RPC. Once dispatched, the receipt MUST retain its
 same-source/full-view lifetime through a foreground pause or control dismissal;
 a replacement source/view MUST NOT receive the old error. Internal best-effort
-cleanup MAY keep its existing cancellation behavior. Source: Tavi's complete native
+cleanup MAY keep its existing cancellation behavior. Source: Octavian's complete native
 AI/error-recovery journey and the accepted 22 Oct 2026 Tour Stop rejection finding.
 Only the latest actually dispatched explicit Stop for a still-running task MAY
 publish a rejection; a queued tap that never dispatches MUST NOT supersede an accepted
@@ -645,23 +645,23 @@ receipt. Source: the accepted 22 Oct 2026 full Stop receipt-ordering review, fin
 A file with no lines to show MUST say why, never show a blank page: moved without
 changes, a new empty file, an empty file deleted, or no changes to its content. A moved
 file MUST name its old path above its code. A rename the server marks binary because it
-has no patch MUST NOT say "Binary file not shown." Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+has no patch MUST NOT say "Binary file not shown." Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
 
 @cc [owner:OctavianTocan,label:product;design] diff-pictures-show-before-and-after
 A changed picture in a GitHub pull request MUST show the base and head pictures from
 the commits the pull request compares, labelled Before and After when both exist, in
 place of "Binary file not shown." When a picture cannot load it MUST fall back to that
-message. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+message. Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
 
 @cc [owner:OctavianTocan,label:product] diff-load-failures-say-so
 When unchanged lines or a large file fail to load, the diff MUST say so in the error
 colour and offer to try again, never stay silent or keep offering the same tap with no
-sign it failed. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+sign it failed. Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
 
 @cc [owner:OctavianTocan,label:product] review-page-follows-the-server
 While a pull request page is in front on a host with the change feed, its overview and
 saved AI work MUST be read again when the pull request's topic changes, and its marks when
 the marks topic does, so a new commit, a finished analysis or a file marked on another
 device shows without Refresh. Marking a file MUST go through the outbox
-(`writes-show-first`). Source: Tavi, 28 Oct 2026 ("Go") on the plan in thread "Build a
+(`writes-show-first`). Source: Octavian, 28 Oct 2026 ("Go") on the plan in thread "Build a
 sync engine like Wholana's".

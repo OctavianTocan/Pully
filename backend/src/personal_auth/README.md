@@ -16,7 +16,7 @@ A reviewed host constructs `OAuthConfig` in one of two ways:
   the GitHub CLI's public client ID. GitHub lists that client as a privileged OAuth
   app, so organization OAuth app restrictions do not block it, and it needs no
   registration, secret or callback. GitHub's consent page says "GitHub CLI". This
-  is the production choice (Tavi, 23 Oct 2026 13:36: "What I want is what you get
+  is the production choice (Octavian, 23 Oct 2026 13:36: "What I want is what you get
   when you use GH auth login").
 - `OAuthConfig::new` takes a registered Pully OAuth App ID, server secret and an
   exact HTTPS callback ending in `/api/personal/v1/auth/github/callback`.

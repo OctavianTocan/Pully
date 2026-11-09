@@ -125,7 +125,7 @@ impl HttpState {
 /// @cc [owner:OctavianTocan,label:security] deployment-control-is-operator-only
 /// Idle-update control MUST require its own private token even when browser auth
 /// is disabled. The token MUST rotate at startup, be written with owner-only
-/// permissions and MUST NOT appear in process arguments or logs. Source: Tavi,
+/// permissions and MUST NOT appear in process arguments or logs. Source: Octavian,
 /// 21 Oct 2026, "Resolve all reviews and merge those PRs", safe-deployment review.
 pub fn create_update_token(path: &Path) -> Result<String> {
     use std::io::Write;
@@ -947,7 +947,7 @@ async fn web_dispatch(app: &Arc<AppState>, name: &str, args: Value) -> Result<Va
 
 /// @cc [owner:OctavianTocan,label:security] rust-agent-paths-fail-closed
 /// Encoded separators and dot segments, case variants and repeated slashes of the
-/// agent API MUST reach key authentication before any browser route (Tavi, 16 Oct
+/// agent API MUST reach key authentication before any browser route (Octavian, 16 Oct
 /// 14:32; root agent-api-needs-a-key).
 fn agent_path(raw: &str) -> Option<String> {
     let mut decoded = raw.to_owned();

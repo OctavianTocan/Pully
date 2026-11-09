@@ -53,7 +53,7 @@ import com.octaviantocan.pulls.ui.design.t
  * (recording 16 Oct 12:10, 01:23 to 03:05; N2, N4): a tinted square with the pull request's state on the left, the
  * title beside it on at most two lines, and one line under the title that starts with the number and then carries the
  * author, the checks, the coloured diffstat and the age, each in a column of its own that does not move when a digit or
- * a name's length changes (rules 13, 15 and 36; N35). The title never runs to a third line (Q1; Tavi, 17 Oct 17:14).
+ * a name's length changes (rules 13, 15 and 36; N35). The title never runs to a third line (Q1; Octavian, 17 Oct 17:14).
  */
 
 /**

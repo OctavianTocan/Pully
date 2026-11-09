@@ -23,7 +23,7 @@ object IncomingLinks {
 
     /**
      * The last link to the pull request already on screen. Nothing opens over it, so that page reads the pull request
-     * again: an agent that just changed it sends the link to show the change (Tavi, 16 Oct 13:52).
+     * again: an agent that just changed it sends the link to show the change (Octavian, 16 Oct 13:52).
      */
     var reopened by mutableStateOf<Reopen?>(null)
         private set

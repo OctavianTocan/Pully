@@ -30,7 +30,7 @@ fn valid_name(name: &str) -> bool {
 /// Lens reads MUST validate the original REVIEW_LENS_NAME grammar and stay inside
 /// the canonical curated directory, including file and directory symlinks. Reads
 /// MUST be bounded and MUST NOT search account skills (server-curated-skills-only;
-/// Tavi's 16 Oct 2026 backend parity request).
+/// Octavian's 16 Oct 2026 backend parity request).
 fn read_skill(root: &Path, name: &str) -> Result<Option<String>> {
     if !valid_name(name) {
         return Ok(None);
@@ -175,7 +175,7 @@ fn instructions(body: &str) -> Option<String> {
 /// Missing, invalid or empty lenses MUST return no instructions. Frontmatter MUST
 /// be stripped with the original plain-field parser; overlong bodies MUST retain
 /// the newline and [truncated] marker at a valid Unicode boundary within 30,000
-/// UTF-16 units (packages/cli/src/lenses.ts; Tavi's 16 Oct 2026 parity request).
+/// UTF-16 units (packages/cli/src/lenses.ts; Octavian's 16 Oct 2026 parity request).
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn get(root: &Path, name: &str) -> Result<Option<String>> {
     if !valid_name(name) {
@@ -196,7 +196,7 @@ pub(super) fn get(_: &Path, name: &str) -> Result<Option<String>> {
 /// Within the read/output limits, each skill MUST retain its top-level title (or folder-name
 /// fallback) and nonempty description, even when its body is empty. The current
 /// curated titles MUST sort in the original display order; enumeration and output
-/// MUST be bounded (packages/cli/src/lenses.ts; Tavi's 16 Oct 2026 parity request).
+/// MUST be bounded (packages/cli/src/lenses.ts; Octavian's 16 Oct 2026 parity request).
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn list(root: &Path) -> Result<Value> {
     let Ok(root) = root.canonicalize() else {

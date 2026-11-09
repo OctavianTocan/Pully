@@ -5,12 +5,12 @@ links and images, headings, code blocks, breaks and inert HTML nodes. Android MU
 retain its current parser and extensions; the Apple adapter MUST consume a proven
 GFM syntax tree and MUST NOT replace Markdown parsing with regular expressions.
 Shared goldens MUST run on both platforms, with direct parser parity on the JVM.
-Source: Tavi's 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 95 and 96.
+Source: Octavian's 21 Oct 2026 maximum-reuse iOS plan and DESIGN.md rules 95 and 96.
 
 @cc [owner:OctavianTocan,label:architecture] shared-markdown-stays-ui-free
 Semantic nodes and parsing MUST have no Compose, Android, transport or native UI
 dependencies. Parser objects MUST NOT escape into the shared renderer or feature
-state. Source: Tavi's 21 Oct 2026 chosen shared-domain/shared-presentation boundaries.
+state. Source: Octavian's 21 Oct 2026 chosen shared-domain/shared-presentation boundaries.
 
 @cc [owner:OctavianTocan,label:product;security] github-html-reads-as-github
 After parsing, raw HTML in Markdown (review comments, bot summaries) MUST be read as
@@ -19,5 +19,5 @@ blocks as one fold with its summary as the title (open when it says `open`), and
 inline `<img>`, `<picture>`, `<a href>`, `<b>`, `<i>`, `<s>`, `<code>` and `<br>` as
 images, links, emphasis, code and breaks. Comments and other tags MUST drop away with
 their text kept. Nothing MAY run as script. A `> [!NOTE]` alert (and TIP, IMPORTANT,
-WARNING, CAUTION) MUST keep its quote with its title in bold on its own line. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description";
+WARNING, CAUTION) MUST keep its quote with its title in bold on its own line. Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description";
 Devin's "Learn more" fold showed loose over text that never folded, and its badge vanished.

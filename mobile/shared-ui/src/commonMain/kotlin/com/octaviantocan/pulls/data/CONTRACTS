@@ -3,7 +3,7 @@ Native first-screen pull-request size hints MUST belong to the active source lea
 Changing server, account or Access authorization MUST revoke previous leases; a late
 old writer or invalidator MUST NOT alter the current source's counts. Native memory
 MUST remain bounded while the existing Android large-list behavior stays compatible.
-Source: Tavi's accepted 21 Oct 2026 iOS source-isolation and maximum-reuse plan.
+Source: Octavian's accepted 21 Oct 2026 iOS source-isolation and maximum-reuse plan.
 
 @cc [owner:OctavianTocan,label:security;product] shared-opening-counts-belong-to-native-source
 Both hosts MUST populate first-frame pull-request sizes through a lease for their

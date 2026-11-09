@@ -82,7 +82,7 @@ In dark mode every surface is a grey whose red, green and blue differ by at most
 accent stays teal, and every colour token has a dark pair (rule 76; F13).
 
 @cc [owner:OctavianTocan,label:design] kit-teal-is-the-darker-one
-The Overview's Review and the Diff's round › take `primary`, the darker teal Tavi kept
+The Overview's Review and the Diff's round › take `primary`, the darker teal Octavian kept
 over the canvas's brighter one (D2).
 
 @cc [owner:OctavianTocan,label:product] kit-copy-shows-a-toast
@@ -101,7 +101,7 @@ the name and the chevron right after the count, on the name's line whatever its 
 long name gives way at its end), and the hairline under it ("these chevrons are not
 aligned", recording 15 Oct 15:37, 08:05 to 08:21; L3, L12). Anything else a heading
 carries, such as a section's + and −, sits at its right edge in the same fixed columns as
-the rows' numbers, so the numbers of a list line up. Tavi decided this in the recording of
+the rows' numbers, so the numbers of a list line up. Octavian decided this in the recording of
 16 Oct 12:10, 00:08 to 00:47, 14:57 and 18:03 to 18:21 ("those two are rules"; N1, N35),
 replacing the count and chevron at the right edge. Sheets have no fold headings
 (kit-sheet-headings).
@@ -110,7 +110,7 @@ replacing the count and chevron at the right edge. Sheets have no fold headings
 Every bottom sheet heads its sections with the one `SheetHeading`, the small muted heading
 of the Settings sheet: no line under it, no count and no chevron, and nothing folds. Checks,
 Commits, Files, the model list and the rest use it ("it has to be the same logic everywhere",
-recording 16 Oct 09:50, 02:55 to 03:27 and 03:54 to 04:05; M7, Tavi's decision, replacing
+recording 16 Oct 09:50, 02:55 to 03:27 and 03:54 to 04:05; M7, Octavian's decision, replacing
 the fold headings of L12 on sheets). A sheet's first field sits `SheetTopGap` under the ✕,
 more than before (M7).
 
@@ -131,7 +131,7 @@ muted ink in that same style, and the teal cursor. A field at the bottom of a pa
 pill; a search on a sheet has the cards' corner and shadow and sits `SheetTopGap` under
 the ✕ (Commands too). The ✕ that clears a field sits the same distance from its end
 everywhere. No screen calls Compose's `BasicTextField` or `TextField` itself; the bans check
-holds the remaining ones to a baseline that only shrinks. Tavi asked for this in the
+holds the remaining ones to a baseline that only shrinks. Octavian asked for this in the
 recording of 16 Oct 12:10, 03:23 to 04:03 and 15:10 to 15:36 ("go through the entire
 project and standardize this stuff"; N6).
 
@@ -139,7 +139,7 @@ project and standardize this stuff"; N6).
 Where a field's text has scrolled out of sight, it fades into the field at that edge: at
 the start or end of a one-line field, at the top or bottom of one that scrolls through
 lines. An edge with nothing hidden past it has no fade, and the fade grows with how far the
-text has scrolled. Tavi asked for this in the recording of 16 Oct 12:10, 05:47 to 06:00
+text has scrolled. Octavian asked for this in the recording of 16 Oct 12:10, 05:47 to 06:00
 (fade both ways, sideways and up and down; N9).
 
 @cc [owner:OctavianTocan,label:design] kit-bottom-bars-rest-alike

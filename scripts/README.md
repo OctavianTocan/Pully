@@ -82,7 +82,7 @@ verifies the server's update channel; installation on a phone is a separate chec
 
 Connect GitHub needs the opt-in public listener (`--public-listen`, backend/src/public_server) beside the
 private server. It signs people in the way `gh auth login` does: GitHub's device flow as the GitHub CLI,
-which organizations' OAuth app restrictions don't block (Tavi, 23 Oct 2026 13:36), so there is no OAuth App
+which organizations' OAuth app restrictions don't block (Octavian, 23 Oct 2026 13:36), so there is no OAuth App
 to register. Run `scripts/pully-public-setup.sh` on the host. It writes owner-only
 `~/.config/pully-public/oauth.json` (`{"githubCli":true}`) and a new `vault-keys.json`, and starts the
 `pully-public` user service on `127.0.0.1:8794`. Route `^/api/(public|personal)/` on the prs tunnel to that

@@ -55,7 +55,7 @@ fun PullRow.pullState(): PullState = when {
 /**
  * A stack row's tile: the row's square drawn as an outline in the bottom layer's state colour around the layers mark,
  * so a stack does not read as one more pull request beside the filled tiles ("it blends too much with the PRs
- * themselves": Tavi, 17 Oct 17:54; rule 202).
+ * themselves": Octavian, 17 Oct 17:54; rule 202).
  */
 @Composable
 private fun StackTile(ink: Color, modifier: Modifier) {
@@ -91,7 +91,7 @@ fun PullRowContent(pull: PullRow, now: Long, dimmed: Boolean, work: PullWork?, r
 }
 
 /**
- * `.stack`: the layers of one stack in the Inbox as one row (Tavi, 17 Oct 17:40; rule 202). The tile is an outline
+ * `.stack`: the layers of one stack in the Inbox as one row (Octavian, 17 Oct 17:40; rule 202). The tile is an outline
  * ([StackTile]) around the layers mark in the bottom layer's state colour, the title and number are the bottom layer's,
  * the one that merges first, and the meta line carries the stack mark with how many layers the row holds. The checks
  * are the worst of the layers', the + and − their sum and the age the newest. A tap or a hold opens the Stack sheet
@@ -117,7 +117,7 @@ fun StackRowContent(layers: List<PullRow>, now: Long, repo: String? = null) {
         RowNumber(bottom.number)
         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             // The stack mark a lone layer carries, with how many layers the row holds ("Just use the icon we were already
-            // using for stack and type a 3 next to it": Tavi, 17 Oct 17:51).
+            // using for stack and type a 3 next to it": Octavian, 17 Oct 17:51).
             Row(
                 Modifier.semantics(mergeDescendants = true) { contentDescription = "${layers.size} pull requests in a stack" },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp),

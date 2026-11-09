@@ -72,12 +72,12 @@ before accounts had their own objects (that copy is left in place).
 `scripts/staging-config.mjs` adds the host as the Worker's custom domain for that deploy only;
 `scripts/publish-staging-android.sh` builds the app and puts it under `staging/` in the bucket.
 
-## Stable (after Tavi's go-ahead)
+## Stable (after Octavian's go-ahead)
 
 `.github/workflows/stable.yml` deploys this Worker as its own Worker, `pully-stable`, with its
 own objects and data, after each release push whose CI passed and that `scripts/release-track.mjs`
 admits. It skips until the variable `PULLY_STABLE_HOST` is set, and setting it moves that host
-to Cloudflare, so the steps below wait for Tavi:
+to Cloudflare, so the steps below wait for Octavian:
 
 1. Create the bucket (`wrangler r2 bucket create pully-android-stable`) and fill it from the
    server's Android directory: `PULLY_ANDROID_BUCKET=pully-android-stable

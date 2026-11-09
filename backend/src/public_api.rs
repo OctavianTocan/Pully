@@ -109,7 +109,7 @@ fn first_page() -> u32 {
 /// The optional public listener MUST expose only its explicit typed browsing routes.
 /// It MUST NOT accept an RPC method or carry legacy AppState, operator credentials,
 /// local checkout, account records or private caches. Ordinary signed-out readers
-/// MUST be able to browse without operator Access credentials. Source: Tavi's
+/// MUST be able to browse without operator Access credentials. Source: Octavian's
 /// 21 Oct 2026 any-GitHub-account and anonymous popular-public-repository request.
 pub fn router() -> anyhow::Result<Router> {
     Ok(routes(PublicGitHub::new()?))

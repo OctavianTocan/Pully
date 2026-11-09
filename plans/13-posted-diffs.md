@@ -6,19 +6,19 @@
 > `account.rs`, `posted.rs`, `agent_api.rs` and `transport.rs`. The TypeScript server
 > has been removed. Cloudflare deployment remains separately approved work.
 
-Status: **built** on branch `claude/project-thread-xfrvu7` (Android 0.43.0). Started 16 Oct 2026 from Tavi's
+Status: **built** on branch `claude/project-thread-xfrvu7` (Android 0.43.0). Started 16 Oct 2026 from Octavian's
 message (12:24): "an endpoint where agents can post a diff, and they get back a link ... like a PR showcase using our
 stuff, but the diff is just what they gave you ... we hide elements like the branches and so on that are not actually
 present." Revised the same day with his decisions (12:40 and 12:47), which are quoted under Decisions.
 
 What the build leaves out of this plan, for later: the agent's read-only line `notes` (its `review` findings take
 that place), a key that may start AI runs (`then`), and `GET /api/v1/skill` (the skill is
-`skills/post-diff-to-pully/SKILL.md` in the repo). Posted diffs do not open on the web at all (Tavi, 16 Oct 14:17): `/-/<id>` in a browser
+`skills/post-diff-to-pully/SKILL.md` in the repo). Posted diffs do not open on the web at all (Octavian, 16 Oct 14:17): `/-/<id>` in a browser
 only says to open it in the Pully app.
 
 ## What it is
 
-Tavi signs in to Pully and makes an API key. He gives the key to an agent (Claude Code,
+Octavian signs in to Pully and makes an API key. He gives the key to an agent (Claude Code,
 Codex, a CI job). The agent has a skill that teaches it the API. When it has a change
 ready, it posts the patch, plus anything it knows about the change, and gets back a link:
 
@@ -35,7 +35,7 @@ The link opens the Pully pull request page for that diff in the phone app, signe
 account that owns it; on the web it only says to open it in the app. The diff also shows up in that account's list of pull
 requests, marked as posted. It stays until someone deletes it.
 
-## Decisions (Tavi, 16 Oct 12:40)
+## Decisions (Octavian, 16 Oct 12:40)
 
 - **Accounts.** Pully gets accounts, kept as simple as possible: "we make an account for
   me ... that doesn't mean that we connect GitHub". There is one account, seeded from the
@@ -50,7 +50,7 @@ requests, marked as posted. It stays until someone deletes it.
 - **Lifetime.** "Link is actually forever", because the diff belongs to the account.
 - **What an agent may send.** Its own grouping and tour, "and whatever else", as long as
   the skill teaches it.
-- **Storage.** Tavi asked: "do we need to use R2 for this? ... could we just store this in
+- **Storage.** Octavian asked: "do we need to use R2 for this? ... could we just store this in
   the database and just store what the agent gave us as opposed to the final result and
   then ... recalculate it?" The answer is yes. See Storage.
 
@@ -102,7 +102,7 @@ And at 12:47, answering the first draft:
 ## API keys
 
 - **Making one.** In Settings on the phone, under Agent keys,
-  Tavi names a key ("Claude Code on my laptop") and gets `pully_` followed by 32 random
+  Octavian names a key ("Claude Code on my laptop") and gets `pully_` followed by 32 random
   characters. It is shown once. The server keeps only its SHA-256 hash, its name, when it
   was made and when it was last used.
 - **Revoking.** A key can be revoked. Diffs it posted stay, because they belong to the
@@ -196,7 +196,7 @@ Pully stores what the agent gave, and works out the rest each time the diff open
 - **Worked out on every open:** the parsed files (`parsePatch`, the same parser paste and
   local use) and the rule-based groups. Today's rule already says rule-based groups are
   recomputed and never stored. Both are cheap.
-- **Also stored:** anything Pully pays for itself, such as a tour or analysis Tavi starts
+- **Also stored:** anything Pully pays for itself, such as a tour or analysis Octavian starts
   on a posted diff, the Ask threads and the reviewed marks. Recomputing those would mean
   paying for them again.
 - **Why R2 isn't needed:** gzip shrinks a patch 5 to 10 times, so even the 5 MB limit
@@ -220,10 +220,10 @@ Pully stores what the agent gave, and works out the rest each time the diff open
 ## AI that Pully runs
 
 A tour, analysis or Ask that Pully runs on a posted diff uses the server's engines and
-Tavi's subscriptions:
+Octavian's subscriptions:
 
 - **Who may start one.** Only a signed-in session or the phone. An API key can't, unless
-  Tavi turns on "may start AI" for that key. Then the post may say `then: ["tour"]`, the
+  Octavian turns on "may start AI" for that key. Then the post may say `then: ["tour"]`, the
   way an analysis already chains its tour and brief.
 - **Which tools it gets.** There is no repository, so the job gets the diff tools only:
   `read_file_diff`, `read_hunks`, `find_files` over the diff's paths, `search_diff`, and
@@ -282,7 +282,7 @@ Each step is one pull request.
    Tested over an in-memory host, as `native-api.test.ts` does.
 2. **The agent API and storage.** The `posted` ref, `createPostedSource`, `/api/v1/diffs`,
    the limits, the secret check, and the agent's fields checked and stored.
-3. **The web page.** `/-/<id>` opens the posted diff (the web matters less to Tavi).
+3. **The web page.** `/-/<id>` opens the posted diff (the web matters less to Octavian).
 4. **The phone.** Sign-in, Agent keys, settings sync, the link filter, `OpenTarget.Posted`,
    `posted-diff`, the Posted group in the Inbox. Android version bump with a changelog
    entry and pictures.
@@ -290,4 +290,4 @@ Each step is one pull request.
 6. **Pully's AI on posted diffs.** The diff-only tool set, and "may start AI" per key.
 
 Steps 1 to 3 together are the first thing an agent can use end to end. The Access bypass
-is needed before an agent outside Tavi's network can post.
+is needed before an agent outside Octavian's network can post.

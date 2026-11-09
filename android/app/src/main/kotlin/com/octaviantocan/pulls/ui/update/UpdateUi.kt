@@ -74,7 +74,7 @@ import com.octaviantocan.pulls.update.Updates
 
 /**
  * The update screen. While the server offers a newer build Pully shows only this, from the first frame of a start
- * (Tavi, 15 Oct: "When I have not updated and I enter the app, show me the changelog! Make me update!"). It names the
+ * (Octavian, 15 Oct: "When I have not updated and I enter the app, show me the changelog! Make me update!"). It names the
  * version and lists what it brings over the installed one, newest first, with Update at its foot. Update downloads and
  * installs in the app and says how far it got (a ring while it downloads, the orb while the system installs); a
  * download or install that fails offers Try again. Nothing closes it but the update: Back leaves Pully ([onLeave]), as
@@ -178,10 +178,10 @@ private fun ColumnScope.UpdateFooter(version: String, onUpdate: () -> Unit) {
 /**
  * Versions as the changelog writes them, each its own block as good release notes are (J6): the number in Mona Sans
  * as a small header, the newest one tagged New, the date and time it came out at the header's far end in the phone's
- * own zone (Tavi, 26 Oct 2026), the summary as the headline, then the bullets one to a line with a
+ * own zone (Octavian, 26 Oct 2026), the summary as the headline, then the bullets one to a line with a
  * dot and room between them, under their `### New` or `### Fixed` heading when the section has those. A hairline
  * parts one version from the next. No card around them: a sheet's body is its list (rule 79). Each picture or GIF
- * shows under the line it follows (Tavi, 16 Oct 10:49). The pictures of the versions this build carries come from its
+ * shows under the line it follows (Octavian, 16 Oct 10:49). The pictures of the versions this build carries come from its
  * assets; on the update screen, those of a version not installed yet come from the server next to [offer]'s APK.
  */
 @Composable

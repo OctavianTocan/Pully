@@ -46,7 +46,7 @@ fun PostedRow.updatedAtMs(): Long? = runCatching { kotlin.time.Instant.parse(upd
 /**
  * A posted diff's row: the row every pull request has (rule 75), led by a tile in the group's own magenta with the
  * terminal mark, since an agent made it. Its meta line says who posted it, then the + and − and the age in the same
- * columns as the rows under them. No number, no checks and no chips: a bare diff has none of them (Tavi, 16 Oct 12:47).
+ * columns as the rows under them. No number, no checks and no chips: a bare diff has none of them (Octavian, 16 Oct 12:47).
  */
 @Composable
 fun PostedRowContent(row: PostedRow, now: Long) {

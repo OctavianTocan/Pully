@@ -4,7 +4,7 @@ sourceStorageNamespace. The private versioned file layout MUST contain no raw se
 account, Access credential or pull name in its paths. A source change MUST revoke
 pending writers before deleting that active namespace; a retired handle MUST NOT
 read or restore it. Ordinary scene destruction MUST preserve valid files for verified
-reopening. Source: Tavi's accepted 21 Oct 2026 iOS source ownership, cached-first
+reopening. Source: Octavian's accepted 21 Oct 2026 iOS source ownership, cached-first
 continuity and same-adapter plan.
 
 @cc [owner:OctavianTocan,label:product;architecture] native-tour-files-are-atomic-bounded-and-recoverable

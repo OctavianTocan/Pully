@@ -1,7 +1,7 @@
 @cc [owner:OctavianTocan,label:product;motion] nav-back-returns-to-the-exact-place
 After following a link out of a page (a tour's source, a mention, a file, a path), Back
 MUST return to that page scrolled exactly where it was, with what was open still open.
-For a mention in an Ask answer that place is the Ask sheet at the same scroll. Tavi on
+For a mention in an Ask answer that place is the Ask sheet at the same scroll. Octavian on
 0.31.0: "I go back, I am still here. Great. This is what we wanted ... I hope that's in a
 contract, because it's very important" (recording 15 Oct 13:54, 07:03 to 07:15; K15;
 J35; rule 123).
@@ -48,10 +48,10 @@ J30, H22; recording 15 Oct 13:54, 12:33).
 In anonymous Explore, the same palette MUST expose public Home, the GitHub account
 entry and local appearance actions without mounting private Settings, feedback or
 updater clients. The staging APK MAY use its separately scoped staging updater
-without private app authority (Tavi25Oct2026, one GitHub login/update flow). Source: Tavi's 21 Oct 2026 signed-out public-browsing decision.
+without private app authority (Octavian25Oct2026, one GitHub login/update flow). Source: Octavian's 21 Oct 2026 signed-out public-browsing decision.
 The account command MUST use the same GitHub entry as the welcome sheet, returning
 to the accepted workspace when present. This replaces the existing-account command
-by Tavi's 25 Oct 2026 decision to use GitHub for both new and returning accounts.
+by Octavian's 25 Oct 2026 decision to use GitHub for both new and returning accounts.
 
 @cc [owner:OctavianTocan,label:product] nav-commands-themes
 Commands offers Themes, which opens the same theme sheet as Settings (recording 15 Oct
@@ -82,7 +82,7 @@ From Commands it is a sheet of its own over the page, from Settings a page insid
 Settings sheet, as the theme list is (nav-commands-themes). The note goes to the server
 with the screen and the pull request or repository of the page it was opened over, and
 what was typed MUST outlive closing the sheet and a send that fails ("Let's add a button
-somewhere for me to leave feedback from the app itself": Tavi, 20 Oct 2026 06:10).
+somewhere for me to leave feedback from the app itself": Octavian, 20 Oct 2026 06:10).
 
 @cc [owner:OctavianTocan,label:product] nav-on-github-leaves-pully
 Except for the pull request number, which explicitly opens a browser, every action that says GitHub (the ⋯ sheet's GitHub tile, Open on GitHub, a comment's age,
@@ -90,7 +90,7 @@ Except for the pull request number, which explicitly opens a browser, every acti
 takes the page, otherwise the phone's browser. It MUST NOT go through the link filter that
 hands github.com pull request links to Pully, which took the link back so nothing happened
 ("the GitHub link in the bottom sheet doesn't open GitHub because Pully grabs it so nothing
-happens. That needs fixing": Tavi, 20 Oct 2026 12:10).
+happens. That needs fixing": Octavian, 20 Oct 2026 12:10).
 
 @cc [owner:OctavianTocan,label:product] nav-links-inside-open-like-outside
 A link tapped inside Pully, in a description, a comment or an answer, opens in Pully exactly
@@ -102,12 +102,12 @@ screen for), and outside Pully otherwise.
 With a nonblank query, Commands MUST order sections by their best matching command,
 preserve relevance within each section, and MUST NOT put Suggested or General placement
 ahead of a stronger match. Typing update MUST put Update Pully ahead of unrelated Files
-actions (Tavi, 20 Oct 2026 controls feedback).
+actions (Octavian, 20 Oct 2026 controls feedback).
 @cc [owner:OctavianTocan,label:product;security] notification-taps-keep-their-source-and-result
 Notification taps MUST validate the current device source before routing on a cold or
 warm launch. Check alerts MUST open the indicated PR/checks; AI tour alerts MUST open the
 tour, review alerts the findings, and analysis/brief alerts the Overview. Opening a result
-MUST NOT start AI work or replay permission requests (Tavi, 21 Oct 2026, notification expansion).
+MUST NOT start AI work or replay permission requests (Octavian, 21 Oct 2026, notification expansion).
 
 @cc [owner:OctavianTocan,label:product;security] native-entry-keeps-same-account-forms-on-pause
 Ordinary ON_PAUSE/ON_RESUME, including a provider browser roundtrip, MUST retain the
@@ -115,7 +115,7 @@ same account's production composition, Home filter/query, review draft, Settings
 subpage/form and UI Book route. The root MUST NOT use a short-lived foreground
 workspace as their presentation key. New paused dispatch and late transport replies
 MUST remain denied. Sign-out or account/source replacement MUST synchronously retire
-private owners and routes before another identity mounts. Source: Tavi's 25 Oct 2026
+private owners and routes before another identity mounts. Source: Octavian's 25 Oct 2026
 review-fix batch #2 and the existing same-view form retention requirements.
 
 @cc [owner:OctavianTocan,label:architecture;product] android-entry-proof-exercises-real-mount
@@ -123,12 +123,12 @@ A confirmed-session Android entry regression MUST render GuestPullsApp's real pr
 Home path, exercise Repo(Context) through NativeWorkspaceBinding and assert binding and
 private-route retirement on sign-out. Shared Home data tests alone MUST NOT be claimed
 as that Android integration proof. Fixture transports and native storage/browser ports
-MAY isolate the host from external services. Source: Tavi's 25 Oct 2026 review-fix #10.
+MAY isolate the host from external services. Source: Octavian's 25 Oct 2026 review-fix #10.
 
 @cc [owner:OctavianTocan,label:product;security] start-on-the-signed-in-side
 With a saved private-repository login, a cold start MUST NOT draw Explore while that login
 is checked: a still Inbox-shaped placeholder with no readers, observers or requests stands
 in until the account is verified (the workspace mounts), rejected, or the check gives up,
 and only then may Explore show. A link opened at start goes straight to its place. Source:
-Tavi's recording of 26 Oct 2026, 00:17 to 00:35 ("we should obviously already be loading
+Octavian's recording of 26 Oct 2026, 00:17 to 00:35 ("we should obviously already be loading
 into the logged in side").

@@ -18,7 +18,7 @@ pub(super) async fn metadata() -> Json<Value> {
 // executable constructors.
 /// @cc [owner:OctavianTocan,label:architecture] devframe-optional-json-fields
 /// Decoding MUST omit undefined object members, retain explicit null members, and
-/// use null placeholders for undefined array items (Tavi's 16 Oct parity request;
+/// use null placeholders for undefined array items (Octavian's 16 Oct parity request;
 /// devframe 1.2.0 / structured-clone-es 2.0.1 JSON data contract).
 #[cfg(test)]
 fn decode(raw: &str) -> Result<Value> {

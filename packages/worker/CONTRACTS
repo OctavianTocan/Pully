@@ -2,17 +2,17 @@
 The hosted server MUST be the Rust server in `backend/` built for Workers, answering every request
 through its own router (`transport::router`) inside the `PullyServer` Durable Object. Server
 behaviour MUST NOT be reimplemented in this crate or in JavaScript; this crate only connects the
-server to the Worker runtime: requests, environment and storage (Tavi, 24 Oct 2026, "Rewrite it as
+server to the Worker runtime: requests, environment and storage (Octavian, 24 Oct 2026, "Rewrite it as
 a Worker"; `plans/12-hosted-server.md`, Update 24 Oct).
 
 @cc [owner:OctavianTocan,label:security] hosted-server-only-behind-access
 The Worker MUST NOT have a `workers.dev` or preview URL. A route or custom domain MUST be added only
-together with the Cloudflare Access policy in front of it, with Tavi's go-ahead for the hostname,
+together with the Cloudflare Access policy in front of it, with Octavian's go-ahead for the hostname,
 because the phone API keeps relying on Access (root CONTRACTS, `phone-api-one-account`). The
 staging server's custom domain comes only from the `PULLY_STAGING_HOST` repository variable
 (`scripts/staging-config.mjs`), which the operator sets after its Access application exists,
 and the stable server's only from `PULLY_STABLE_HOST` (`scripts/stable-config.mjs`), set the
-same way; `wrangler.jsonc` itself keeps no route. Source for staging: Tavi, 24 Oct 2026 20:46, a staging
+same way; `wrangler.jsonc` itself keeps no route. Source for staging: Octavian, 24 Oct 2026 20:46, a staging
 app that updates when we merge to main. Only `/api/public/` and `/api/personal/` MAY bypass
 Access, as they do in front of production's separate public listener: those routes refuse
 Access credentials and cookies and answer only to their own GitHub sign-in (backend
@@ -30,8 +30,8 @@ MUST be answered by that account's own `AccountServer` object, named by the back
 `account_key`, whose stores are scopes of its own SQLite, so no account's object can read
 another's records (backend `tenant-state-does-not-adopt-legacy-data`). Sign-in is the GitHub
 CLI's device flow, and the vault keys come only from the `PULLY_PERSONAL_VAULT_KEYS` secret;
-without it GitHub sign-in is reported as not configured. Source: Tavi, 25 Oct 2026, his server
-agent's finding that Connect GitHub did not work on staging; one object per account from Tavi,
+without it GitHub sign-in is reported as not configured. Source: Octavian, 25 Oct 2026, his server
+agent's finding that Connect GitHub did not work on staging; one object per account from Octavian,
 28 Oct 2026: "Why would we save anything to files instead of to the DO for each user? We have
 proper user sepparation, no?"
 
@@ -47,14 +47,14 @@ session ends (sign-out, disconnect, expiry, a newer credential), and the account
 then revoke what it holds for that credential revision, as the vault revokes captured
 authority (backend `personal-session-is-bound-to-one-stable-user`); without a notice it MUST
 revoke, at its next admission or background round, a credential not granted again for ten
-minutes. Source: Tavi, 28 Oct 2026, one object
+minutes. Source: Octavian, 28 Oct 2026, one object
 per account (`hosted-personal-in-its-own-object`).
 
 @cc [owner:OctavianTocan,label:product;architecture] hosted-account-refreshes-its-own-pulls
 Each `AccountServer` MUST refresh its account's open pull requests with the server's own
 `warm_round` on its alarm, every `WARM_EVERY`, while the account has a confirmed session with
 repository access, and MUST stop setting the alarm when it has none; a later request starts it
-again. Source: Tavi, 28 Oct 2026, asking why stable is not on Workers and why only 150 pull
+again. Source: Octavian, 28 Oct 2026, asking why stable is not on Workers and why only 150 pull
 requests are refreshed.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-import-is-off-unless-its-token-is-set
@@ -63,15 +63,15 @@ unless the `PULLY_IMPORT_TOKEN` secret is set, and then MUST answer only a POST 
 token, compared without early exit. It MUST NOT replace a record or analytics day the Worker
 already has, except the sign-in store, which is copied whole; an account store MUST be written
 only to the object of an account the copied sign-in store knows. Running it touches the VPS
-data, so it waits for Tavi's go-ahead (coordinator relay, 28 Oct 2026: "switching the public
+data, so it waits for Octavian's go-ahead (coordinator relay, 28 Oct 2026: "switching the public
 address and anything that touches the VPS data is a one-way door").
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-stable-only-from-the-verified-release
 The stable server MUST be deployed only by `.github/workflows/stable.yml`, as its own Worker
 (`pully-stable`) with its own objects and Android bucket, from a release push whose CI passed
 and that `scripts/release-track.mjs` admits (its `publication-needs-exact-verified-release`).
-It MUST skip until `PULLY_STABLE_HOST` is set, which waits for Tavi's go-ahead to move that host
-(`hosted-server-only-behind-access`). Source: Tavi, 28 Oct 2026: "Why does the stable server
+It MUST skip until `PULLY_STABLE_HOST` is set, which waits for Octavian's go-ahead to move that host
+(`hosted-server-only-behind-access`). Source: Octavian, 28 Oct 2026: "Why does the stable server
 not run on workers too? [...] We should be using Cloudflare for that too, no?"
 
 @cc [owner:OctavianTocan,label:architecture] hosted-data-in-durable-object-sqlite
@@ -112,16 +112,16 @@ keeps only that login's sign-in files, as text in its own storage: the runner gi
 sign-in part of each (Codex's tokens, Claude's OAuth login) and nothing else of the CLI home,
 and the object writes them back when the container starts and saves them after each run,
 sign-in, status check and sign-out. Inside the container, CLI jobs MUST run as a user that cannot read
-the login homes (backend `rust-container-tools-use-scoped-capabilities`). Source: Tavi, 24 Oct
+the login homes (backend `rust-container-tools-use-scoped-capabilities`). Source: Octavian, 24 Oct
 2026, "Move the server, AI last" and "Rewrite it as a Worker"; the login-storage question asked
-the same day, answered by Tavi at 19:27 ("Can we not keep the logins in a D1 database? We
+the same day, answered by Octavian at 19:27 ("Can we not keep the logins in a D1 database? We
 could just store them as text in there"), kept in each login's own object rather than one D1
 database so no query can reach another login.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-staging-apk-validation
 The staging publisher MUST verify the actual APK package, version and pinned signing key before
 uploading anything. Multiple installed SDK build-tools versions MUST NOT change those checks;
-missing required tools MUST fail before the build or upload. Source: Tavi, 24 Oct 2026, complete
+missing required tools MUST fail before the build or upload. Source: Octavian, 24 Oct 2026, complete
 staging after the first publication exposed the hosted runner's multiple SDK versions.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-personal-workspace-keeps-stable-owned-state-and-agent-remote
@@ -132,15 +132,15 @@ immutable personal account's saved tours, settings, reviews and analytics MUST s
 restart in its own object's SQLite. Live jobs and private caches MUST remain captured-binding
 state; a new binding MUST NOT adopt them. Workspace state and analytics MUST use records, never
 wasm filesystem calls. No account MAY select another's store, job registry or CLI home.
-Source: Tavi25Oct2026, full production workspace through one own GitHub app login; the
-account's own object from Tavi, 28 Oct 2026 (`hosted-personal-in-its-own-object`).
+Source: Octavian25Oct2026, full production workspace through one own GitHub app login; the
+account's own object from Octavian, 28 Oct 2026 (`hosted-personal-in-its-own-object`).
 
 @cc [owner:OctavianTocan,label:architecture;security] hosted-workspace-record-prefixes-use-scoped-ranges
 ScopedRecords prefix lookups MUST constrain both the account scope and the literal encoded
 id range before enumerating rows; SqlRecords MUST constrain the same literal id range.
 Percent and underscore characters in encoded ids MUST NOT act as wildcards. Analytics
 summary iteration MUST consume record batches or SQLite rows incrementally, with the
-existing cleaner, Stats response and retention unchanged. Source: Tavi25Oct2026 review-fix
+existing cleaner, Stats response and retention unchanged. Source: Octavian25Oct2026 review-fix
 batch, finding 8; backend workspace-stats-reads-only-matching-records.
 
 @cc [owner:OctavianTocan,label:security;architecture] hosted-workspace-discards-only-access-transport-cookies
@@ -150,5 +150,5 @@ present for the backend's existing rejection, including mixed Access/application
 and malformed or lookalike cookie names. Authorization and every non-cookie header MUST
 remain unchanged; public, personal sign-in, legacy and download cookie forwarding MUST
 remain unchanged. No cookie MAY select an account or replace the confirmed personal
-bearer, and no cookie value MAY be logged. Source: Tavi's 25 Oct 2026 one-GitHub-login
+bearer, and no cookie value MAY be logged. Source: Octavian's 25 Oct 2026 one-GitHub-login
 instruction and the staging service-auth request observed during PR127 live verification.

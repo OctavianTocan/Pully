@@ -45,7 +45,7 @@ def _print_reports():
     assertions or bypass the strong release checks and full artifact uploads.
     All report-derived output MUST suspend runner command processing with a fresh
     unpredictable token and restore it even if reading a report raises.
-    Source: Tavi's 22 Oct 2026 strong release-verification decision and accepted
+    Source: Octavian's 22 Oct 2026 strong release-verification decision and accepted
     failure-evidence repair after the 608-case Native run's four assertion failures.
     """
     reports = sorted({path for directory in sys.argv[1:] for path in Path(directory).rglob("TEST-*.xml")})
@@ -71,7 +71,7 @@ def _print_xcresult(bundle):
     A failed native SDK simulator step MUST retain bounded actual xcresult summary
     output in the same CI log without replacing its original exit status or tests.
     Missing bundles and summary-tool errors MUST be identified as unavailable
-    evidence, never a passing test receipt. Source: Tavi's 22 Oct 2026 strong
+    evidence, never a passing test receipt. Source: Octavian's 22 Oct 2026 strong
     release-verification request and the observed quiet SDK test failure on 20e88954.
     """
     if not (Path(bundle) / "Info.plist").is_file():

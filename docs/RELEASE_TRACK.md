@@ -36,7 +36,7 @@ admitted release push; it skips until the `PULLY_STABLE_HOST` variable is set
 
 ## Staging
 
-Staging is the one thing main deploys (Tavi, 24 Oct 2026). After every merge,
+Staging is the one thing main deploys (Octavian, 24 Oct 2026). After every merge,
 `.github/workflows/staging.yml` deploys the Cloudflare server (`packages/worker`) to the
 `PULLY_STAGING_HOST` domain and publishes Pully Staging, a separate app
 (`com.octaviantocan.pulls.staging`) that installs beside Pully, starts on that server and
@@ -46,7 +46,7 @@ APK or `latest.json` (android/CONTRACTS, `android-staging-channel`). Until the o
 stable server that sets `PULLS_REVIEW_STAGING_URL` links to the staging download page.
 
 The staging app uses one GitHub login for the full Inbox/Tours, Profile, Settings and
-review workspace (Tavi, 25 Oct 2026). Its confirmed personal session authorizes the
+review workspace (Octavian, 25 Oct 2026). Its confirmed personal session authorizes the
 account-owned `/workspace/api/rpc` and `/workspace/api/events`; it does not create a
 second legacy Pully session or adopt the operator's data. Claude Code and Codex setup
 connect each person's own provider account in Settings, AI.
@@ -58,7 +58,7 @@ refuses key creation; its phone RPC does not expose a new key-authenticated agen
 CI also needs `PULLY_STAGING_ACCESS_CLIENT_ID` and
 `PULLY_STAGING_ACCESS_CLIENT_SECRET`. These are a dedicated Access service token for
 the staging workspace and `/download/staging/*` paths, supplied to the Android build
-only through its environment. Tavi explicitly accepts that the staging APK contains
+only through its environment. Octavian explicitly accepts that the staging APK contains
 this credential so the phone needs no Access browser login. It grants no workspace
 account authority and has no policy for production or legacy RPC. Never use the
 Cloudflare API token or a production/shared Access credential here. Missing build

@@ -54,7 +54,7 @@ class MyPullsSync(
 
     /**
      * [pulls] are the rows the server's first load has found so far, with more to come: the Inbox shows them at once
-     * instead of skeletons until the whole list is in (Tavi, 26 Oct 2026, on Staging 0.62.0).
+     * instead of skeletons until the whole list is in (Octavian, 26 Oct 2026, on Staging 0.62.0).
      */
     var partial by mutableStateOf(false)
         private set

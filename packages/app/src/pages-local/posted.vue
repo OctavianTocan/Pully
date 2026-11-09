@@ -3,7 +3,7 @@ import FeedbackEmptyState from '@antfu/design/components/Feedback/FeedbackEmptyS
 import { useI18n } from 'vue-i18n'
 import { useDocumentTitle } from '../composables/useDocumentTitle'
 
-// A diff an agent posted (plan 13) opens only in the phone app; the web never reads it (Tavi, 16 Oct 14:17).
+// A diff an agent posted (plan 13) opens only in the phone app; the web never reads it (Octavian, 16 Oct 14:17).
 const { t } = useI18n()
 useDocumentTitle(() => t('local.posted.title'))
 </script>

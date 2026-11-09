@@ -3,7 +3,7 @@ package com.octaviantocan.pulls.core
 /**
  * The thing on a pull request's GitHub page that a link points at, read from GitHub's own tabs and `#` anchors, so Pully
  * lands on that thing and not just the pull request ("It needs to take us to the thing. Seamless parity with GitHub":
- * Tavi, 20 Oct). A commit or compare link can carry a [File] too.
+ * Octavian, 20 Oct). A commit or compare link can carry a [File] too.
  */
 sealed interface LinkPlace {
     /** `#issuecomment-<id>`: a comment on the conversation. */

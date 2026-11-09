@@ -33,7 +33,7 @@ import com.octaviantocan.pulls.ui.settings.ModelSettingsServices
  * ← back. It is drawn from what the phone already holds, so it opens in the frame of the tap: the pull request's
  * sheet took a moment to build ("took far too long to open", 10:37 to 10:43, N22).
  * A stale tour opens on [TourSheetPage.Stale], showing its original commit and the choice to keep reading; Update moves
- * on to the model choice before it starts any work (Tavi's direct stale-tour feedback, 20 Oct 2026).
+ * on to the model choice before it starts any work (Octavian's direct stale-tour feedback, 20 Oct 2026).
  */
 @Composable
 fun TourSheet(session: ReviewSession, models: ModelSettingsServices, native: NativeHomeActions, onClose: () -> Unit, onAsk: (() -> Unit)?, onDiff: (() -> Unit)?, onPrActions: () -> Unit, start: TourSheetPage = TourSheetPage.Main) {

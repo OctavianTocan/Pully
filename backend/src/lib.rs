@@ -150,7 +150,7 @@ impl AppState {
 }
 impl AppState {
     /// Whether this personal workspace belongs to the one GitHub account `PULLY_PI_GITHUB_ID` names, the only account
-    /// that may run Pi on the server's own proxy (Tavi's recording of 26 Oct 2026, 02:21 to 02:36).
+    /// that may run Pi on the server's own proxy (Octavian's recording of 26 Oct 2026, 02:21 to 02:36).
     fn pi_owner(&self) -> bool {
         self.personal_workspace && is_pi_owner(crate::rt::env::var("PULLY_PI_GITHUB_ID").ok().as_deref(), self.identity.github_id())
     }

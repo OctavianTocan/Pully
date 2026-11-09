@@ -112,7 +112,7 @@ fun TourActionsSheet(
         SheetCard {
             SheetRow("Open the tour", then(onOpen), first = true, icon = { LuIcon(Lu.tour, tint = c.text, size = 20.dp) })
             SheetRow(if (stoppable) "Stop the tour" else "Remove from Tours", then(onDismiss), icon = { LuIcon(Lu.close, tint = c.text, size = 20.dp) })
-            // The pull request's link, as its own hold sheet has it (Tavi, 20 Oct).
+            // The pull request's link, as its own hold sheet has it (Octavian, 20 Oct).
             SheetRow("Copy link", then {
                 native.copyText("https://github.com/${entry.owner}/${entry.repo}/pull/${entry.number}")
                 toaster.show("Link copied", cue = Cue.Success)

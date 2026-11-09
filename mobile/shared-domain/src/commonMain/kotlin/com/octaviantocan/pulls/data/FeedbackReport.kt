@@ -6,7 +6,7 @@ import kotlinx.serialization.json.put
 
 /**
  * One note of feedback as the phone sends it (`feedback-send`): the words, and what they were written from, so an agent
- * reading it later knows the version, the screen and the phone without asking (Tavi, 20 Oct 06:10). The server stamps
+ * reading it later knows the version, the screen and the phone without asking (Octavian, 20 Oct 06:10). The server stamps
  * the time itself; [sentAt] is only the phone's clock beside it.
  */
 data class FeedbackReport(

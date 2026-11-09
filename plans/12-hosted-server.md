@@ -9,11 +9,11 @@
 Status: **step 1 built** (the host seam); **the container host built** (24 Oct, below);
 **staging deployed from main**; **stable deploy and data copy built, not run** (28 Oct, below).
 Nothing is deployed; each step that creates or changes anything on Cloudflare waits for
-Tavi's go-ahead.
+Octavian's go-ahead.
 
 ## Update, 28 October 2026: one object per account, and stable on Cloudflare
 
-Tavi asked why stable is not on Workers too, why anything is saved to files rather than a
+Octavian asked why stable is not on Workers too, why anything is saved to files rather than a
 Durable Object per user, and why only 150 pull requests are refreshed (28 Oct 17:34).
 
 - **One object per account.** `PersonalServer` keeps only the sign-in vault. Each account's
@@ -31,13 +31,13 @@ Durable Object per user, and why only 150 pull requests are refreshed (28 Oct 17
   can show (four roles of up to 100).
 - **Stable.** `.github/workflows/stable.yml` deploys the same Worker as `pully-stable` from a
   verified release push, and `packages/worker/scripts/import-vps.mjs` copies the VPS data in
-  through an import route that is off unless its token is set. Both wait for Tavi: nothing
+  through an import route that is off unless its token is set. Both wait for Octavian: nothing
   runs until `PULLY_STABLE_HOST` is set, and the copy is run by hand (`packages/worker/README.md`,
   Stable).
 
 ## Update, 24 October 2026: the server as a Worker
 
-Tavi chose "Move the server, AI last" (24 Oct 12:57), then "Rewrite it as a Worker" over
+Octavian chose "Move the server, AI last" (24 Oct 12:57), then "Rewrite it as a Worker" over
 running today's server in a container (13:29). Steps 3 and 4 below were written for the
 TypeScript server; the server is now Rust, so the Rust server itself is built for Workers
 (`wasm32-unknown-unknown`, workers-rs), the way mymind-reconstruction runs on Workers.
@@ -68,7 +68,7 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
   and keeps the login home where only root can read it; each job runs as `pully-cli` in its
   own job folder with the same selected credential files the Docker jobs get. The container's
   disk goes when it sleeps (five minutes idle), so the object keeps the login's sign-in files
-  as text in its own storage (Tavi, 24 Oct 19:27): only the sign-in part of Codex's
+  as text in its own storage (Octavian, 24 Oct 19:27): only the sign-in part of Codex's
   `auth.json` and Claude's credentials and account, written back when the container starts and
   saved after each run, sign-in, status check and sign-out. No container holds a storage key
   or a server secret. This replaces mounting R2 in the container, which would give every
@@ -76,18 +76,18 @@ TypeScript server; the server is now Rust, so the Rust server itself is built fo
 - **Cost:** Workers Paid ($5 a month, already on the account for mymind). The Worker is
   about 3.9 MB compressed, under the paid plan's 10 MB.
 
-Deploying needs Tavi: the go-ahead, a hostname with an Access policy, Worker secrets
+Deploying needs Octavian: the go-ahead, a hostname with an Access policy, Worker secrets
 (`PULLS_REVIEW_GITHUB_TOKEN`, the account and Google variables, `TYPESAFE_API_KEY`), and an import of today's data so nothing starts empty. Each
 person signs Claude Code and Codex in again from Settings, AI, because today's logins live
 in Docker volumes on the old machine.
 
 ## Why
 
-The phone's server is the `pulls.review` CLI on Tavi's machine (mini-001): systemd,
+The phone's server is the `pulls.review` CLI on Octavian's machine (mini-001): systemd,
 port 8792, reached through a Cloudflare tunnel behind Cloudflare Access. Every request
 from the phone goes edge, tunnel, home connection, machine, and from there to GitHub.
 It is only up while the machine is, and every GitHub call pays the home connection's
-round trip. Tavi asked (16 Oct 08:39) where to host it "to make sure that it's actually
+round trip. Octavian asked (16 Oct 08:39) where to host it "to make sure that it's actually
 faster", naming Cloudflare Workers and Vercel as the ones his subscriptions cover, and
 Railway.
 
@@ -100,7 +100,7 @@ Railway.
 | Work that outlives the page (AI tasks, the 3-minute PR store refresh) | The same Durable Object holds tasks in memory and wakes on its alarm | Request-scoped; needs Cron plus Queues or Workflow              | A long-running process, as today |
 | Claude Code and Codex in our Docker image                             | Containers (Sandbox SDK), started from the Durable Object            | Vercel Sandbox, a different image format                        | No Docker inside a service       |
 | Who may reach it (contract `phone-api-no-login`)                      | Cloudflare Access, already set up; the phone keeps its headers       | Vercel's own protection; new headers on the phone               | Its own; new headers             |
-| Tavi's plans                                                          | Covered                                                              | Covered                                                         | Not covered                      |
+| Octavian's plans                                                          | Covered                                                              | Covered                                                         | Not covered                      |
 
 Vercel stays where it is good at: the public static site (`vercel.json`). Railway would be
 the smallest move, but it cannot start the review containers and is not on his plans.
@@ -165,7 +165,7 @@ Each step is one pull request and keeps the CLI's behaviour unless it says other
   default. Forwarding AI to mini-001 was rejected: its results would land in the other
   store.
 - Deployed beside the current server under its own hostname behind Access; the phone's
-  server address in Settings picks it. **Needs Tavi:** Workers Paid, a GitHub token for the
+  server address in Settings picks it. **Needs Octavian:** Workers Paid, a GitHub token for the
   server, the hostname, and the go-ahead to deploy.
 
 ### 5. AI in Containers
@@ -175,7 +175,7 @@ Each step is one pull request and keeps the CLI's behaviour unless it says other
   PR tools read files through GitHub (`loadFile`), as a job without one already does.
 - Sign-ins become secrets: Claude Code's long-lived token (`claude setup-token`), and
   Codex's. Pi runs in the object itself; its endpoint (CLIProxyAPI) must be reachable from
-  Cloudflare, through the tunnel with an Access service token. **Needs Tavi:** the tokens.
+  Cloudflare, through the tunnel with an Access service token. **Needs Octavian:** the tokens.
 
 ### 6. The web page and the cut-over
 

@@ -54,7 +54,7 @@ import com.octaviantocan.pulls.update.WhatsNew
 /**
  * Settings, Advanced, Past versions: a slider over every version of the app, oldest on the left and the one running
  * on the right, where it starts. Picking an older one and tapping Open runs that version as it was, a separate app
- * rebuilt from git, and Back comes home to this one (Tavi, 15 Oct: "a dev-only slider... by default the app just has
+ * rebuilt from git, and Back comes home to this one (Octavian, 15 Oct: "a dev-only slider... by default the app just has
  * latest changes").
  */
 @Composable

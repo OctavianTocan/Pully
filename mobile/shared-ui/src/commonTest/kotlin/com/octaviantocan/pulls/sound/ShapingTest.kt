@@ -40,7 +40,7 @@ class ShapingTest {
 
     @Test
     fun theDefaultControlsNeverRing() {
-        // Tavi hates Cuelume's glass tap (J3, J16): a button, a choice and a switch in Default are a click and a knock,
+        // Octavian hates Cuelume's glass tap (J3, J16): a button, a choice and a switch in Default are a click and a knock,
         // gone in a few hundredths of a second at every emphasis, with no tone ringing on above the knock's register.
         for (cue in listOf(Cue.Tap, Cue.Select, Cue.Toggle)) {
             for (emphasis in Emphasis.entries) {

@@ -316,7 +316,7 @@ private fun HomeScreenBody(nav: Nav, ui: HomeUi) {
     }
 
     // Once the Inbox has shown, the page of every row on it is read and kept on the phone, top first, so whichever he
-    // taps opens at once; a row whose pull request has not changed since is not read again (O20; Tavi, 28 Oct 2026).
+    // taps opens at once; a row whose pull request has not changed since is not read again (O20; Octavian, 28 Oct 2026).
     val pages = remember(sorted) {
         sorted.map { PageRequest(OpenTarget.Pull(it.owner, it.repo, it.number, "github.com"), PullPage.version(it.headSha, it.updatedAt)) }
     }
@@ -671,7 +671,7 @@ fun InboxList(
             state = state,
             contentPadding = PaddingValues(bottom = bottom),
         ) {
-            // What agents posted comes first, under a heading in its own colour: one group, no chip (Tavi, 16 Oct 12:47).
+            // What agents posted comes first, under a heading in its own colour: one group, no chip (Octavian, 16 Oct 12:47).
             // It is on the server, not GitHub, so it shows while the pull requests load or when they fail to.
             if (posted.isNotEmpty()) {
                 item(key = groupKey(POSTED_SECTION)) {
@@ -745,7 +745,7 @@ fun InboxList(
                             }
                         }
                     }
-                    // More rows are still coming in: a few skeleton rows under them say so (Tavi, 26 Oct 2026).
+                    // More rows are still coming in: a few skeleton rows under them say so (Octavian, 26 Oct 2026).
                     if (more) item(key = "more") { RowsSkeleton(Modifier.animateItem(), rows = 3) }
                 }
             }

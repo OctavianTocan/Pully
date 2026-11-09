@@ -2,14 +2,14 @@
 The Overview MUST show a saved merge-risk level only after local experimental opt-in and when the review's known head
 matches the opened diff, and tapping it MUST open the review's full assessment even
 when there are no inline findings. It MUST NOT change GitHub merge readiness.
-It MUST be marked Experimental. Source: Tavi's 21 Oct 2026 merge-risk request and
+It MUST be marked Experimental. Source: Octavian's 21 Oct 2026 merge-risk request and
 follow-up requiring experimental, opt-in-only features, narrowing the original display.
 
 @cc [owner:OctavianTocan,label:product] pr-no-analyze-card
 The Overview is the pull request: no Analyze card and nothing that asks for an analysis.
 A tour starts from the tour icon, and Analyze changes in ⋯ opens the model-visible setup
 before its preset action starts work. The pull request's ⋯ has no separate Model or
-Analyze options row (rule 113; H30; N39). Tavi's 20 Oct 2026 feedback and accompanying
+Analyze options row (rule 113; H30; N39). Octavian's 20 Oct 2026 feedback and accompanying
 recording 01:01 to 01:35 replace the old immediate-run Analyze tile with setup.
 
 @cc [owner:OctavianTocan,label:product;motion] pr-sheet-opens-pages-not-sheets
@@ -21,11 +21,11 @@ only from the first (rule 115; J27, J32, J33).
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-is-short
 The pull request's ⋯ sheet holds GitHub, Copy link and Analyze as tiles, then
 Leave a comment, "Approve, merge or close" and Find problems. Copy link puts the pull
-request's GitHub link on the clipboard and says so (Tavi, 20 Oct 2026 12:10). Analyze
+request's GitHub link on the clipboard and says so (Octavian, 20 Oct 2026 12:10). Analyze
 changes (opened by Analyze) and Find problems open their own model-visible setup pages. It MUST NOT offer
 separate Model, Analyze options, Review progress or Checks rows (N39). The distinct
 labels and setup replace the old Analyze and Review with AI direct-run entries by
-Tavi's 20 Oct 2026 feedback and accompanying recording 00:37 to 01:35.
+Octavian's 20 Oct 2026 feedback and accompanying recording 00:37 to 01:35.
 
 @cc [owner:OctavianTocan,label:product;security] pr-decisions-sit-a-page-in
 Approve, Request changes, the merge, Merge when checks pass, Update branch, Convert to
@@ -36,7 +36,7 @@ in the error colour). Leave a comment stays in the ⋯ sheet (rule 116; J29).
 @cc [owner:OctavianTocan,label:product] pr-more-sheet-on-every-view
 The ⋯ sheet is reachable from the Overview, the Diff and the Tour of a pull request, and
 it holds no Commands row (rules 29 and 61; J30). On the Tour, ⋯ opens the tour's own
-sheet and the pull request's sheet is its last row, by Tavi's change ("the pull request's
+sheet and the pull request's sheet is its last row, by Octavian's change ("the pull request's
 sheet is not needed there", recording of 16 Oct 12:10, 10:49 to 11:24, N23).
 
 @cc [owner:OctavianTocan,label:design;motion] pr-header-never-shifts
@@ -92,7 +92,7 @@ A file ends where its code ends: nothing scrolls into empty space beyond the roo
 bottom bar needs (rule 92; F50).
 
 @cc [owner:OctavianTocan,label:product] diff-reviewed-moves-on
-Ticking Reviewed marks the file and moves to the next file not reviewed. Tavi called it
+Ticking Reviewed marks the file and moves to the next file not reviewed. Octavian called it
 beautiful; it MUST NOT regress (rule 65; F55).
 
 @cc [owner:OctavianTocan,label:product] diff-one-way-to-comment
@@ -114,7 +114,7 @@ them the way the chat shows it, the answer as plain text with no box (rules 9, 9
 A pinch changes the code's text size as the fingers move: the code is laid out again at
 each size, its lines wrapping and the page still filling the screen, and MUST NOT be a
 picture of the page scaled down into a corner ("before it scaled the font and the lines",
-recording 16 Oct 09:50, 04:11 to 04:26; M9, Tavi's decision, replacing the scaled picture
+recording 16 Oct 09:50, 04:11 to 04:26; M9, Octavian's decision, replacing the scaled picture
 of rule 93). The line under the fingers stays there while they move and after they lift,
 and a pinch MUST NOT pan with them (recording 15 Oct 15:37, 09:58 to 10:11; L17). The
 Tour's code is the same.
@@ -142,7 +142,7 @@ edge (rule 40).
 @cc [owner:OctavianTocan,label:product] tour-starts-from-its-icon
 With no tour, the tour icon opens a "No tour yet" sheet with the Model row (a page of the
 same sheet) and Generate tour, the model card the sheets' gap under the ✕ and no line on
-what a tour is (Tavi's decision, recording 16 Oct 13:06, 05:12 to 05:31; O11, O12); while one is written it opens
+what a tour is (Octavian's decision, recording 16 Oct 13:06, 05:12 to 05:31; O11, O12); while one is written it opens
 that sheet again on the progress, over the Tour page. With a tour the icon opens the Tour
 page, its dot breathing while a new one is written (rule 113; M12).
 
@@ -150,11 +150,11 @@ page, its dot breathing while a new one is written (rule 113; M12).
 Generate tour keeps the sheet open and shows the running work log in it in the same frame,
 with the Tour page behind it. Pulled down, it rests at the foot of the Tour page as a lip,
 its top edge with the handle, "Writing the tour" and the step it is on, and a pull up, a tap
-on the lip or the tour icon opens it again; the page has no "Writing the tour" card (Tavi's
+on the lip or the tour icon opens it again; the page has no "Writing the tour" card (Octavian's
 decision, recording 16 Oct 13:06, 05:38 to 06:00 and 07:08 to 07:15; O13, rule 183). The page shows no work log of its
 own, so nothing on it moves as the log changes, and the sheet closes when the tour is there
 ("for that bottom sheet to stay open and for us to see this there", recording 16 Oct
-09:50, 05:03 to 05:45; M12, Tavi's decision, replacing closing the sheet of J28). A tap
+09:50, 05:03 to 05:45; M12, Octavian's decision, replacing closing the sheet of J28). A tap
 before the pull request has loaded waits for it and never leaves a dead button (M11).
 
 @cc [owner:OctavianTocan,label:motion] tour-stops-arrive-with-motion
@@ -181,11 +181,11 @@ Empty, the Tour's Ask bar shows the Ask sheet's earlier-chats button when the pu
 has earlier chats, and the grey Send when it has none (recording of 17 Oct 13:26, 01:26 to
 01:43, P4); once something is typed it shows Send. Sending continues the last conversation
 and opens the Ask sheet on it. A tap on the bar opens the bar itself, never the
-conversation (Tavi changed this on 17 Oct 14:45 with Q5; it opened the conversation before).
+conversation (Octavian changed this on 17 Oct 14:45 with Q5; it opened the conversation before).
 The earlier-chats button opens the Chats sheet alone, never the Ask sheet
 under it, and a chat picked there opens Ask on that chat (01:45 to 01:57, P5). The bar is
 one component (`AskBar`) any page that asks reuses (recording of 16 Oct 12:10, 13:25 to
-14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24). Tavi changed P4
+14:15, N28). It never shows an empty white circle (11:27 to 11:33, N24). Octavian changed P4
 and P5 on 17 Oct.
 
 @cc [owner:OctavianTocan,label:product;motion] tour-stops-fold
@@ -234,7 +234,7 @@ A model goes under "Older models" only when a newer version of its own tier is l
 it is from an older generation than the newest on the list: the tier is the model's name
 less its maker and version ("GPT-6 Sol" is Sol, "Opus 4.1" is Opus). Codex's GPT-6.1 Sol,
 GPT-6 Astra and GPT-6 Luna are all current; GPT-6 Sol and the GPT-5.6 models are older. The
-default and aliases are never older (`modelTier`, `groupModels`). Tavi decided this in the
+default and aliases are never older (`modelTier`, `groupModels`). Octavian decided this in the
 recording of 16 Oct 12:10, 04:13 to 04:31 (the lineup is Sol, Astra and Luna; N7),
 replacing one newest model per maker's family.
 
@@ -279,7 +279,7 @@ goes to the diff or is highlighted ("this button should not take you to the diff
 should also not be highlighted. This is another ask button", recording of 17 Oct 13:26,
 00:25 to 00:48, P2); the diff is the header's and Approve is in ⋯ and Commands. The ⋯
 lives only in the header's capsule, so the bottom row MUST NOT carry a menu, and there is
-never a second Ask inside a comment card (rules 7 and 30; N32). Tavi decided this on 17 Oct
+never a second Ask inside a comment card (rules 7 and 30; N32). Octavian decided this on 17 Oct
 in place of the round arrow to the review of N32.
 
 @cc [owner:OctavianTocan,label:product] pr-stack-is-a-sheet
@@ -291,7 +291,7 @@ another layer opens it (DESIGN.md checklist 51).
 Every layer in the Stack sheet MUST show its place in the stack in the leading column
 ("2/3") and, under its title, the Inbox rows' meta line: its number and its author, then
 Merged or Closed, checks and + and − ("I cannot see the user's name ... It's like its
-missing the PR number (not the in-stack one; that one is there), and the username": Tavi,
+missing the PR number (not the in-stack one; that one is there), and the username": Octavian,
 17 Oct 20:13; rule 203). The server's stack carries each layer's author for it.
 
 @cc [owner:OctavianTocan,label:design] pr-edges-dissolve
@@ -317,7 +317,7 @@ name before it opens the repository (recording 15 Oct 15:37, 11:17 to 11:25; L21
 
 @cc [owner:OctavianTocan,label:design] pr-file-sections-show-changes
 The Overview's file sections and the Files sheet's show their + and − numbers on their
-headings (Tavi's idea, recording 15 Oct 15:37, 10:56 to 11:04; L20).
+headings (Octavian's idea, recording 15 Oct 15:37, 10:56 to 11:04; L20).
 
 @cc [owner:OctavianTocan,label:design] diff-thread-buttons-have-room
 A thread card's Resolve button keeps the card's inside margin and never meets its edge
@@ -337,14 +337,14 @@ The "No tour yet" sheet has the effort as a row of its own under Model (recordin
 15:37, 13:10 to 13:17; L25).
 
 @cc [owner:OctavianTocan,label:product;motion] tour-previews-while-writing
-While a tour is written its plan and each stop already written show under the tour's card, in the places the stops will take, and the page is never scrolled for the reader (Tavi's idea,
+While a tour is written its plan and each stop already written show under the tour's card, in the places the stops will take, and the page is never scrolled for the reader (Octavian's idea,
 recording 15 Oct 15:37, 13:47 to 14:05; L26).
 
 @cc [owner:OctavianTocan,label:design] tour-sketches-read-cleanly
 Pseudocode is a code block like the Tour's code: the code face in the code well with its
 copy button, the steering words lightly emphasised and a guide line down each level of
 indent. Its lines wrap under their indent and are never cut at either edge, and a code
-block has no "Code" or "text" label. Tavi changed the plain grey steps of L27 to this ("I
+block has no "Code" or "text" label. Octavian changed the plain grey steps of L27 to this ("I
 still don't like the pseudo code", recording of 16 Oct 12:10, 08:16 to 08:20, N13, and
 09:51 to 09:55, N18; recording 15 Oct 15:37, 14:31 to 14:33 and 15:35 to 15:48; L27, L30).
 
@@ -425,13 +425,13 @@ inside Pully, or the Inbox search pill. A link to the pull request already on sc
 there without opening it again. A thing Pully does not have MUST say so, with GitHub one tap away
 ("When opening GitHub PR links that point to a comment, review, or other feature of GitHub,
 all Pully does is open the PR. That sucks. It needs to take us to the thing. Seamless parity
-with GitHub": Tavi, 20 Oct 2026 12:10).
+with GitHub": Octavian, 20 Oct 2026 12:10).
 
 @cc [owner:OctavianTocan,label:product] tour-stale-entry-asks-once
 Opening a tour whose known original commit differs from the loaded head MUST offer a
 bottom sheet showing the exact original commit and a way to continue reading. The tour
 body MUST NOT carry the old-commit banner. Dismissing or continuing MUST suppress the
 same generated-tour/current-head prompt for that review session across recomposition
-and internal navigation; unknown commit metadata MUST NOT claim staleness (Tavi's
+and internal navigation; unknown commit metadata MUST NOT claim staleness (Octavian's
 20 Oct 2026 feedback: "when you open the tour itself ... a little bottom sheet ...
 Here's the commit").

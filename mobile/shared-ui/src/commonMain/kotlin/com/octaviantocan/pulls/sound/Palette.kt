@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
  * The recipes: what each cue is made of, in each material. They are Cuelume's own, generated into
  * `assets/cuelume/recipes.json` by `android/scripts/gen-cuelume.mjs` with its `knock`, `struck` and
  * `click` builders already expanded, so a layer here is exactly a layer the web package plays. The
- * few Pully replaces (the Default tap, whose ringing glass Tavi hates) are in `cuelume-pulls.mjs`,
+ * few Pully replaces (the Default tap, whose ringing glass Octavian hates) are in `cuelume-pulls.mjs`,
  * built with the same builders, and the file names them under `pulls`.
  */
 

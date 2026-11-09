@@ -8,7 +8,7 @@ A review with a merge assessment MUST, only after local experimental opt-in, sho
 category verdicts and linked evidence, even with zero inline findings. Scores and
 calculations MUST NOT be shown. A legacy review MUST NOT invent an assessment.
 The assessment MUST be marked Experimental and hidden when disabled, including saved
-results and generated posting text. Source: Tavi's 21 Oct 2026 merge-risk request and
+results and generated posting text. Source: Octavian's 21 Oct 2026 merge-risk request and
 follow-up requiring experimental, opt-in-only features, replacing unconditional display.
 
 @cc [owner:OctavianTocan,label:design] ai-merge-assessment-uses-mobile-sheet
@@ -16,7 +16,7 @@ The optional merge assessment MUST be a separate section of the mobile review sh
 using its plain heading and one card of rows, rather than appending an undifferentiated
 list to the summary. Each category and verdict MUST read together above full-width
 linked evidence. The assessment MUST NOT add nested cards, folding rows, numeric gauges
-or decorative badges. Source: Tavi, 21 Oct 2026, rejecting the experimental UI and asking
+or decorative badges. Source: Octavian, 21 Oct 2026, rejecting the experimental UI and asking
 for the app's design principles on mobile; DESIGN.md rules 49, 141, 171 and 172.
 
 @cc [owner:OctavianTocan,label:product] ai-nothing-between-states
@@ -26,7 +26,7 @@ J34).
 
 @cc [owner:OctavianTocan,label:product;motion] ai-work-looks-alive
 AI work in progress is always a live, animated indicator, never a blank or a spinner. No
-grey skeleton bars sit under it: Tavi called the bars under Ask's steps "awful" and took them
+grey skeleton bars sit under it: Octavian called the bars under Ask's steps "awful" and took them
 out, so the answer simply arrives where it goes (recording 15 Oct 15:37, 16:24 to 16:37;
 L33; this replaces the hint bars of rule 71).
 
@@ -69,7 +69,7 @@ the code font while the next is not. They sit on the text line and never grow it
 A link in AI text is read from the repository root: `./` and `../` never go above it, and
 a dot-folder (`.agents`, `.github`) keeps its dot. A file the pull request changes opens
 in the app's diff; any other opens in the app too, read at the head commit in the same
-code view, and a link in AI text MUST NOT open GitHub. Tavi changed this from "any other
+code view, and a link in AI text MUST NOT open GitHub. Octavian changed this from "any other
 opens on GitHub" ("In the code rows still open GitHub", recording of 16 Oct 12:10, 10:01
 to 10:07, N20; rule 124; J36).
 
@@ -78,7 +78,7 @@ A code block in a tour or an answer is the diff's code view: syntax colours, sid
 scroll and pinch zoom, and a copy button at its top corner that shows the copied toast, as
 on a web code block (recording of 16 Oct 12:10, 09:51 to 09:55, N18). Inline code shows as
 code and never with its backticks. Pseudocode sits in the same code well with its own copy
-button: Tavi changed this at 08:16 of the same recording (N13, "I still don't like the
+button: Octavian changed this at 08:16 of the same recording (N13, "I still don't like the
 pseudo code"), replacing L27's wrapped steps (rules 95 and 154; F59, F63).
 
 @cc [owner:OctavianTocan,label:product] ai-structures-are-drawn
@@ -133,19 +133,19 @@ F70).
 @cc [owner:OctavianTocan,label:product] ask-opens-without-the-keyboard
 The chat opens at its tall height at once with no keyboard, and may still be dragged
 down to half; tapping the field brings the keyboard ("it goes into this text mode
-immediately" was jarring, rule 77). Tavi changed the opening height from the normal one
+immediately" was jarring, rule 77). Octavian changed the opening height from the normal one
 to the tall one (recording of 16 Oct 12:10, 11:37 to 11:47, N25).
 
 @cc [owner:OctavianTocan,label:product] ask-send-needs-text
 Send does nothing until its field has text (rule 84; F65). With nothing typed the button is
-the earlier chats of the pull request instead, by Tavi's choice (L36); it is a grey Send
+the earlier chats of the pull request instead, by Octavian's choice (L36); it is a grey Send
 only where there are no earlier chats to offer.
 
 @cc [owner:OctavianTocan,label:product] ai-analyze-is-one-action
 Analyze changes MUST identify summary and file notes as its core outputs; its
 preset/custom rows MUST identify extra tour, brief and review passes. Find problems
 MUST identify findings (bugs, risks and nits) as its output; the two entry points MUST
-NOT imply identical jobs. Tavi's 20 Oct 2026 feedback clarifying Analyze versus Review
+NOT imply identical jobs. Octavian's 20 Oct 2026 feedback clarifying Analyze versus Review
 with AI replaces the old unconditional three-output wording of rule 19.
 
 @cc [owner:OctavianTocan,label:product] ai-presets-start-the-run
@@ -173,7 +173,7 @@ end or tap the round scroll-to-the-end button that shows once they are away from
 the reader's own drags let go of the end. A question sent goes to the top of the sheet
 with its answer written under it, and the sheet does not follow the answer down, as
 shadcn's Conversation does (recording 15 Oct 15:37, 16:14 to 16:23; L32; strengthened by
-Tavi, recording of 16 Oct 12:10, 11:48 to 12:47, N26).
+Octavian, recording of 16 Oct 12:10, 11:48 to 12:47, N26).
 
 @cc [owner:OctavianTocan,label:product] ask-answers-draw-like-tours
 Answers in Ask MAY use the tour's forms (tables, call trees, file trees, pseudocode, flows,
@@ -189,7 +189,7 @@ load ... that's not how the other one looks", recording 15 Oct 15:37, 16:58 to 1
 A pull request keeps its earlier chats. With nothing typed, the field's button opens them
 on a sheet built from the shared searchable list, newest first, each its first question,
 when and how many questions; a tap brings one back and the open chat takes its place in the
-list (Tavi's idea, recording 15 Oct 15:37, 17:19 to 17:48; L36). The button is there only
+list (Octavian's idea, recording 15 Oct 15:37, 17:19 to 17:48; L36). The button is there only
 while the pull request has earlier chats (recording of 17 Oct 13:26, 01:26 to 01:43, P4).
 
 @cc [owner:OctavianTocan,label:design;product] ai-review-sheet-is-plain
@@ -199,7 +199,7 @@ segmented pill, the kit's capsule, with All first; there is no Select all. The s
 in one white card and the findings are rows of one white card, never a box inside a box,
 each with the Files sheet's check on its first line, and "Post N selected as a review"
 posts the ticked ones ("no boxes inside boxes", recording of 16 Oct 12:10, 18:24 to 19:43,
-N36, Tavi's decision).
+N36, Octavian's decision).
 
 @cc [owner:OctavianTocan,label:design] ai-brief-rows-are-sentences
 In the brief, a label and its value, and a finding's severity and its title, are one
@@ -231,7 +231,7 @@ took, what it read, found or wrote, and the rest of a title cut at two lines (re
 @cc [owner:OctavianTocan,label:product;design] ai-launch-actions-have-no-selection
 An analysis preset or review skill that starts work MUST be a button action with a
 forward affordance and MUST NOT carry selected radio semantics or a selection tick.
-General is not preselected merely because no review exists (Tavi's accompanying
+General is not preselected merely because no review exists (Octavian's accompanying
 20 Oct 2026 recording, 00:37 to 01:00).
 
 @cc [owner:OctavianTocan,label:product] ai-run-shows-real-model
@@ -242,11 +242,11 @@ that persisted selection. The menu tile and command MUST open setup rather than
 immediately run. Look for problems on the Overview and a failed review's retry MUST
 open that setup too. A retry MUST keep its previous review skill and the persisted
 model/effort defaults and MUST require an explicit run action; findings and setup MUST
-be pages of one sheet (Tavi's accompanying 20 Oct 2026 recording, 01:01 to 01:35, and
+be pages of one sheet (Octavian's accompanying 20 Oct 2026 recording, 01:01 to 01:35, and
 his consistency request applied to all manual run entry points).
 
 @cc [owner:OctavianTocan,label:product] tour-update-chooses-model
 Updating or regenerating an existing tour MUST open a setup page with shared Model and
 Effort controls and an explicit Update tour action before starting. Continue reading or
-dismissal MUST NOT start AI work, and regeneration MUST remain reachable later (Tavi's
+dismissal MUST NOT start AI work, and regeneration MUST remain reachable later (Octavian's
 20 Oct 2026 stale-tour feedback, "Maybe show the models on the next page"; rule 78).

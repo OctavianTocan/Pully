@@ -57,9 +57,9 @@ impl PersonalAuthHost {
     /// @cc [owner:OctavianTocan,label:security;architecture] personal-host-configuration-is-explicit
     /// Missing startup configuration MUST return only disabled discovery without opening storage
     /// or loading any account/provider. Configured startup MUST use the explicitly supplied
-    /// isolated path (in the Worker, `open_store` with the object's own scoped store; Tavi,
+    /// isolated path (in the Worker, `open_store` with the object's own scoped store; Octavian,
     /// 25 Oct 2026, Connect GitHub on staging), OAuth configuration (GitHub CLI device sign-in or a Pully OAuth App) and vault keys; a failure MUST NOT select legacy or default
-    /// authority. This factory MUST NOT bind a listener. Source: Tavi's 21 Oct 2026 personal
+    /// authority. This factory MUST NOT bind a listener. Source: Octavian's 21 Oct 2026 personal
     /// authorization decision and 22 Oct concrete host-composition requirement.
     pub(crate) async fn open(
         config: Option<PersonalAuthHostConfig>,

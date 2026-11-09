@@ -12,7 +12,7 @@ again and never lets the reader through (rules 63 and 104).
 @cc [owner:OctavianTocan,label:product] update-confirmation-remains-actionable
 When Android is waiting for approval, the resumed update screen MUST open its confirmation
 and MUST offer Continue update if the reader returns without finishing. A pending approval
-MUST NOT leave only a disabled Installing indicator. Source: Tavi, 21 Oct 2026, updates
+MUST NOT leave only a disabled Installing indicator. Source: Octavian, 21 Oct 2026, updates
 stuck at installing; rules 63 and 104.
 
 @cc [owner:OctavianTocan,label:design] whats-new-reads-like-a-changelog
@@ -30,7 +30,7 @@ Every changelog section from 0.40.0 on carries at least one picture of what chan
 small GIF where it moves, and the update screen, What's new and Settings' version page
 show each one under the bullet it follows, full width with the cards' corner. A version
 already installed loads its pictures from the APK; a version only offered loads them from
-the server beside the APK. Tavi asked for this on 16 Oct at 10:49 ("images in the
+the server beside the APK. Octavian asked for this on 16 Oct at 10:49 ("images in the
 changelog too, showing the stuff, or little gifs if its animated").
 
 @cc [owner:OctavianTocan,label:product;design] changelog-shows-when-each-version-came-out
@@ -39,5 +39,5 @@ released, in UTC, on a `#### YYYY-MM-DD HH:MM UTC` line right under its heading,
 sections MUST run newest first by that time. The update screen, What's new and Settings'
 What's new MUST show it at the far end of the version's header in the phone's own zone and
 language. Builds from before it MUST still read the section: the line is one they skip.
-Tavi asked on 26 Oct 2026 at 13:28 ("add a date and time to each changelog entry from now
+Octavian asked on 26 Oct 2026 at 13:28 ("add a date and time to each changelog entry from now
 on"); rule 205.

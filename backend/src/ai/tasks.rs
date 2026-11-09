@@ -14,7 +14,7 @@ pub(crate) enum StructuredAnswerPreparation {
 /// @cc [owner:OctavianTocan,label:architecture] rust-grouping-prepares-before-provider-validation
 /// Providers MUST normalize supported JSON-string grouping fields before validation only
 /// when the server selects Grouping with its canonical schema. Every prepared answer MUST
-/// pass its unchanged schema before returning (Tavi's 16 Oct 2026 parity request; CE round 1).
+/// pass its unchanged schema before returning (Octavian's 16 Oct 2026 parity request; CE round 1).
 pub(crate) fn prepare_structured_answer(
     schema: &Value,
     raw: &Value,
@@ -133,13 +133,13 @@ pub(super) fn cached_title(state: &AppState, request: &Value) -> Option<String> 
  * @cc [owner:OctavianTocan,label:product] rust-task-snapshots-keep-cached-titles
  * Non-inbox tasks MUST expose the cached diff's string title in every task snapshot;
  * an unavailable title MUST remain optional (existing tasks.ts preparation and Android
- * Activity contract; Tavi's parity request, review R12 finding 8, 16 Oct 2026).
+ * Activity contract; Octavian's parity request, review R12 finding 8, 16 Oct 2026).
  */
 /**
  * @cc [owner:OctavianTocan,label:product] rust-inbox-retry-preserves-newer-turns
  * An inbox retry MUST replace the last saved turn only when its question matches the
  * validated retry question; a stale retry MUST preserve newer questions and answers
- * (existing tasks.ts preparation; Tavi's parity request, review R12 finding 9, 16 Oct 2026).
+ * (existing tasks.ts preparation; Octavian's parity request, review R12 finding 9, 16 Oct 2026).
  */
 pub(super) fn prepare(state: &AppState, run: &Run) -> Result<()> {
     check(run)?;
@@ -1160,7 +1160,7 @@ fn finish_tour_stop(
 }
 /// @cc [owner:OctavianTocan,label:product] rust-tours-require-successful-stop
 /// Tours MUST fail without changing saved tours when every stop fails, and MUST keep
-/// partial successes (Tavi's 16 Oct 2026 parity request; core llm tour.ts failure guard).
+/// partial successes (Octavian's 16 Oct 2026 parity request; core llm tour.ts failure guard).
 fn save_tour(
     state: &AppState,
     run: &Run,

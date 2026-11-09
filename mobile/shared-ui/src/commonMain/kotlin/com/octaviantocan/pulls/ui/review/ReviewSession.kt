@@ -637,7 +637,7 @@ class ReviewSession(
         val ask = ++asks
         // The title and description alone answer well before the whole overview, so one edited since the copy on
         // screen was fetched (an agent just changed it, then sent the link) is in place at once rather than after
-        // GitHub's slow answer, which kept the old one up ("the description was not updated", Tavi, 16 Oct 13:52).
+        // GitHub's slow answer, which kept the old one up ("the description was not updated", Octavian, 16 Oct 13:52).
         observations.scope.launch {
             val text = runCatching { repo.prText(pull) }.getOrNull() ?: return@launch
             if (!isActive || !active() || ask <= freshTextAsk) return@launch

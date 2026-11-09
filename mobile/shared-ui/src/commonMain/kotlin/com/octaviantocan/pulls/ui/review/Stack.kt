@@ -95,7 +95,7 @@ private val BASE_GLYPH = 20.dp
  * `Stack`: every layer top first, then the base branch, like GitHub's stack map. A layer row has its place in the
  * stack in the leading column ("2/3"), then the whole title wrapping over the Home rows' meta line: number, author,
  * state, checks and size ("I cannot see the user's name ... It's like its missing the PR number (not the in-stack one;
- * that one is there), and the username": Tavi, 17 Oct 20:13; rule 203). One thin line joins the rows' marks so the
+ * that one is there), and the username": Octavian, 17 Oct 20:13; rule 203). One thin line joins the rows' marks so the
  * list reads as one stack. This pull request is marked in the accent and opens nothing;
  * any other row opens that pull request with [onOpen].
  */

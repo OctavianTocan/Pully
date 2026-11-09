@@ -18,7 +18,7 @@ import com.octaviantocan.pulls.ui.home.HomeLinks
  * Opens a link anywhere but in Pully: the GitHub app when it is there and takes the page, otherwise the phone's browser.
  * Pully takes github.com pull request links itself (`android-github-links-open-in-pulls`), so a plain VIEW intent for
  * one came straight back to Pully and nothing happened ("the GitHub link in the bottom sheet doesn't open GitHub because
- * Pully grabs it so nothing happens": Tavi, 20 Oct).
+ * Pully grabs it so nothing happens": Octavian, 20 Oct).
  */
 object OutsideLinks {
     const val GITHUB_APP = "com.github.android"

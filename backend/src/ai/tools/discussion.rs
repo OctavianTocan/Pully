@@ -9,7 +9,7 @@ use std::fmt::Write;
 /// Live discussion reads MUST retrieve the selected PR's title and body before its
 /// comments and reviews, including when canonical AiPrContext has no description.
 /// Reads MUST retain the selected identity and bounded output; offline snapshots MUST
-/// remain usable without GitHub access (Tavi's Rust parity request, 16 Oct 2026;
+/// remain usable without GitHub access (Octavian's Rust parity request, 16 Oct 2026;
 /// original packages/cli/src/ai/pr-tools.ts readDiscussion).
 pub(super) async fn read(state: Option<&AppState>, ctx: &Value) -> Result<String> {
     read_with(ctx, state.is_some(), |endpoint| async move {

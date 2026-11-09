@@ -302,7 +302,7 @@ fn normalized_merge_state(value: &str) -> String {
 /// GitHub conflicts MUST prevent readiness regardless of passing checks or administrator
 /// permissions. Otherwise, unless the pull request is a draft, missing, unknown or
 /// unrecognized mergeability and merge-state fields MUST remain checking, including for
-/// administrators (Tavi, 20 Oct 2026, "a PR would have merge conflicts ... yet Pully
+/// administrators (Octavian, 20 Oct 2026, "a PR would have merge conflicts ... yet Pully
 /// would show it as being all good").
 pub(super) fn mergeability(o: &Value) -> Value {
     let state = text(o, "state");

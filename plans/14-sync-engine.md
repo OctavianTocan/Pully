@@ -1,8 +1,8 @@
 # Plan 14: a sync engine like Zero
 
-Status: **built** (Android 0.71.0). Asked by Tavi on 28 Oct 2026 after a call with Omar, whose
+Status: **built** (Android 0.71.0). Asked by Octavian on 28 Oct 2026 after a call with Omar, whose
 app is fast because of [Zero](https://zero.rocicorp.dev) (Fireflies, 26 Oct 2026 19:26 call,
-1:01:29: "I'm using Zero... It's a sync engine... It's not what Linear uses"). Tavi chose
+1:01:29: "I'm using Zero... It's a sync engine... It's not what Linear uses"). Octavian chose
 "Build Zero's design ourselves" and said "Go" on the plan in thread "Build a sync engine like
 Wholana's".
 
@@ -70,7 +70,7 @@ Contracts: `server-sync-feed-names-only-own-changes`, `server-inbox-fresh-while-
 
 ## Pages read before the tap (0.73.0)
 
-Asked by Tavi on 28 Oct 2026 at 15:36: "even the things that the user hasn't actually opened
+Asked by Octavian on 28 Oct 2026 at 15:36: "even the things that the user hasn't actually opened
 yet load immediately", with everything from his account and repos already on the phone.
 
 Measured first. The phone's own `pr.load` timings (125 opens, 19 to 21 Oct) took a median of
@@ -87,7 +87,7 @@ worst 9.8 s), and the overview, reviews and stack were read from GitHub on every
   pages (`PullPage`: diff, overview, reviews, stack) are read two at a time and kept;
   Android and iPhone keep them in files of the account's own (`FilePageCopies`,
   `IosPageCopies`; 400 pages, 200 MB;
-  forty rows, sixty pages and 48 MB until Tavi asked for more on 28 Oct, 17:30).
+  forty rows, sixty pages and 48 MB until Octavian asked for more on 28 Oct, 17:30).
   A page opens from its copy in the first frame: reading and drawing the largest one seen,
   450 KB with 86 files, took 14 ms (median, laptop JVM). Only rows whose head or `updatedAt`
   moved are read again.

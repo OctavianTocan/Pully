@@ -1219,7 +1219,7 @@ mod tests {
                 "version": "ghp_abcdefghijklmnopqrstuvwxyz0123",
                 "props": { "query": "private", "path": "src/private.ts", "prompt": "secret",
                     "githubToken": "never", "tokensIn": 100, "tokensOut": 10,
-                    "message": "failed at /home/tavi/private.ts", "array": [1], "ok": true }
+                    "message": "failed at /home/octavian/private.ts", "array": [1], "ok": true }
             }),
             RX,
         )
@@ -1242,7 +1242,7 @@ mod tests {
         );
         assert_eq!(scrub_text("token=opaque-value", 200), "[redacted]");
         assert_eq!(
-            scrub_text("load src/private/plan.ts for tavi@example.com", 200),
+            scrub_text("load src/private/plan.ts for octavian@example.com", 200),
             "load [path] for [email]"
         );
         assert_eq!(

@@ -82,7 +82,7 @@ impl GoogleSignIn {
     /// Google sign-in MUST verify RS256 signatures using only Google's fixed HTTPS
     /// key endpoint, require issuer, audience, expiration and verified email, and
     /// bound token size, key downloads, refresh frequency and network waits
-    /// (Tavi, 16 Oct 16:52; Rust port request, 16 Oct 14:57).
+    /// (Octavian, 16 Oct 16:52; Rust port request, 16 Oct 14:57).
     pub async fn email(&self, token: &str, client_id: &str) -> Option<String> {
         if client_id.is_empty() {
             return None;

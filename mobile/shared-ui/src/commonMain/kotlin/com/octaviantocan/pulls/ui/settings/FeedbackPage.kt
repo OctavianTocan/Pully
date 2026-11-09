@@ -46,7 +46,7 @@ private fun FeedbackSheetBody(services: FeedbackServices, onClose: () -> Unit) {
 
 /**
  * Send feedback: a note, what goes with it (the version, the phone and the screen it came from) as one quiet line, and
- * Send. The account keeps it with the server's time, and agents read it with one of the account's keys (Tavi, 20 Oct
+ * Send. The account keeps it with the server's time, and agents read it with one of the account's keys (Octavian, 20 Oct
  * 06:10: "a button somewhere for me to leave feedback from the app itself ... stored with timestamps, app version").
  * The account's last notes follow, with Done on those an agent has acted on. [onSent] runs once the server has it.
  */

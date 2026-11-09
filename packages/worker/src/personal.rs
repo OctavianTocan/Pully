@@ -27,7 +27,7 @@ pub(crate) fn serves(path: &str) -> bool {
         || path.starts_with("/workspace/")
 }
 
-/// The GitHub sign-in Pully uses: the GitHub CLI's device flow (Tavi, 23 Oct 2026 13:36,
+/// The GitHub sign-in Pully uses: the GitHub CLI's device flow (Octavian, 23 Oct 2026 13:36,
 /// "what you get when you use GH auth login").
 const OAUTH: &str = r#"{"githubCli":true}"#;
 

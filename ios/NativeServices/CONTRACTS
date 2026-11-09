@@ -3,7 +3,7 @@ The native adapter MUST keep Pully sessions and optional Access credentials in t
 app's non-synchronizing Keychain, accessible only while unlocked on this device.
 Credential records MUST be bound to the normalized configured server and account,
 MUST NOT be returned for another server, and MUST NOT enter URLs, defaults, logs or
-analytics. Native code MUST NOT implement a second Pully RPC client. Source: Tavi's
+analytics. Native code MUST NOT implement a second Pully RPC client. Source: Octavian's
 21 Oct 2026 maximum-reuse iOS decision, the chosen plan's Authentication section,
 and root phone-api-one-account and google-sign-in-same-account.
 
@@ -12,7 +12,7 @@ Sign-out, server changes and credential changes MUST synchronously invalidate th
 active source before another source can be used. A late sign-in or verification
 answer for an earlier source MUST NOT install credentials. A restored Keychain
 session MUST require server verification before it becomes the active account.
-Source: Tavi's 21 Oct 2026 iOS decision and chosen account/cache ownership plan.
+Source: Octavian's 21 Oct 2026 iOS decision and chosen account/cache ownership plan.
 
 @cc [owner:OctavianTocan,label:security;product] ios-google-uses-registered-native-client
 Native Google sign-in MUST remain unavailable without a registered iOS client and
@@ -21,7 +21,7 @@ existing server's web client ID, and MUST leave signature, audience, expiry and
 email-allowlist validation to that server. The Google adapter MUST NOT add GitHub
 OAuth or store a Google client secret. The separately owned public personal-account
 flow MUST NOT reuse Google or legacy account authority. Source: root
-google-sign-in-same-account, Tavi's separate personal GitHub request and the chosen
+google-sign-in-same-account, Octavian's separate personal GitHub request and the chosen
 21 Oct 2026 iOS plan's Authentication section.
 
 @cc [owner:OctavianTocan,label:security;product] ios-model-choice-preserves-the-private-source
@@ -29,7 +29,7 @@ A model/engine preference change MUST retain the configured server, Access crede
 verified session and source generation. A request from an older source generation MUST
 NOT update the current model preferences. The real native preferences MUST keep the
 choice for the next launch, without another RPC client or credential store. Source:
-settings-model-row-names-the-model, client-invalidates-old-sources and Tavi's 21 Oct
+settings-model-row-names-the-model, client-invalidates-old-sources and Octavian's 21 Oct
 2026 maximum-reuse iOS settings decision, preserving Android ServerStore.save behavior.
 
 @cc [owner:OctavianTocan,label:security;architecture] ios-incoming-envelopes-feed-the-shared-owner
@@ -56,7 +56,7 @@ MUST atomically replace the complete bounded blob, preserve its previous content
 on failure, and reject empty or oversized data without deleting another credential.
 Only an absent item MAY become a successful missing read; locked, unavailable or
 corrupt storage MUST fail. It MUST NOT use UserDefaults, plaintext, a shared access
-group or the legacy account's credential service. Source: Tavi's 21 Oct 2026
+group or the legacy account's credential service. Source: Octavian's 21 Oct 2026
 personal GitHub request and accepted 22 Oct native secure-stage/confirm/publish plan.
 
 @cc [owner:OctavianTocan,label:security;architecture] ios-personal-active-events-are-synchronous

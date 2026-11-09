@@ -296,7 +296,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
                         sendEnabled = actions.canAsk && !busy && ui.chatInput.isNotBlank(),
                         onStop = guardedStop(session, listOf("chat"), task, actions.canAsk && streaming,
                             permitted = { actions.canAsk }),
-                        // With nothing typed the button opens the chats this pull request had (Tavi, L36), and only when it had
+                        // With nothing typed the button opens the chats this pull request had (Octavian, L36), and only when it had
                         // some (P4).
                         onHistory = if (actions.canAsk && !busy && !session.chatHistory.isNullOrEmpty()) ({ if (actions.canAsk) history = true }) else null,
                         working = streaming || ui.chatPending != null || actions.waiting,
@@ -370,7 +370,7 @@ internal fun AskSheetImpl(session: ReviewSession, title: String, suggestions: Li
 /**
  * The chats this pull request had, newest first, on the one searchable list a sheet picks from ([SearchList]): each its
  * first question, when it was and how many questions it had. A tap brings that chat back into Ask, and the chat that was
- * open goes into the list in its place (Tavi's idea: recording 15 Oct 15:37, 17:19 to 17:48; L36). From an Ask bar it
+ * open goes into the list in its place (Octavian's idea: recording 15 Oct 15:37, 17:19 to 17:48; L36). From an Ask bar it
  * opens alone, and [onRestored] opens Ask on the chat picked ("it's just the earlier chats that need to open", recording
  * of 17 Oct 13:26, 01:45 to 01:57, P5).
  */

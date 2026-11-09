@@ -495,7 +495,7 @@ fn inbox_progresses() -> &'static std::sync::Mutex<HashMap<RepoRefreshKey, Value
 /// While an Inbox refresh runs, the rows it has so far MUST be readable as a `partial`
 /// snapshot, kept in memory under the same storage root and key as the refresh and dropped
 /// when it ends, so a first load shows pull requests as they arrive rather than all at the
-/// end. A partial snapshot MUST NOT be stored as the server's copy (Tavi, 26 Oct 2026, on
+/// end. A partial snapshot MUST NOT be stored as the server's copy (Octavian, 26 Oct 2026, on
 /// Staging 0.62.0: "showed some of them gradually as we load them").
 struct InboxProgress(RepoRefreshKey);
 impl InboxProgress {

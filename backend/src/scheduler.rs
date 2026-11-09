@@ -283,7 +283,7 @@ fn store_preanalysis_diff(
 /// @cc [owner:OctavianTocan,label:architecture] rust-preanalysis-eligibility-storage-yields
 /// Initial preanalysis eligibility reads MUST move the complete storage operation,
 /// including lock acquisition, off async workers while preserving cache-miss behavior
-/// (Tavi, 16 Oct 2026, fix each CE review finding; round 10 performance finding).
+/// (Octavian, 16 Oct 2026, fix each CE review finding; round 10 performance finding).
 async fn preanalysis_cached_entry(state: &Arc<AppState>, key: &str) -> Option<Value> {
     state
         .host

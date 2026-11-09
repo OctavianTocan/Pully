@@ -30,7 +30,7 @@ data class ChangelogEntry(
 /**
  * A `![alt](changelog/<version>/<name>.png)` line of a section: [path] is relative to `android/`, which the app
  * bundles as its assets and the server serves under `/android/`. [item] is the index in [ChangelogEntry.items] of
- * the bullet it follows, or -1 when it comes before any. Tavi asked on 16 Oct 10:49 for every changelog to show
+ * the bullet it follows, or -1 when it comes before any. Octavian asked on 16 Oct 10:49 for every changelog to show
  * what changed in pictures, and GIFs for what moves.
  */
 data class ChangelogPicture(val path: String, val alt: String, val item: Int)
@@ -52,7 +52,7 @@ private val PICTURE = Regex("""^\s*!\[([^\]]*)]\(([^)\s]+)\)\s*$""")
  * as one list, so a section with groups still shows on a phone that has not updated yet. A picture line,
  * written unindented on its own line under a bullet, is skipped by builds from before 0.40.0 the same way
  * (changelog.mjs checks it sits there: indented it would join the bullet, above the bullets the summary).
- * The `#### <date> <time> UTC` line under a heading is when that version was released (Tavi, 26 Oct 2026); builds
+ * The `#### <date> <time> UTC` line under a heading is when that version was released (Octavian, 26 Oct 2026); builds
  * from before it skip the line like any other `#` line, and a line that is not a real time leaves [ChangelogEntry.released] null.
  */
 fun parseChangelog(text: String): List<ChangelogEntry> {

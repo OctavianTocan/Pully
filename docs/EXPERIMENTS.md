@@ -6,7 +6,7 @@ including on upgrade, and require an explicit local choice. Experiment preferenc
 are separate from ordinary settings and never sync from another device or account.
 The mobile UI and exported assessments label experimental output as Experimental.
 The desktop app has no experimental settings or assessment UI; shared review code
-keeps the optional extension boundary for mobile requests (Tavi's 21 Oct 2026
+keeps the optional extension boundary for mobile requests (Octavian's 21 Oct 2026
 mobile-only correction).
 
 ## Boundaries
