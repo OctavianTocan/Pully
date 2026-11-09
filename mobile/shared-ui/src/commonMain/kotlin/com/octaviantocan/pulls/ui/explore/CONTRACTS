@@ -7,7 +7,7 @@ source retirement MUST clear inputs and rows. A popped public page MAY retain in
 rows only through its exit animation; popped callbacks/results MUST already be revoked.
 Public repository selection and pagination MUST
 retain the selected immutable repository ID, and a confirmed visibility/identity denial
-MUST clear prior PR rows. Source: Tavi's 21 Oct 2026 signed-out browsing and personal
+MUST clear prior PR rows. Source: Octavian's 21 Oct 2026 signed-out browsing and personal
 GitHub request, approved direct-native guest slice and public-boundary review.
 
 @cc [owner:OctavianTocan,label:product;security] fresh-entry-does-not-inherit-a-private-workspace
@@ -18,12 +18,12 @@ chose public browsing or Android's built-in staging GitHub entry applies. That c
 MUST preserve the saved private account. The built-in staging app MUST select GitHub's
 public entry before confirmation instead of restoring the legacy email gate, and MUST
 show its GitHub introduction once on migration; explicit custom-server connections
-retain their compatibility entry. Source for this exception: Tavi's 25 Oct 2026 build397
+retain their compatibility entry. Source for this exception: Octavian's 25 Oct 2026 build397
 email-sign-in screenshot and sole GitHub-login request. Selecting
 another entry MUST revoke retained callbacks and pending results before mounting its
 pages; returning to Explore MUST NOT revive a previous guest source. Public startup
 MUST NOT instantiate private Home, account discovery, AI or Stats observers. Source:
-Tavi's 21 Oct 2026 reinstall screenshot and no-sign-in public browsing request.
+Octavian's 21 Oct 2026 reinstall screenshot and no-sign-in public browsing request.
 
 @cc [owner:OctavianTocan,label:architecture;security] guest-links-keep-public-and-private-authority-separate
 Guest links MUST use the same Compose navigation stack and MUST NOT mount private
@@ -31,7 +31,7 @@ review/repository clients. A verified-format github.com PR link MUST open the re
 public review (public-pull-requests-open-in-pully); other verified-format GitHub links
 MAY offer an explicit fixed-origin Open on GitHub action. Private/server links
 MUST offer the existing-account entry or public browsing without fetching private data.
-Source: Tavi's 21 Oct 2026 public browsing decision, nav-links-inside-open-like-outside,
+Source: Octavian's 21 Oct 2026 public browsing decision, nav-links-inside-open-like-outside,
 the approved staged public list/PR implementation and recording 23 Oct 12:12, 00:50 to 01:12.
 
 @cc [owner:OctavianTocan,label:design;architecture] explore-reuses-pully-and-the-shared-stack
@@ -44,7 +44,7 @@ sign-in capability rather than inventing OAuth success or sending operator secre
 Public PR list titles MUST keep the existing two-line ellipsis limit; ordinary
 sheet labels MUST retain their full wrapping (android-whole-identifiers).
 Source: mobile-reuses-production-ui, shared-navigation-keeps-one-compose-stack and
-Tavi's 21 Oct 2026 guest browsing/personal sign-in request.
+Octavian's 21 Oct 2026 guest browsing/personal sign-in request.
 
 @cc [owner:OctavianTocan,label:product;architecture] guest-incoming-links-commit-before-consumption
 A valid guest arrival MUST remain pending while its existing sheets close. Only a
@@ -71,7 +71,7 @@ these things", recording 23 Oct 12:12, 00:26 to 00:30). The sheet MUST say so wh
 GitHub sign-in is not set up on the server rather than offer a button that fails.
 The welcome sheet MUST offer GitHub as its only account sign-in, for both new and
 returning users, and MUST NOT offer a separate existing-Pully-account action.
-Source for this change: Tavi, 25 Oct 2026, "Get rid of the option that says to use an
+Source for this change: Octavian, 25 Oct 2026, "Get rid of the option that says to use an
 existing Pully account ... You only connect with GitHub. If there's already an
 account, they log into it."
 

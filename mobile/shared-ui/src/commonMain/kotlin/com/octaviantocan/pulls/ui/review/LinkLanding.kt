@@ -29,7 +29,7 @@ internal class LandingMoves(
  * review on the Conversation, a comment on the code at its line in the Diff, a file and line (of some commits when the
  * link named them), a commit's changes, the commits or the checks. It waits for what each needs to arrive, and a thing
  * Pully does not have says so, with the way to it on GitHub ("It needs to take us to the thing. Seamless parity with
- * GitHub": Tavi, 20 Oct).
+ * GitHub": Octavian, 20 Oct).
  */
 internal suspend fun landOn(place: LinkPlace, session: ReviewSession, moves: LandingMoves, toaster: Toaster) {
     when (place) {

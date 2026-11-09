@@ -44,7 +44,7 @@ impl ServerHost {
         self
     }
     /// @cc [owner:OctavianTocan,label:architecture;security] rust-host-never-invents-checkout
-    /// A host without a checkout MUST fail every local-source operation with NO_CHECKOUT and MUST NOT fall back to the process directory (Tavi, 16 Oct 08:39; plan 12).
+    /// A host without a checkout MUST fail every local-source operation with NO_CHECKOUT and MUST NOT fall back to the process directory (Octavian, 16 Oct 08:39; plan 12).
     pub fn checkout(&self) -> Result<&Path> {
         self.cwd.as_deref().context(NO_CHECKOUT)
     }

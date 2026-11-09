@@ -37,14 +37,14 @@ describe('cleanEvent', () => {
 
   it('redacts keys and local paths inside text', () => {
     expect(scrubText('bad token ghp_abcdefghijklmnopqrstuvwxyz0123 here')).toBe('bad token [redacted] here')
-    expect(scrubText('ENOENT: open \'/home/tavi/repo/a.ts\'')).toBe('ENOENT: open \'[path]')
+    expect(scrubText('ENOENT: open \'/home/octavian/repo/a.ts\'')).toBe('ENOENT: open \'[path]')
     expect(scrubText('at https://prs.example.com/assets/index.js:1:2')).toBe('at https://prs.example.com/assets/index.js:1:2')
     expect(scrubText('at file:///srv/app/x.js:3:4')).toBe('at [path]')
   })
 
   it('redacts relative paths, e-mail addresses and quoted text, but keeps names', () => {
     expect(scrubText('could not load src/private/plan.ts')).toBe('could not load [path]')
-    expect(scrubText('no access for tavi@example.com')).toBe('no access for [email]')
+    expect(scrubText('no access for octavian@example.com')).toBe('no access for [email]')
     expect(scrubText('"ship the secret plan" is not valid JSON')).toBe('"…" is not valid JSON')
     expect(scrubText('Cannot read properties of undefined (reading \'files\')')).toBe('Cannot read properties of undefined (reading \'files\')')
     expect(scrubText('at com.octaviantocan.pulls.Repo.load(Repo.kt:12)')).toBe('at com.octaviantocan.pulls.Repo.load(Repo.kt:12)')

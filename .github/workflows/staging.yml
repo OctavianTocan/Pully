@@ -1,7 +1,7 @@
 name: Staging
 
 # Staging is the Cloudflare server and Pully Staging, both built from main after every merge
-# (Tavi, 24 Oct 2026: "set up a staging app that updates when we merge to main"). The stable
+# (Octavian, 24 Oct 2026: "set up a staging app that updates when we merge to main"). The stable
 # server and app still come only from the release branch (docs/RELEASE_TRACK.md). Until the
 # operator sets CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and the PULLY_STAGING_HOST variable,
 # with the Cloudflare Access application for that host in place first, every run skips.

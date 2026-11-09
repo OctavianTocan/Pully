@@ -267,7 +267,7 @@ async fn pi_model(state: &AppState, wanted: &[&str], refresh: bool) -> Result<St
 /// @cc [owner:OctavianTocan,label:product] pi-runs-a-listed-model
 /// A Pi run MUST use a model the Pi endpoint lists: the one the phone asked for, else the
 /// server's PULLS_REVIEW_PI_MODEL, else the catalog's default. A saved model the endpoint
-/// no longer lists MUST NOT fail the run (Tavi, 18 Oct 2026: tours kept failing because
+/// no longer lists MUST NOT fail the run (Octavian, 18 Oct 2026: tours kept failing because
 /// "their pi model doesn't exist"). A model the endpoint rejects on the first request
 /// MUST be checked once against a fresh list before the run fails.
 fn listed_pi_model(catalog: &Value, wanted: &[&str]) -> Option<String> {

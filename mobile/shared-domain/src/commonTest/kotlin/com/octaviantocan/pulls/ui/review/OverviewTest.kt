@@ -319,7 +319,7 @@ class OverviewFormatTest {
     }
 }
 
-/** A description edited since the overview on screen was fetched is put in from `pr-text` (Tavi, 16 Oct 13:52). */
+/** A description edited since the overview on screen was fetched is put in from `pr-text` (Octavian, 16 Oct 13:52). */
 class NewerTextTest {
     private fun answer(updatedAt: String?): JsonObject {
         val at = updatedAt?.let { ",\"updatedAt\":\"$it\"" }.orEmpty()

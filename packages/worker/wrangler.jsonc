@@ -6,7 +6,7 @@
 // own PersonalServer object and storage, as the native server has its separate public listener; each
 // personal account's data and background refresh are in that account's own AccountServer object.
 // There is no route and no workers.dev or preview URL: the hostname and the Cloudflare Access policy
-// in front of it come with Tavi's go-ahead to deploy (CONTRACTS, hosted-server-only-behind-access).
+// in front of it come with Octavian's go-ahead to deploy (CONTRACTS, hosted-server-only-behind-access).
 {
   "name": "pully-server",
   "main": "build/worker/shim.mjs",

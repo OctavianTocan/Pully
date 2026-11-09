@@ -4,7 +4,7 @@ name: Stable server
 # own Worker (`pully-stable`) with its own data, only from a release push whose CI passed and
 # that scripts/release-track.mjs admits (docs/RELEASE_TRACK.md). Until the operator sets
 # CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and the PULLY_STABLE_HOST variable, every run
-# skips. Setting PULLY_STABLE_HOST moves that host to Cloudflare, so it waits for Tavi's
+# skips. Setting PULLY_STABLE_HOST moves that host to Cloudflare, so it waits for Octavian's
 # go-ahead and the host's Access application (packages/worker/CONTRACTS,
 # hosted-server-only-behind-access); the VPS data is copied first with
 # packages/worker/scripts/import-vps.mjs (packages/worker/README.md, Stable).

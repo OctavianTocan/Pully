@@ -67,7 +67,7 @@ impl VerifiedGitHubIdentity {
     /// @cc [owner:OctavianTocan,label:security] personal-github-identity-is-verified
     /// Personal GitHub authority MUST be verified against the fixed HTTPS /user API with
     /// redirects refused and a bounded body. Tokens and upstream response bodies MUST NOT
-    /// appear in diagnostics. Source: Tavi's 21 Oct 2026 personal-GitHub account request.
+    /// appear in diagnostics. Source: Octavian's 21 Oct 2026 personal-GitHub account request.
     pub(crate) async fn verify(token: String) -> Result<Self> {
         ensure!(
             !token.is_empty() && token.len() <= 4096 && token.bytes().all(|v| v.is_ascii_graphic()),
@@ -193,7 +193,7 @@ impl GitHubCredential {
     /// @cc [owner:OctavianTocan,label:security] personal-revocation-notification-cannot-grant-authority
     /// Revocation MUST invalidate the canonical active binding before notifying captured
     /// work. Subscription MUST install its observer before checking that binding;
-    /// notification loss or races MUST NOT revive authority. Source: Tavi's 21 Oct 2026
+    /// notification loss or races MUST NOT revive authority. Source: Octavian's 21 Oct 2026
     /// per-user provider/source-revocation decision and approved multiuser plan.
     pub(crate) fn subscribe_revocation(&self) -> Result<tokio::sync::watch::Receiver<bool>> {
         let observed = self.0.revoked.subscribe();
@@ -270,7 +270,7 @@ impl RequestIdentity {
     /// Guest requests MUST have no GitHub token. Personal requests MUST use only their
     /// bound account credential and MUST fail after revocation. Neither MAY invoke or
     /// fall back to environment credentials or gh CLI login, even after failure. Source:
-    /// Tavi's 21 Oct 2026 public browsing and personal GitHub sign-in request.
+    /// Octavian's 21 Oct 2026 public browsing and personal GitHub sign-in request.
     pub(crate) async fn github_token<F, Fut>(&self, legacy: F) -> Result<Option<String>>
     where
         F: FnOnce() -> Fut,
@@ -418,7 +418,7 @@ impl TenantStates {
     /// usage records; the same binding MUST reuse its existing context. A new credential
     /// revision MUST NOT adopt prior authority's private caches. Contexts MUST have no
     /// local checkout and MUST NOT resolve state through symlinks or legacy data. Source:
-    /// Tavi's 21 Oct 2026 any-user GitHub and public browsing request.
+    /// Octavian's 21 Oct 2026 any-user GitHub and public browsing request.
     async fn state(&self, identity: RequestIdentity) -> Result<Arc<AppState>> {
         let key = identity.namespace()?;
         let (states, stores, limit) = (self.states.clone(), self.stores.clone(), self.limit);

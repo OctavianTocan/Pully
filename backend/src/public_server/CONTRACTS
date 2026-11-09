@@ -5,7 +5,7 @@ private HTTP/RPC initialization. Missing personal configuration MUST expose trut
 disabled GitHub discovery without opening personal storage. Configured startup MUST
 use only explicit isolated paths, Pully OAuth configuration and private vault-key
 files; partial/invalid configuration MUST fail safely, never select legacy authority.
-Source: Tavi's 21 Oct 2026 public/personal isolation plan and 22 Oct executable-listener
+Source: Octavian's 21 Oct 2026 public/personal isolation plan and 22 Oct executable-listener
 completion instruction.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-public-read-is-a-typed-capability
@@ -20,10 +20,10 @@ and reject private data. Account routes MUST require the session's explicit
 privateRepositories capability obtained through actual GitHub repository consent,
 and return its captured account/immutable GitHub identity and repository visibility.
 No arbitrary RPC, URL or method MAY be forwarded. This intentionally extends the
-21 Oct public-first boundary for Tavi's 22 Oct clarification that a signed-in user
+21 Oct public-first boundary for Octavian's 22 Oct clarification that a signed-in user
 must reach their own accessible private repositories and PRs; it MUST NOT silently
 broaden existing public sessions or route semantics. The fixed review read extension
-implements Tavi's 22 Oct full personal-account app instruction; it grants no arbitrary
+implements Octavian's 22 Oct full personal-account app instruction; it grants no arbitrary
 RPC, GitHub writes or AI capability.
 
 @cc [owner:OctavianTocan,label:security] personal-read-sources-and-repositories-stay-current
@@ -34,7 +34,7 @@ name-reuse and in-flight sign-out
 races. Search selectors MUST come only from verified identity and typed relation;
 search issue IDs MUST be revalidated before publication. Credentials and arbitrary
 upstream bodies/errors MUST NOT appear in answers. Reads MUST have finite body,
-inventory, request, concurrency and whole-route deadlines. Source: Tavi's 21 Oct 2026
+inventory, request, concurrency and whole-route deadlines. Source: Octavian's 21 Oct 2026
 cross-user/cache/source isolation requirements and 22 Oct real-loopback proof scope.
 
 @cc [owner:OctavianTocan,label:security] personal-repository-denials-retire-older-readers
@@ -42,7 +42,7 @@ A confirmed repository access/visibility denial or immutable-ID replacement MUST
 retire older in-flight publications for that captured tenant and read capability.
 An older metadata response MUST NOT restore the retired repository generation, and
 another tenant MUST NOT share that fence. Bounded repository slots MUST accommodate
-a normal twenty-repository inbox page without aliases below capacity. Source: Tavi's
+a normal twenty-repository inbox page without aliases below capacity. Source: Octavian's
 21 Oct source-isolation decision and confirmed 22 Oct full-review finding 1.
 
 @cc [owner:OctavianTocan,label:security;product] own-pull-relations-use-current-immutable-identity
@@ -50,14 +50,14 @@ Own-pull search MUST fetch the authenticated GitHub user, match its immutable nu
 ID to the captured session, and use its current validated login. A changed identity
 or login before publication MUST deny that old relation rather than label another
 user's search results with the original subject. Email/login matching MUST NOT
-replace numeric identity. Source: Tavi's 21 Oct per-user GitHub requirement and
+replace numeric identity. Source: Octavian's 21 Oct per-user GitHub requirement and
 confirmed 22 Oct full-review finding 4 about rename and old-login reassignment.
 
 @cc [owner:OctavianTocan,label:product;architecture] own-pull-draft-comes-from-authoritative-state
 An optional or stale search draft value MUST NOT overwrite fresh issue/PR state.
 When the fresh issue omits draft, the handler MUST obtain it from that pull's fixed
 endpoint and validate its number and immutable base repository before publication.
-Source: Tavi's 21 Oct actual own-PR inventory requirement and confirmed 22 Oct
+Source: Octavian's 21 Oct actual own-PR inventory requirement and confirmed 22 Oct
 full-review finding 2 about indexed draft and optional GitHub search fields.
 
 @cc [owner:OctavianTocan,label:product;security] public-auth-is-not-global-ai-eligibility
@@ -68,7 +68,7 @@ credential and budget boundaries. Public mode MUST NOT silently adopt private ow
 GitHub credentials, CLI homes or a paid provider after a personal failure. The typed-read slice
 MUST NOT claim paid AI execution or provider-subscription connectivity. The separate
 trusted workspace MAY connect the account's own Claude/Codex subscription as specified
-by Tavi25Oct2026, without changing typed-read or guest authority. Source: Tavi's
+by Octavian25Oct2026, without changing typed-read or guest authority. Source: Octavian's
 22 Oct 2026 clarification that AI does not require GitHub and the approved provider
 connection plan.
 
@@ -80,35 +80,35 @@ responses, and MUST NOT accept arbitrary browser storage, raw prompts, GitHub pr
 provider URLs, legacy sessions or cookies. Cloudflare Access headers MAY accompany this
 route but MUST NOT authenticate an account or become GitHub headers. The older typed
 personal/public paths MUST retain their existing authority and header rules. Source:
-Tavi25Oct2026, one GitHub login opening the full production native workspace.
+Octavian25Oct2026, one GitHub login opening the full production native workspace.
 
 @cc [owner:OctavianTocan,label:security] workspace-cached-private-content-rechecks-current-repository
 Before publishing cached diffs, full files, saved reviews/tours, list entries or task
 results, workspace requests MUST revalidate the selected repository with the captured
 personal GitHub credential and immutable repository ID. Denial, name replacement or
 captured-session revocation MUST prevent the cached content from reaching the client.
-Source: Tavi25Oct2026 own-account workspace and existing source-isolation requirements.
+Source: Octavian25Oct2026 own-account workspace and existing source-isolation requirements.
 
 @cc [owner:OctavianTocan,label:security;architecture] workspace-task-publication-keeps-complete-provenance
 Completed and running task wait/list responses MUST reauthorize every server-selected
 context repository against its captured immutable ID, including Inbox tasks without a
 diff record and repositories absent from answer citations. Caller hints and answer text
 MUST NOT supply that provenance. Missing provenance MUST fail closed. Source: confirmed
-ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.
+ce-code-review finding 4 and Octavian's 25 Oct 2026 assigned fix batch.
 
 @cc [owner:OctavianTocan,label:product;architecture] workspace-repository-checks-share-bounded-concurrency
 Workspace publication MUST deduplicate case-insensitive repository names within each
 validation phase and validate distinct repositories concurrently within the existing
 three-request GitHub permit budget. It MUST retain current access, immutable-ID checks
 and a final check of every captured repository lease after all awaited validation.
-Source: confirmed ce-code-review finding 5 and Tavi's 25 Oct 2026 assigned fix batch.
+Source: confirmed ce-code-review finding 5 and Octavian's 25 Oct 2026 assigned fix batch.
 
 @cc [owner:OctavianTocan,label:product;security] workspace-transient-admission-does-not-reject-session
 Workspace RPC and event admission MUST reserve 401 for rejected, unconfirmed or
 reconnect-required personal sessions, use 403 for insufficient authority, and preserve
 temporary provider, vault storage, context and capacity failures as retryable 503 or
 429 responses. The native error-string envelope and any known Retry-After MUST remain
-intact. Source: confirmed ce-code-review finding 3 and Tavi's 25 Oct 2026 assigned fix batch.
+intact. Source: confirmed ce-code-review finding 3 and Octavian's 25 Oct 2026 assigned fix batch.
 
 @cc [owner:OctavianTocan,label:product;security;architecture] workspace-events-are-sanitized-and-owned
 The fixed POST /workspace/api/events route MUST require the same previously confirmed
@@ -118,12 +118,12 @@ retain the 2 MiB request bound, and answer 204 on success. Its events MUST live 
 the immutable personal account's durable analytics scope, respecting the existing
 opt-out and retention policy; Access-only, missing, revoked, public-only, cookie and
 legacy-session authority MUST NOT write events or use the legacy analytics queue.
-Source: Tavi25Oct2026 full owned Stats/usage integration refinement.
+Source: Octavian25Oct2026 full owned Stats/usage integration refinement.
 
 @cc [owner:OctavianTocan,label:product;security] workspace-does-not-issue-unusable-agent-keys
 Workspace RPC MUST refuse agent-key-create while personal agent-key ingress is absent.
 Existing key list/revoke MAY remain for cleanup. ExistingServer key creation and its
 /api/v1 behavior MUST remain unchanged. This phone-workspace restoration MUST NOT add
 an agent ingress, key-owner locator, new key lifetime or public transport interface.
-Source: Tavi25Oct2026 integration decision to keep personal Settings truthful about
+Source: Octavian25Oct2026 integration decision to keep personal Settings truthful about
 unavailable agent submissions after inspecting the existing full Settings workflow.

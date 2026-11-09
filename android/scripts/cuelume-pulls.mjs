@@ -3,7 +3,7 @@
 // regenerating from the package never brings a replaced recipe back.
 //
 // default.tap: Cuelume's tap rings glass (two sines at 1174.66 and 1180 Hz that beat, over a mode at 3242 Hz),
-// and at the subtle emphasis most buttons play, the glass is all that is left. Tavi hates that ping and wants it
+// and at the subtle emphasis most buttons play, the glass is all that is left. Octavian hates that ping and wants it
 // used for nothing (feedback of 15 Oct 2026, J3 and J16). This tap is dry, in the family of the default select
 // and toggle he likes: a switch's click over a small knock, a nail's tick and a wooden body added at normal, and
 // a deeper knock with a thock at strong. Nothing in it rings: every layer is gone within about 70 ms.

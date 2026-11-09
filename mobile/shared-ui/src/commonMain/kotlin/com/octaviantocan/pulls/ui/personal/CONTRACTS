@@ -14,7 +14,7 @@ navigation stack to Explore, without adopting legacy private authority. After fr
 verification in the new admitted foreground source, a repository-authorized account
 MUST open the personal Inbox/Tours Home as the shared stack root, with repositories reachable from it; an older public-only account MUST be offered
 Finish connecting with Continue with GitHub. Neither transition may override an open
-deep link or repeat after the person returns to Explore. Tavi's 25 Oct 2026 follow-up explicitly chooses PRs/Tours as Home after login, with repositories accessible from there, replacing the earlier immediate repository-list destination. Source: Tavi's
+deep link or repeat after the person returns to Explore. Octavian's 25 Oct 2026 follow-up explicitly chooses PRs/Tours as Home after login, with repositories accessible from there, replacing the earlier immediate repository-list destination. Source: Octavian's
 21 Oct 2026 any-GitHub/public-browsing request, maximum-reuse iOS decision and accepted
 22 Oct native secure-stage/confirm/publish protocol and independent mounted-account
 ownership review.
@@ -34,7 +34,7 @@ until its complete current answer is ready. Permission/identity denial MUST purg
 affected PR rows. Unknown content MUST use existing skeletons, and PR list titles MUST
 retain the two-line ellipsis limit. These GitHub pages MUST NOT construct legacy
 Repo/Home/AI/Stats or gate independently available default/provider AI. Source:
-Tavi's 21 Oct any-account/public-browsing request, explicit 22 Oct private-repository
+Octavian's 21 Oct any-account/public-browsing request, explicit 22 Oct private-repository
 requirement and accepted native personal capability/selection protocol.
 
 @cc [owner:OctavianTocan,label:security;product] personal-page-animation-has-no-read-authority
@@ -45,7 +45,7 @@ restore authority. A current typed account-wide rejection MUST clear every retai
 filter/page before the source-owned recovery action opens the shared account flow;
 it MUST NOT offer another read with the same rejected bearer. Back controls MUST
 announce their actual destination or use neutral Back wording. Source: the five
-independently confirmed 22 Oct 2026 personal-read Compound findings, Tavi's accepted
+independently confirmed 22 Oct 2026 personal-read Compound findings, Octavian's accepted
 source-ownership plan and DESIGN.md's single shared navigation/accessibility rules.
 
 @cc [owner:OctavianTocan,label:security;product] personal-private-consent-remains-a-separate-action
@@ -53,11 +53,11 @@ Normal Connect GitHub MUST include explicit GitHub repository consent in one log
 using the shared system-browser flow and secure pending-save/confirmation protocol.
 It MUST NOT report success without the repository grant or infer it from an older
 public session. Existing public connections MUST upgrade as their captured verified
-account. This intentionally replaces the separate login/consent actions by Tavi's
+account. This intentionally replaces the separate login/consent actions by Octavian's
 25 Oct 2026 instruction to include private repositories in normal login.
 The UI MUST explain GitHub's broader repository grant and Pully's current read-only
 use, preserve the connected public account on denied/failed consent, and show no
-private-access success before server confirmation. Source: Tavi's explicit 22 Oct
+private-access success before server confirmation. Source: Octavian's explicit 22 Oct
 private repository request and the reviewed separate repository-consent protocol.
 
 @cc [owner:OctavianTocan,label:product;security;architecture] personal-native-mount-owns-readers-and-account-recovery
@@ -65,7 +65,7 @@ The compatible typed personal-page flow MUST mount through the existing Guest Ap
 stack and the same source-owned account/read presentation owner. Anonymous startup
 MUST NOT create a verified reader or fetch personal pages; a verified profile alone
 MUST NOT dispatch list work before its account or personal page is opened. The iOS compatible typed landing retains that owner. Android MUST instead directly
-mount the full production graph for the captured verified workspace, by Tavi25Oct2026
+mount the full production graph for the captured verified workspace, by Octavian25Oct2026
 (one GitHub login and full Home/Profile/Settings), with no legacy credential adoption. Actual
 native foreground events MUST synchronously gate both sign-in and page dispatch;
 an unavailable secure-store probe MUST keep new personal actions unavailable.
@@ -73,7 +73,7 @@ Account-wide rejection MUST clear every reader and route before opening a normal
 account recovery sheet. If inactive, only the fixed recovery request MAY wait for
 the same current workspace to resume; it MUST NOT retain read authority or open
 private consent automatically. Source/account replacement MUST revoke sheets and
-their captured actions before a new workspace mounts. Source: Tavi's 22 Oct 2026
+their captured actions before a new workspace mounts. Source: Octavian's 22 Oct 2026
 request to complete personal native browsing and the accepted five-finding recovery
 protocol, preserving personal-sheet-shares-owned-native-flow and the single-stack
 requirements.
@@ -96,11 +96,11 @@ fabricate connection success or start account work. A failed secure-store probe 
 instead explain device unavailability without admitting browser, claim or reader
 work. Configured, admitted entry MUST open the existing normal account sheet/runtime,
 with repository consent included in the normal explicit login; an older public
-connection requires its explicit Continue with GitHub action (Tavi, 25 Oct 2026). An explicit Settings action MAY first select
+connection requires its explicit Continue with GitHub action (Octavian, 25 Oct 2026). An explicit Settings action MAY first select
 the public workspace, but MUST synchronously retire the old private source before
 carrying only a fixed normal-account intent to the new public generation. Retained,
 inactive or retired-source callbacks MUST NOT open or replay that intent. The same
-navigation stack and saved legitimate account MUST be preserved. Source: Tavi's
+navigation stack and saved legitimate account MUST be preserved. Source: Octavian's
 22 Oct 2026 installed-app missing-login report and accepted visible GitHub entry plan.
 
 @cc [owner:OctavianTocan,label:product;security;architecture] personal-home-reuses-inbox-with-its-own-authority
@@ -112,4 +112,4 @@ there MUST NOT be a replacement read-only Home or an Open Pully workspace step. 
 compatible typed iOS personal flow MAY retain its read-only presentation until its own
 root delivery. Both flows MUST reject retained callbacks and clear private rows on
 source/account retirement. This intentionally replaces the earlier limited typed Home
-requirement by Tavi25Oct2026, full production UI and one GitHub app login.
+requirement by Octavian25Oct2026, full production UI and one GitHub app login.

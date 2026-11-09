@@ -192,7 +192,7 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, top: ReviewTopUi, da
 
     Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // GitHub opens the page outside Pully, which would otherwise take its own link back; Copy link is the link to
-        // send on, as the Inbox row's hold sheet has it (Tavi, 20 Oct).
+        // send on, as the Inbox row's hold sheet has it (Octavian, 20 Oct).
         if (head.url.isNotBlank()) QuickAction("GitHub", { actions.read { services.native.openOnGithub(head.url) } }, Modifier.weight(1f)) { GithubIcon(tint = c.text, size = 22.dp) }
         if (head.url.isNotBlank()) QuickAction("Copy link", {
             actions.read { services.native.copyText(head.url); toaster.show("Link copied", cue = Cue.Success); onClose() }
@@ -200,7 +200,7 @@ private fun ColumnScope.ActionsPage(session: ReviewSession, top: ReviewTopUi, da
         if (LocalAiCapabilities.current.canAnalyze) QuickAction("Analyze", { ai.read { go(PrPage.Analyze()) } }, Modifier.weight(1f)) { LuIcon(Lu.list, tint = c.text, size = 22.dp) }
     }
 
-    // A comment stays here (Tavi: "you can keep it"); the verdicts went in with the other decisions.
+    // A comment stays here (Octavian: "you can keep it"); the verdicts went in with the other decisions.
     if (canReview && (pending > 0 || head.isOpen)) SheetCard {
         if (pending > 0) SheetRow("Submit comments", { go(PrPage.Submit("COMMENT")) }, first = true, iconless = true) {
             Text("$pending comment${if (pending == 1) "" else "s"}", style = PullsType.sm, color = c.muted)

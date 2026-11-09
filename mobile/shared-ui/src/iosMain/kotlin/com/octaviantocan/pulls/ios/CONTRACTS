@@ -13,7 +13,7 @@ Native import MUST wait for the current AccountObservationOwner's verified foreg
 grant. A pause and resume during native reading MUST reject the old delivery even
 when the same account/source returns. Scene close MUST preserve durable pending data;
 explicit entry into Explore MUST revoke private handoff authority before publishing
-that mode. Source: the accepted 21 Oct 2026 source-owned native share plan and Tavi's
+that mode. Source: the accepted 21 Oct 2026 source-owned native share plan and Octavian's
 22 Oct 2026 shared Guest/private workspace and lifecycle isolation requirements.
 
 @cc [owner:OctavianTocan,label:security;architecture] ios-personal-store-is-one-opaque-native-vault
@@ -23,7 +23,7 @@ unexported client model. One application-wide vault and UI-dispatcher cleanup
 lifetime MUST be shared across scenes. Secure-store failure MUST remain a fixed
 retryable failure rather than an empty successful read or write. A missing record
 MUST remain distinct from a thrown read and from an existing empty or corrupt blob
-across the Cocoa boundary. Source: Tavi's 21 Oct 2026 personal-account request and
+across the Cocoa boundary. Source: Octavian's 21 Oct 2026 personal-account request and
 the accepted 22 Oct native bridge plan.
 
 @cc [owner:OctavianTocan,label:security;product] ios-personal-identity-retires-all-public-scenes
@@ -33,7 +33,7 @@ an older identity MUST NOT publish a profile or dispatch a new attempt. Observer
 cleanup failure in one scene MUST NOT keep another old runtime current. The origin
 MUST come only from explicit trusted application configuration and MUST NOT inherit
 the saved legacy server or grant private authority. Missing configuration MUST keep
-personal work unavailable without preventing Explore. Source: Tavi's public-read
+personal work unavailable without preventing Explore. Source: Octavian's public-read
 personal-account decision and the accepted 22 Oct one-vault/multiple-scene plan.
 
 @cc [owner:OctavianTocan,label:security;architecture] ios-personal-foreground-has-an-explicit-native-port
@@ -51,5 +51,5 @@ connection MUST NOT construct legacy account, Home, AI, Stats or settings observ
 or attach its bearer to public GitHub reads. Entry renewal MUST retire the old
 runtime, sheet, palette and native callbacks before the replacement public workspace
 mounts. Private selection and strict Debug fixture constructors MUST retain their
-existing owners without adopting personal credentials. Source: Tavi's personal
+existing owners without adopting personal credentials. Source: Octavian's personal
 GitHub/public-browsing request and accepted 22 Oct native public-account mount plan.

@@ -4,9 +4,9 @@ Personal authorization MUST use only the fixed operator-chosen OAuth configurati
 user's GitHub credential; it MUST NOT read tokens from gh or any other local tool. Guest, missing, revoked, expired or failed
 personal authorization MUST NOT fall back to environment/CLI GitHub credentials,
 legacy account data or operator caches. This additive module MUST NOT activate a
-public listener or expose legacy RPC. Source: Tavi's 21 Oct 2026 any-account GitHub
+public listener or expose legacy RPC. Source: Octavian's 21 Oct 2026 any-account GitHub
 sign-in and anonymous public-browsing decision and its approved multiuser plan; the
-GitHub CLI client is Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
+GitHub CLI client is Octavian, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security] personal-vault-authenticates-its-stable-owner
 GitHub access and refresh tokens MUST remain server-side and encrypted at rest with
@@ -15,7 +15,7 @@ context MUST include the stable account ID, immutable GitHub subject, credential
 revision, provider and record format/key version. An unknown key, modified record or
 record copied between accounts/revisions MUST fail without returning credentials.
 No token, key or plaintext payload MAY appear in Debug output, status, logs or errors.
-Source: Tavi's 21 Oct 2026 encrypted per-user credential-vault and identity plan.
+Source: Octavian's 21 Oct 2026 encrypted per-user credential-vault and identity plan.
 
 @cc [owner:OctavianTocan,label:security] personal-oauth-fixed-client-and-bounded-exchange
 Authorization MUST use the operator-configured client and fixed GitHub.com endpoints.
@@ -26,22 +26,22 @@ interval, and only the short user code and github.com/login/device MAY reach the
 phone. Native input MUST NOT replace the client, callback, provider or token URL.
 Exchange MUST refuse redirects and bound its time, response and credential sizes;
 provider error text MUST NOT escape. Every acquired access token MUST be verified
-against GitHub's authenticated user before use. Source: Tavi's 21 Oct 2026 personal
+against GitHub's authenticated user before use. Source: Octavian's 21 Oct 2026 personal
 GitHub authentication plan and GitHub's current OAuth App authorization docs; device
-sign-in as the GitHub CLI is Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
+sign-in as the GitHub CLI is Octavian, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security;product] personal-app-authority-is-not-inherited-scope
 Public-read sign-in MUST retain public-read application authority even if GitHub
 returns previously granted broader scopes. Private repository authority MUST require explicit GitHub repository consent and its actual
 repo grant. Normal Connect GitHub requests that consent in the initial login; the older
-public-only start retains its publicRead maximum (Tavi, 25 Oct 2026, one normal login
+public-only start retains its publicRead maximum (Octavian, 25 Oct 2026, one normal login
 including private repositories). Expiring access/refresh responses
 MUST retain both expirations and rotate the pair; reduced grants MUST NOT preserve
 broader application authority. Scope MUST NOT bypass organization approval or SSO;
 the GitHub CLI client is exempt from organization OAuth app restrictions only because
-GitHub lists it as a privileged app, and SAML SSO still applies. Source: Tavi's 21 Oct
+GitHub lists it as a privileged app, and SAML SSO still applies. Source: Octavian's 21 Oct
 2026 public-first and explicit private-access decision, the current GitHub OAuth App
-scope and refresh documentation, and Tavi, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
+scope and refresh documentation, and Octavian, 23 Oct 2026 13:36: "What I want is what you get when you use GH auth login, which is access to all those things regardless of the org permissions."
 
 @cc [owner:OctavianTocan,label:security;product] personal-repository-consent-is-source-and-session-bound
 An upgrade of an existing public-only connection MUST require a current personal session, the fixed configured
@@ -51,8 +51,8 @@ or a different selected GitHub user MUST deny the upgrade. Each Pully session MU
 authenticate its own maximum application authority; an older publicRead session
 MUST NOT inherit a later session's private access. Missing authority in older durable
 records MUST mean publicRead, and a reduced GitHub grant MUST still reduce effective
-authority. Source: Tavi's 22 Oct 2026 own-account private-access requirement while
-preserving the existing publicRead contract and canonical source isolation. Tavi, 25 Oct
+authority. Source: Octavian's 22 Oct 2026 own-account private-access requirement while
+preserving the existing publicRead contract and canonical source isolation. Octavian, 25 Oct
 2026, adds the fixed connect/start flow: a new login requests the same repository grant
 without a pre-existing Pully session, bound to its native proof and verified GitHub identity.
 
@@ -64,7 +64,7 @@ independently of credential envelopes. A
 copied or expired session MUST NOT return a credential. Sign-out MUST revoke the
 matching captured authority; unlink MUST revoke every captured authority and session
 for that account. After an awaited identity verification, the current session and
-credential revision MUST be rechecked before authority is published. Source: Tavi's
+credential revision MUST be rechecked before authority is published. Source: Octavian's
 21 Oct 2026 per-user vault, revocation and cross-user isolation decision.
 
 @cc [owner:OctavianTocan,label:security] personal-legacy-link-requires-two-current-authorities
@@ -72,7 +72,7 @@ A legacy account link MUST require the actual authenticated legacy session and a
 verified GitHub authorization. The legacy session MUST be rechecked when installing
 the link. Email/login matching MUST NOT link identities, and an already-linked
 immutable GitHub subject MUST NOT be reassigned or silently merge accounts. Linking
-MUST NOT adopt legacy tokens, caches, account keys or unrelated data. Source: Tavi's
+MUST NOT adopt legacy tokens, caches, account keys or unrelated data. Source: Octavian's
 21 Oct 2026 compatibility and explicit linking decision.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-auth-native-proof-stays-in-bodies
@@ -82,7 +82,7 @@ only its own random proof challenge; it MUST NOT supply provider/app configurati
 redirects, target accounts or application authority to public sign-in. A successful
 single-use claim MAY return the newly issued Pully session once in its HTTPS body.
 Unix timestamp fields MUST use seconds and pollAfterMs MUST use milliseconds.
-Source: Tavi's 21 Oct 2026 server-owned authorization and bounded native handoff plan.
+Source: Octavian's 21 Oct 2026 server-owned authorization and bounded native handoff plan.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-attempt-is-single-use-and-proof-owned
 An OAuth attempt MUST be bounded in count, start/poll rate and lifetime. Its state
@@ -92,7 +92,7 @@ cancel MUST require the initiating native proof using a constant-time verifier;
 wrong proof MUST NOT consume another client's valid attempt. Claim MUST publish a
 session at most once, and cancellation/expiry MUST deny late exchange or claim
 results and revoke a session created during that race. Normal browser/background
-handoff MUST NOT cancel an attempt. Source: Tavi's 21 Oct 2026 native OAuth plan.
+handoff MUST NOT cancel an attempt. Source: Octavian's 21 Oct 2026 native OAuth plan.
 
 @cc [owner:OctavianTocan,label:architecture;security] personal-accepted-exchange-outlives-observer
 Once callback state or a native claim has been accepted, dropping the HTTP observer
@@ -105,7 +105,7 @@ the bearer before confirmation and MUST confirm before publishing the new source
 Confirmation MUST preserve one-use claim delivery and hash-only persistence; it
 MUST NOT replay the OAuth code or return a prior bearer. Explicit cancellation MUST
 retire publication authority; it MUST NOT make an already-consumed code reusable.
-Source: Tavi's 21 Oct 2026 replay, source-guard and browser-return requirements,
+Source: Octavian's 21 Oct 2026 replay, source-guard and browser-return requirements,
 clarified by the confirmed lost-claim recovery finding in the 22 Oct full auth review.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-refresh-rotates-without-resurrecting-sources
@@ -117,7 +117,7 @@ authority. Concurrent refresh MUST NOT reuse a consumed token, and sign-out/unli
 or a newer credential revision MUST deny stale publication or overwrite. A terminal
 refresh rejection MUST revoke that account's sessions; transient transport or /user
 failure MUST NOT invent a terminal rejection or discard a recoverable rotated pair.
-Source: Tavi's 21 Oct 2026 refresh/revocation and current GitHub token rotation plan.
+Source: Octavian's 21 Oct 2026 refresh/revocation and current GitHub token rotation plan.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-http-surface-is-explicit-and-isolated
 Personal auth MUST remain an explicit router factory with no production listener or
@@ -127,7 +127,7 @@ typed paths, reject legacy session/Access credentials, bound bodies/query data a
 return fixed credential-safe failures with no-store responses. Only a Pully personal
 bearer may authenticate personal session methods. Browser callback cookies MUST NOT
 choose identity or authorize a claim; callback content MUST contain no credentials,
-code or state and MUST forbid referrer disclosure. Source: Tavi's 21 Oct 2026 public
+code or state and MUST forbid referrer disclosure. Source: Octavian's 21 Oct 2026 public
 auth boundary and later external registration/deployment prerequisite decision.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-host-startup-does-not-guess-authority
@@ -137,7 +137,7 @@ configuration MUST create only disabled discovery without opening storage; inval
 configured startup MUST fail with a fixed path- and credential-safe error. It MUST
 NOT load environment/HOME defaults, seed legacy accounts or bind a listener. The
 separate listener owner MUST control the storage path and its ancestors during
-startup. Source: Tavi's 22 Oct 2026 requirement to complete concrete configured-host
+startup. Source: Octavian's 22 Oct 2026 requirement to complete concrete configured-host
 composition while preserving the 21 Oct personal/legacy authority boundary.
 
 @cc [owner:OctavianTocan,label:security;architecture] workspace-confirmation-preserves-canonical-refresh
@@ -146,14 +146,14 @@ check MUST retain the authenticated session/account/generation/deadline checks w
 allowing an expired GitHub access token to reach the existing canonical refresh
 resolver. It MUST NOT turn expiry into a forced new app login when the same confirmed
 session can refresh, or confirm an unconfirmed session through workspace admission.
-Source: Tavi25Oct2026 single-login workspace and the controlled-clock expiry regression.
+Source: Octavian25Oct2026 single-login workspace and the controlled-clock expiry regression.
 
 @cc [owner:OctavianTocan,label:security;product] workspace-confirmation-keeps-retryable-failures
 The workspace confirmation gate MUST distinguish a missing, unconfirmed or rejected
 session from temporary storage/verification failure. Only the former MAY become
 Unauthorized or Reconnect; a temporary failure MUST preserve Unavailable and permit
 retry with the same confirmed bearer, including after a recoverable refresh failure.
-Source: confirmed ce-code-review finding 3 and Tavi's 25 Oct 2026 assigned fix batch.
+Source: confirmed ce-code-review finding 3 and Octavian's 25 Oct 2026 assigned fix batch.
 
 @cc [owner:OctavianTocan,label:security;architecture] personal-grant-is-bound-to-its-bearer-and-account
 A `SessionGrant` MUST be made only from a session the vault resolved, and MUST carry whether it
@@ -163,5 +163,5 @@ without confirmation on workspace routes. It MUST keep one captured credential p
 credential revision, revoke it when told the revision ended (leaving a newer revision), when the
 bearer signs out, or at the next admission or background round once it has not been granted for
 ten minutes, and its sessions MUST end by the grant's own deadline. Background sessions MUST come from the account's newest confirmed,
-unexpired session with repository access, or none. Source: Tavi, 28 Oct 2026, one Durable
+unexpired session with repository access, or none. Source: Octavian, 28 Oct 2026, one Durable
 Object per account (packages/worker `hosted-account-object-acts-only-on-forwarded-grants`).

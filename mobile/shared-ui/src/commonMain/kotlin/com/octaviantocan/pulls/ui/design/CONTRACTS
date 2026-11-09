@@ -1,7 +1,7 @@
 @cc [owner:OctavianTocan,label:architecture;design] shared-kit-one-source
 Android and iOS MUST use these same palette, type, spacing, radius and Lu icon
 definitions. Their values MUST continue to follow `android/DESIGN.md` and its design
-checks; a host MUST NOT maintain its own copy. Source: Tavi, 21 Oct 2026, choosing
+checks; a host MUST NOT maintain its own copy. Source: Octavian, 21 Oct 2026, choosing
 Compose Multiplatform with maximum reuse for the iOS mode; DESIGN.md rules 47, 48
 and 106.
 
@@ -15,7 +15,7 @@ keyboard validation plan, preserving the existing single-field kit.
 Both hosts MUST load the checked-in Geist, Mona Sans and code font files for their
 named font choices. Unknown saved app or code font choices MUST retain their existing
 Geist and Geist Mono fallbacks, and the system choices MUST use the platform's system
-families. Source: Tavi, 21 Oct 2026, the same app on iOS except for native behavior;
+families. Source: Octavian, 21 Oct 2026, the same app on iOS except for native behavior;
 DESIGN.md Typography and N10 (recording 16 Oct 12:10, 06:29 to 06:42).
 
 @cc [owner:OctavianTocan,label:architecture;product] shared-kit-web-messages
@@ -23,7 +23,7 @@ Android and iOS MUST use the same message lookup, interpolation, plural selectio
 offered locales and device-language mapping. Hosts MUST load the web's checked-in
 locale JSON through native resource adapters; missing or malformed locale files MUST
 fall back to English, and a missing English key MUST remain visible as its key.
-Source: Tavi's 21 Oct 2026 iOS reuse decision; DESIGN.md rule 106 and its web
+Source: Octavian's 21 Oct 2026 iOS reuse decision; DESIGN.md rule 106 and its web
 enforcement. The existing Android message behavior is retained.
 
 @cc [owner:OctavianTocan,label:motion;product] shared-kit-status-marks-reduce-motion
@@ -31,17 +31,17 @@ When the native system requests reduced motion, the shared Orb and BreathingDot 
 hold still, and the Orb's settled-state change and ProgressRing count change MUST
 finish immediately. With motion enabled, their existing timings and the Orb's
 finish-the-current-turn behavior MUST remain intact. Source: DESIGN.md rules 72, 73
-and 97, applied to the shared status marks by Tavi's 21 Oct 2026 iOS reuse decision.
+and 97, applied to the shared status marks by Octavian's 21 Oct 2026 iOS reuse decision.
 
 @cc [owner:OctavianTocan,label:design] shared-kit-press-is-only-a-tint
 Pressing a row or tile MUST show the existing flat active tint without a ripple,
 scale or position change on either host. Source: DESIGN.md rule 82 and F71, retained
-by Tavi's 21 Oct 2026 shared-kit decision.
+by Octavian's 21 Oct 2026 shared-kit decision.
 
 @cc [owner:OctavianTocan,label:design] shared-kit-both-palettes
 Every palette token MUST have light and dark values. Dark surfaces MUST remain neutral
 grey as specified by DESIGN.md rule 76 and F13; sharing the kit MUST NOT introduce
-platform-specific palette values. Source: Tavi's 21 Oct 2026 iOS reuse decision and
+platform-specific palette values. Source: Octavian's 21 Oct 2026 iOS reuse decision and
 DESIGN.md rule 76.
 
 
@@ -49,7 +49,7 @@ DESIGN.md rule 76.
 The shared Phosphor and engine marks MUST use the exact paths, viewport, fill rules and
 opacity from the existing checked-in Android XML vectors. Generation MUST reject
 unsupported vector structures instead of silently dropping them; unknown Phosphor
-names MUST retain the existing empty rendering. Source: Tavi's 21 Oct 2026 maximum-reuse
+names MUST retain the existing empty rendering. Source: Octavian's 21 Oct 2026 maximum-reuse
 iOS decision and DESIGN.md rules 48 and 49. The frozen web-port kit gains no new uses.
 
 @cc [owner:OctavianTocan,label:design] shared-controls-preserve-canvas-shadow
@@ -62,7 +62,7 @@ kit-floating-things-cast-the-canvas-shadow, retained by the 21 Oct iOS decision.
 DiffStats MUST retain the device locale's grouped integer formatting and numerals,
 including signs. Android MUST preserve the existing percent-comma-d behavior; native
 formatters MUST NOT change counts to a fixed English representation. Source: existing
-DiffStats behavior retained by Tavi's 21 Oct 2026 same-app iOS decision.
+DiffStats behavior retained by Octavian's 21 Oct 2026 same-app iOS decision.
 
 @cc [owner:OctavianTocan,label:product;motion] kit-sheet-rests-at-two-heights
 Every `PullsSheet` rests at its normal height (its content, at most half the screen) or
@@ -131,7 +131,7 @@ Android and iOS MUST use the same sheet position, drag/settle, nested-scroll own
 nested-page and keyboard-lift implementation. Native shells MUST supply real container,
 safe-area and keyboard insets without adding a second scrim, animation or automatic
 content inset on top of the shared panel. Android MUST retain its edge-to-edge window,
-keyboard resize and navigation-bar appearance behavior. Source: Tavi's 21 Oct 2026
+keyboard resize and navigation-bar appearance behavior. Source: Octavian's 21 Oct 2026
 maximum-reuse iOS decision and accepted Sheet.kt adapter split; DESIGN.md rules 73,
 77, 78, 108 and 120.
 
@@ -139,7 +139,7 @@ maximum-reuse iOS decision and accepted Sheet.kt adapter split; DESIGN.md rules 
 Nested sheet pages MUST use the existing BlurSwitch direction from page depth, with
 their existing scroll positions and transition timing. A host's Back adapter MUST
 change the same page state; it MUST NOT create a separate native route stack. Source:
-Tavi's 21 Oct 2026 shared-navigation decision, DESIGN.md rules 78 and 105, H1 and H4.
+Octavian's 21 Oct 2026 shared-navigation decision, DESIGN.md rules 78 and 105, H1 and H4.
 An open iOS sheet MUST consume the existing shared Back dispatcher before the route
 beneath it, returning to its parent sheet page or closing through the shared panel's
 animated dismissal. It MUST NOT register a second native gesture observer.
@@ -151,7 +151,7 @@ Images MUST retain their original-size probe, density-sharp reload, dark-picture
 selection and link-or-image tap destination. Raw HTML MUST remain inert: it is read
 as the Markdown nodes it stands for (github-html-reads-as-github) and MUST NOT execute
 or introduce a WebView. Source: existing kit-one-markdown, DESIGN.md rules 53, 95, 96,
-124 and 158, L14/L15, and Tavi's 21 Oct 2026 maximum-reuse iOS decision; Tavi's
+124 and 158, L14/L15, and Octavian's 21 Oct 2026 maximum-reuse iOS decision; Octavian's
 28 Oct 2026 request to fix Markdown rendering widened raw HTML from text and breaks
 to the nodes GitHub shows.
 
@@ -159,7 +159,7 @@ to the nodes GitHub shows.
 Both hosts MUST use the same Pully and generated OpenCode palette registry, including
 the existing one-look behavior and fallback for removed theme IDs. The palette
 generator MUST retain its single vendored source, and both app bundles MUST include
-the original theme license notices. Source: Tavi's 21 Oct 2026 maximum-reuse decision
+the original theme license notices. Source: Octavian's 21 Oct 2026 maximum-reuse decision
 and the existing OpenCode theme adoption (K18) and DESIGN.md theme behavior.
 
 @cc [owner:OctavianTocan,label:design;architecture] shared-file-icons-retain-canonical-strokes
@@ -167,7 +167,7 @@ Both hosts MUST render the existing Catppuccin XML file icons with their same pa
 geometry, fill and stroke colors, stroke width, caps, joins and viewport. Generation
 MUST reject unsupported structures rather than omit them. File names MUST retain the
 existing icon-selection precedence and fallback. Source: existing FilePath/FileIcon
-behavior retained by Tavi's 21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 48.
+behavior retained by Octavian's 21 Oct 2026 maximum-reuse iOS decision; DESIGN.md rule 48.
 
 @cc [owner:OctavianTocan,label:architecture;motion] kit-decides-the-way
 Which way a page, tab, file or label moves is decided in the kit, never by a screen:
@@ -201,14 +201,14 @@ A toast action MUST run at most once and only while that exact message is curren
 Its message MUST remain current during the action so the existing Undo callbacks can
 check their ownership. Finishing or failing the action MUST retire only its own
 message; a replacement shown by the callback MUST remain visible. Source: the
-existing toast Undo behavior retained by Tavi's 21 Oct 2026 same-app iOS decision,
+existing toast Undo behavior retained by Octavian's 21 Oct 2026 same-app iOS decision,
 DESIGN.md rule 73 and the shared review confirmation ownership plan.
 
 @cc [owner:OctavianTocan,label:design;motion] sheet-paper-comes-up-solid
 A sheet's paper MUST come up opaque: only what is on it fades in through the panel
 reveal's cross-blur, never the page behind showing through the panel. Its window MUST NOT
 show a system dim on any frame, and the status bar icons MUST stay readable over the page
-while it opens. Source: Tavi's recording of 26 Oct 2026, 01:07 to 01:28 (Settings drew
+while it opens. Source: Octavian's recording of 26 Oct 2026, 01:07 to 01:28 (Settings drew
 see-through and "some black thing glitches out").
 
 @cc [owner:OctavianTocan,label:design] sheets-and-foot-bars-stay-column-wide
@@ -216,16 +216,16 @@ A sheet's panel and the foot bar MUST be no wider than ReadableWidth (less the b
 margins). In an unfolded window a sheet MUST rise over the pane whose page opened it,
 while its scrim still dims the whole window (rule 5). In a window under 600dp tall and
 600dp or more wide, a sheet MUST rest at its tall height, and a page header MUST sit 8dp
-under the status bar instead of 48dp from the top. Source: Tavi's message of 27 Oct 2026
+under the status bar instead of 48dp from the top. Source: Octavian's message of 27 Oct 2026
 12:55, DESIGN.md rules 207 and 208.
 
 @cc [owner:OctavianTocan,label:design] markdown-quote-bar-spans-the-quote
 A block quote MUST draw its bar down the whole height of the quoted text, never as a
-dot beside its first line. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description"; the 0.69.0 render showed a dot.
+dot beside its first line. Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description"; the 0.69.0 render showed a dot.
 
 @cc [owner:OctavianTocan,label:product;design] markdown-failed-picture-keeps-its-words
 A picture that fails to load MUST show its alt text (or "Image") faded and underlined,
-still tappable, never vanish to nothing. Source: Tavi's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
+still tappable, never vanish to nothing. Source: Octavian's 28 Oct 2026 request to check every screen, "particularly the diff" and "the markdown rendering, for example, for the description".
 
 @cc [owner:OctavianTocan,label:product;security;architecture] markdown-mermaid-is-drawn-with-pele
 A ```mermaid block in a description, comment or preview MUST be drawn as its diagram by
@@ -233,7 +233,7 @@ the bundled Pele (github.com/obsidianmd/pele, mobile/shared-ui/pele) in a QuickJ
 of its own: no DOM, network or files, bounded in memory and time, off the main thread,
 laid out for the width it has and in the app's light or dark palette, in the existing
 diagram frame (tap for full screen). Text Pele cannot draw MUST stay code as written,
-and a skeleton MUST hold the place while it draws. Source: Tavi, 28 Oct 2026, "For Mermaid diagrams, find Obsidian's Pele, and use that."
+and a skeleton MUST hold the place while it draws. Source: Octavian, 28 Oct 2026, "For Mermaid diagrams, find Obsidian's Pele, and use that."
 
 @cc [owner:OctavianTocan,label:product;architecture] foot-field-keeps-fast-typing
 A field drawn in the foot bar (the Inbox search and the Ask bars) MUST keep every
@@ -242,5 +242,5 @@ NOT put the field back to the page's earlier text in between, which reset the iP
 keyboard's text and dropped every other letter in the Tour's Ask bar on the simulator
 suite (28 Oct 2026, "What changed in this shared review?" arrived as "Wa hne nti
 hrdrve?"). A text the page changes itself, such as a clear on send, MUST still replace
-what the field shows. Source: Tavi's "Our iPhone app should be 100% up to date", 28 Oct
+what the field shows. Source: Octavian's "Our iPhone app should be 100% up to date", 28 Oct
 2026, and the shared Ask bar (Q5, N28).

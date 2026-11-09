@@ -12,7 +12,7 @@ const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
 pub(crate) const DEVICE_VERIFICATION_URL: &str = "https://github.com/login/device";
 /// The GitHub CLI's own OAuth App ID, public in cli/cli (internal/authflow/flow.go). GitHub lists
 /// "GitHub CLI" among its privileged OAuth apps, which organization OAuth restrictions do not block,
-/// so signing in as it reaches what `gh auth login` reaches (Tavi, 23 Oct 2026 13:36).
+/// so signing in as it reaches what `gh auth login` reaches (Octavian, 23 Oct 2026 13:36).
 pub(crate) const GITHUB_CLI_CLIENT_ID: &str = "178c6fc778ccc68e1d6a";
 const MAX_RESPONSE_BYTES: usize = 32 * 1024;
 const MAX_ACCESS_LIFETIME: u64 = 31 * 24 * 60 * 60;

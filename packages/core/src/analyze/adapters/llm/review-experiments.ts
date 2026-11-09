@@ -7,7 +7,7 @@ import { MERGE_RISK_PROMPT, MERGE_RISK_SCHEMA, mergeRiskMarkdown } from './merge
  * @cc [owner:OctavianTocan,label:product;architecture] review-experiments-are-explicit-extensions
  * Without an explicit true opt-in, ordinary review MUST NOT request, compute or export
  * experimental assessments. Experiment prompt, schema and result changes MUST live
- * behind this boundary. Source: Tavi, 21 Oct 2026, experimental opt-in/removability request.
+ * behind this boundary. Source: Octavian, 21 Oct 2026, experimental opt-in/removability request.
  */
 export function reviewExperiment(experiments?: ReviewExperiments) {
   if (experiments?.mergeRisk !== true)

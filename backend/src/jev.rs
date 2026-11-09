@@ -521,7 +521,7 @@ fn start_files(app: &Arc<AppState>, diff: &Value, keys: &[(String, String)]) {
 /// @cc [owner:OctavianTocan,label:architecture] rust-jev-transactions-off-runtime
 /// TypeSafe storage and ratings-lock transactions MUST run on blocking workers,
 /// including completion cleanup and polling. Pull writes MUST retain their latest
-/// version guard (Tavi's 16 Oct parity request; validated CE review round 6, #4).
+/// version guard (Octavian's 16 Oct parity request; validated CE review round 6, #4).
 async fn complete_file(
     app: Arc<AppState>,
     svc: Arc<Service>,
@@ -733,7 +733,7 @@ fn pull_of_diff(diff: &Value) -> Option<Value> {
 /// @cc [owner:OctavianTocan,label:architecture] rust-jev-preparation-polls-memory
 /// Review preparation MUST NOT reread stored file ratings or rebuild patch identities
 /// while waiting for classifications; completed ratings MUST reach cached triage
-/// (Tavi's 16 Oct parity request; validated CE review round 4).
+/// (Octavian's 16 Oct parity request; validated CE review round 4).
 pub async fn prepare_review(app: &Arc<AppState>, diff: &Value, wait_ms: u64) {
     let svc = service(app);
     if !svc.client.enabled() {

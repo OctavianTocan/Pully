@@ -50,7 +50,7 @@ pub(crate) struct ChatGptJobBinding {
 /// before/after an await is insufficient. Tools MUST be constrained to that same source
 /// and MUST apply current permission and commit fences to their own effects. Retirement
 /// observation MUST be installed before admission. No shell, legacy cache or operator
-/// credential MAY be supplied. Source: Tavi's22Oct2026 provider isolation/default-AI
+/// credential MAY be supplied. Source: Octavian's22Oct2026 provider isolation/default-AI
 /// requirements and the approved captured-lease Responses runtime boundary.
 pub(crate) trait ChatGptJobScope: Send + Sync {
     fn binding(&self) -> &ChatGptJobBinding;
@@ -98,7 +98,7 @@ impl Drop for Admission {
 /// Admission MUST enforce configured global and per-owner start/inflight limits; persisted
 /// window counts MUST NOT reset on a runtime reopen. Provider queue time MUST NOT consume
 /// its execution deadline. Source: server-ai-work-outlives-the-page, jobs-release-acquired-slots
-/// and Tavi's22Oct2026 approved GitHub-independent runtime/allowance implementation.
+/// and Octavian's22Oct2026 approved GitHub-independent runtime/allowance implementation.
 pub(crate) struct ChatGptJobs {
     jobs: Jobs,
     store: Store,
@@ -867,7 +867,7 @@ impl Session {
     /// A same-binding saved conversation MAY have no completed continuation while its first
     /// task is pending, failed or stopped. Nonempty saved continuations MUST retain the
     /// canonical nested Responses validation, and every incoming/merged provider request
-    /// MUST retain its nonempty validation. Source: Tavi's22Oct2026 runtime/recovery
+    /// MUST retain its nonempty validation. Source: Octavian's22Oct2026 runtime/recovery
     /// requirement and the approved persisted-pending-state correction.
     fn read(&self) -> Result<Stored> {
         let Some(value) = self.runtime.store.get(&self.partition)? else {

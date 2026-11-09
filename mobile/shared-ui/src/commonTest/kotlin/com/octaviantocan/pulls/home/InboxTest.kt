@@ -37,11 +37,11 @@ class InboxTest {
 
     private val pulls = listOf(
         pull(1, role = "review-requested"),
-        pull(2, role = "authored", author = "tavi"),
-        pull(3, role = "authored", author = "tavi", isDraft = true),
+        pull(2, role = "authored", author = "octavian"),
+        pull(3, role = "authored", author = "octavian", isDraft = true),
         pull(4, role = "owned", isDraft = true),
         pull(5, role = "owned", state = "closed"),
-        pull(6, role = "authored", author = "tavi", repo = "web", title = "Retry on 502"),
+        pull(6, role = "authored", author = "octavian", repo = "web", title = "Retry on 502"),
     )
 
     @Test
@@ -81,7 +81,7 @@ class InboxTest {
 
     @Test
     fun theViewerIsWhoWroteMostOfYourOwnPulls() {
-        assertEquals("tavi", Triage.viewerLogin(pulls))
+        assertEquals("octavian", Triage.viewerLogin(pulls))
         assertNull(Triage.viewerLogin(listOf(pull(1, role = "review-requested"))))
     }
 

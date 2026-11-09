@@ -133,7 +133,7 @@ fun isOpenBeside(owner: String, repo: String, number: Int): Boolean {
 /**
  * The frame every pull request row shares: [tile], then the [title] on at most two lines, cut with an ellipsis where it
  * runs longer ("these things should never have three lines ... you can use ellipses", recording 17 Oct 14:45, 00:07 to
- * 00:25; Q1, rule 2; "I meant the title should also be in two rows", Tavi 17 Oct 17:14, rule 201), [under] for what a
+ * 00:25; Q1, rule 2; "I meant the title should also be in two rows", Octavian 17 Oct 17:14, rule 201), [under] for what a
  * page adds (a repository's labels), and the one [meta] line. The tile stays centred on the row whether the title takes
  * one line or two. A hairline over the row starts and ends on the page's 16dp margins, so the first row's is the
  * heading's underline (rule 75). An [open] row, the one open beside the list, sits on the hover tint (rule 206).

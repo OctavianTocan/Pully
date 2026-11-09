@@ -48,7 +48,7 @@ pub(crate) fn schema() -> Value {
 /// @cc [owner:OctavianTocan,label:product] rust-merge-risk-is-computed-from-evidence
 /// A merge assessment MUST contain every category with a valid verdict and nonempty
 /// reasons. Its overall level MUST be computed from the shared Warp rubric, ignoring
-/// any supplied level. Scores MUST stay internal. Source: Tavi, 21 Oct 2026, request
+/// any supplied level. Scores MUST stay internal. Source: Octavian, 21 Oct 2026, request
 /// to implement warpdotdev/common-skills merge-risk as part of Pully's PR assessment.
 pub(crate) fn assess(raw: &Value) -> Result<Value> {
     let mut assessment = raw.clone();

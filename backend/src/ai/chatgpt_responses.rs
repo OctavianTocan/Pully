@@ -65,7 +65,7 @@ pub(crate) struct ResponsesAnswer {
 /// AI principal and ChatGPT connection/revision. The adapter MUST use only its trusted configured
 /// target, MUST NOT discover environment/CLI credentials or select a fallback, and MUST cancel
 /// in-flight work on Stop or lease retirement. The host MUST supply shared provider-slot admission
-/// and recheck the same lease at its actual task/result storage commit. Source: Tavi's21/22Oct2026
+/// and recheck the same lease at its actual task/result storage commit. Source: Octavian's21/22Oct2026
 /// per-user provider and GitHub-independent AI decisions and the approved provider adapter plan.
 pub(crate) struct ResponsesClient {
     client: reqwest::Client,
@@ -102,7 +102,7 @@ impl ResponsesClient {
     /// history, including opaque reasoning and function-call results. Only a genuine completed
     /// response MAY authorize tools or an answer; incomplete/error/unknown-tool output MUST fail
     /// closed. Tools MUST come from the supplied scoped PR registry, not browser, shell or host
-    /// execution. Source: Tavi's22Oct2026 official ChatGPT subscription-adapter requirement and
+    /// execution. Source: Octavian's22Oct2026 official ChatGPT subscription-adapter requirement and
     /// the pinned official protocol reference above, preserving agents-act-through-pr-tools.
     pub(crate) async fn run(
         &self,

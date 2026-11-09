@@ -93,7 +93,7 @@ fun cutUnderPinned(visible: List<Triple<Any, Int, Int>>, pinnedHeight: Int): Int
 }
 
 /**
- * A list grouped by repository whose heading stays pinned at the top while its rows scroll under it (Tavi, 14 Oct: "I
+ * A list grouped by repository whose heading stays pinned at the top while its rows scroll under it (Octavian, 14 Oct: "I
  * need the project row to stay sticky as you scroll down"). The rows
  * fade out just below the pinned heading, as under any pinned edge (rule 74). [list] is the LazyColumn, given the
  * modifier that fades it; headings in it are keyed with [groupKey]. A folded heading sticks as an open one does, and the
@@ -140,7 +140,7 @@ fun PinnedHeadings(
  * baseline, and the chevron right beside that, the way Claude's own lists head a section ("Done (44) ⌃": recording
  * 16 Oct 12:10, 00:08 to 00:47 and 01:54 to 02:13, N1; "counts of what is inside a fold are in parentheses", 18:03 to
  * 18:21, N35). A tap on the heading folds the rows away or opens them again; a tap on the name itself opens the
- * repository (Tavi, 14 Oct). The one line under a heading is its first row's own (rule 75), so a folded heading and the
+ * repository (Octavian, 14 Oct). The one line under a heading is its first row's own (rule 75), so a folded heading and the
  * pinned one, which have no row of their own under them, draw it. While a search runs nothing folds (rule 101):
  * [onFold] is null. A kind's heading has nothing of its own to open: with [onOpen] null the name is part of the
  * heading's target. [extra] sits at the right edge, in its own fixed columns, for the + and − of a file section.

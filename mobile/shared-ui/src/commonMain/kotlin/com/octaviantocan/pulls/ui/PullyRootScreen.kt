@@ -157,7 +157,7 @@ fun PullyRootScreen(
                     Box(Modifier.fillMaxSize().background(colors.base).themeWipe()) {
                         Column(Modifier.fillMaxSize()) {
                             // Signed in, the app is the app: Home, Repo and Review carry their own headers, as on Android
-                            // (Tavi, 28 Oct 2026). The bar stays only where there is no page of its own to reach Server
+                            // (Octavian, 28 Oct 2026). The bar stays only where there is no page of its own to reach Server
                             // from, and for the Debug fixture's label.
                             val signInPage = signIn?.getOrNull()
                             // A server that cannot be reached, or stops at Cloudflare Access, gets Android's setup

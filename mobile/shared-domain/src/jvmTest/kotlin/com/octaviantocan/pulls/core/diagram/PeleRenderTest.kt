@@ -31,7 +31,7 @@ class PeleRenderTest {
         "pie" to "pie title Files\n  \"Kotlin\" : 42\n  \"Rust\" : 30\n  \"Docs\" : 8",
         "git" to "gitGraph\n  commit\n  branch feature\n  commit\n  checkout main\n  merge feature",
         "mindmap" to "mindmap\n  root((Pully))\n    Inbox\n    Review\n      Diff\n      Tour",
-        "journey" to "journey\n  title Review\n  section Read\n    Open: 5: Tavi\n    Comment: 3: Tavi",
+        "journey" to "journey\n  title Review\n  section Read\n    Open: 5: Octavian\n    Comment: 3: Octavian",
         "xychart" to "xychart-beta\n  title Reviews\n  x-axis [Mon, Tue, Wed]\n  y-axis 0 --> 10\n  bar [3, 7, 5]",
     )
 

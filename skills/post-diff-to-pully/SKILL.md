@@ -25,7 +25,7 @@ Check the key first:
 
 ```sh
 curl -sS "$PULLY_URL/api/v1/me" -H "Authorization: Bearer $PULLY_API_KEY"
-# {"account":"tavi@example.com","key":"Claude Code"}
+# {"account":"octavian@example.com","key":"Claude Code"}
 ```
 
 ## Post a diff

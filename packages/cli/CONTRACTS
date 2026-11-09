@@ -2,5 +2,5 @@
 @cc [owner:OctavianTocan,label:architecture] native-launcher-starts-rust
 The npm launcher MUST start the native Rust server and MUST fail with a useful setup
 error when no supported native executable is available. It MUST NOT start or fall back
-to a TypeScript or Node server implementation (Tavi, 16 Oct 2026 10:40:28 UTC,
+to a TypeScript or Node server implementation (Octavian, 16 Oct 2026 10:40:28 UTC,
 "remove all the TypeScript backend", in the same Rust pull request).

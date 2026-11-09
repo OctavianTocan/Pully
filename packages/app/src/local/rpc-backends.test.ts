@@ -11,13 +11,13 @@ it('delegates GitHub requests without retrieving server tokens', async () => {
     ? true
     : {
         status: 200,
-        body: '{"login":"tavi"}',
+        body: '{"login":"octavian"}',
         headers: { 'x-oauth-scopes': 'repo' },
       })
   const credentials = createRpcCredentials({ call } as any)
   expect(await credentials.githubToken()).toBeUndefined()
   expect(await credentials.githubAuthenticated!()).toBe(true)
-  expect(await (await credentials.githubRequest!('/user')).json()).toEqual({ login: 'tavi' })
+  expect(await (await credentials.githubRequest!('/user')).json()).toEqual({ login: 'octavian' })
   expect(call.mock.calls.map(([method]) => method)).toEqual([LOCAL_RPC.githubAuthenticated, LOCAL_RPC.githubRequest])
 })
 

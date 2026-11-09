@@ -17,7 +17,7 @@ case "$origin" in
   *) echo "The staging origin must be https://" >&2; exit 1 ;;
 esac
 origin="${origin%/}"
-# The phone passes Access without another browser login (Tavi, 25 Oct 2026). Values stay
+# The phone passes Access without another browser login (Octavian, 25 Oct 2026). Values stay
 # in the build environment; never pass them as Gradle arguments or print them.
 for key in PULLY_STAGING_ACCESS_CLIENT_ID PULLY_STAGING_ACCESS_CLIENT_SECRET; do
   [ -n "${!key:-}" ] || { echo "Missing staging Access build credential: $key" >&2; exit 1; }

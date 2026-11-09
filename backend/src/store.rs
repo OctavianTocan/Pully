@@ -804,7 +804,7 @@ impl Store {
 /// agent keys, posted diffs and review state. The copy MUST NOT write to the
 /// original, which stays the rollback cache, and MUST only appear complete (copied
 /// aside, then renamed). Source: merging the rewrite auto-deploys the server
-/// (Tavi, 16 Oct 12:18), and posted links are kept forever (Tavi, 16 Oct 12:24).
+/// (Octavian, 16 Oct 12:18), and posted links are kept forever (Octavian, 16 Oct 12:24).
 ///
 /// Returns whether a copy was made.
 pub fn seed_from_legacy(root: &Path, legacy: &Path) -> Result<bool> {

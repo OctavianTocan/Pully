@@ -71,7 +71,7 @@ async function requireReleasePush(check, head, policy, loadRun) {
  * A server restart, APK or tag publication MUST use the exact current origin/release
  * commit with every required genuine Actions check successfully completed. Main,
  * stale, dirty, missing-ref, failed, skipped or unavailable evidence MUST fail closed.
- * Source: Tavi's 22 Oct 2026 fast-main and strongly verified release-branch decision.
+ * Source: Octavian's 22 Oct 2026 fast-main and strongly verified release-branch decision.
  */
 export async function verifyReleaseCheckout({ cwd = process.cwd(), readGit = git, loadPage = checkPage, loadRun = (repository, id) => githubJson(`${repository}/actions/runs/${id}`), policy = releasePolicy } = {}) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(policy.repository) || policy.releaseBranch !== 'release' || !policy.requiredReleaseChecks?.length)

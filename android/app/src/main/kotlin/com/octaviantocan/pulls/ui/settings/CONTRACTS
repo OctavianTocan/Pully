@@ -10,7 +10,7 @@ permission/channel. Enabling MAY request permission contextually or open Android
 settings after denial; no additional startup prompt is allowed. The Notifications page
 MUST explain that checks require following a PR, AI results cover work started here, and
 background delivery can take 15 minutes or longer. This consent introduction is distinct
-from helper lines underneath controls (Tavi, 21 Oct 2026, notification expansion).
+from helper lines underneath controls (Octavian, 21 Oct 2026, notification expansion).
 
 @cc [owner:OctavianTocan,label:product] settings-more-than-three-is-a-page
 A choice of more than three options (Code font, Model, the button sound) is a row with
@@ -28,7 +28,7 @@ Settings, Sounds has a Vibration switch, and with it off nothing vibrates (rule 
 The server address, the Access token, Past versions and the UI Book sit under an
 Advanced row at the bottom of Settings, not on its main page (H9). The first-connection
 and sign-in screens MAY open the same Server settings directly so configuration can
-be corrected while normal navigation is covered. Tavi's 21 Oct 2026 reinstall/setup
+be corrected while normal navigation is covered. Octavian's 21 Oct 2026 reinstall/setup
 request adds this recovery entry point without moving the main Settings rows.
 
 @cc [owner:OctavianTocan,label:product] settings-model-row-names-the-model
@@ -47,18 +47,18 @@ intro, decorative badges or a second navigation row just to reach the two choice
 Browser floaty MUST keep its required consent page inside the same Settings sheet.
 This feature's settings and assessment UI MUST target the mobile app; desktop screens
 are outside the scope of this change.
-Source: Tavi, 21 Oct 2026, rejecting the experimental UI as ugly and asking for the app's
+Source: Octavian, 21 Oct 2026, rejecting the experimental UI as ugly and asking for the app's
 design principles on mobile; DESIGN.md rules 49, 78, 87 and 141.
 
 @cc [owner:OctavianTocan,label:product] settings-is-the-liked-sheet
-Settings is a sheet in the mobile style, with its pages inside it. Tavi called it "much,
+Settings is a sheet in the mobile style, with its pages inside it. Octavian called it "much,
 much better than before"; it MUST NOT regress to the old style (rules 49 and 78; F11).
 
 @cc [owner:OctavianTocan,label:product] settings-past-versions-slider
 Settings, Advanced, Past versions has a dev-only slider over every version of the app,
 oldest on the left. It rests on the running version, so the app MUST always run the
 newest UI unless an older one is opened from there. An older version opens as that
-version's own build from git, beside this app, never as a mode of this one (Tavi,
+version's own build from git, beside this app, never as a mode of this one (Octavian,
 15 Oct: "a dev-only slider ... by default the app just has latest changes"). While the
 server has built none yet the page says so and that it builds them after each update,
 newest first; only a failed request says the server could not be reached (recording
@@ -82,14 +82,14 @@ server", Guardrails).
 On Android 12 and later the main Settings page has a GitHub links switch, Open GitHub
 links in Pully, that shows whether Android sends tapped github.com links to Pully. It
 MUST read Android's own answer each time Pully comes back, and tapping it opens Pully's
-Open by default page, since only the reader can allow it (Tavi, 16 Oct; Android 12 link
+Open by default page, since only the reader can allow it (Octavian, 16 Oct; Android 12 link
 handling).
 
 @cc [owner:OctavianTocan,label:product;design] settings-fonts-section
 Settings has a "Fonts" section of its own with two rows, "App font" and "Code font", each a
 page of faces drawn in themselves. The app font sets every role of the type scale but the
 numbers' Mona Sans and the code face; the code font sets the code face alone. Geist stays
-the default. Tavi asked for this in the recording of 16 Oct 12:10, 06:29 to 06:42 (a font
+the default. Octavian asked for this in the recording of 16 Oct 12:10, 06:29 to 06:42 (a font
 for the app as well as for code; N10), moving Code font out of the Code section.
 
 @cc [owner:OctavianTocan,label:product] settings-github-links-says-where-it-stands
@@ -114,17 +114,17 @@ and the phone is not signed in, a sign-in page covers the
 app, as the update screen does; signed in, it stays signed in until Sign out on the Account
 page. A server with no way to sign in, an older server or one that cannot be reached MUST
 NOT bring the page up, and a session the server no longer knows brings it back ("it
-actually should get a sign in screen, but once you sign in it's just signed in": Tavi,
+actually should get a sign in screen, but once you sign in it's just signed in": Octavian,
 16 Oct 12:47). The page leads with Continue with Google; under it the email field stands
 alone, and Continue shows the password field under it, for the test account. It has no
-sign-up (Tavi, 16 Oct 16:52: "you should add the Google button, and then, under an email,
+sign-up (Octavian, 16 Oct 16:52: "you should add the Google button, and then, under an email,
 only an email field. If they put in their email and they press Continue, then they can put
 in the password as well"). Closing Google's account sheet changes nothing.
 Changing the server, Access credentials or account source MUST reset retained form
 inputs and revoke pending sign-in authority before another request or session commit.
 The form's displayed server and inputs MUST belong to its opening source, including
 through a modal exit animation (21 Oct 2026 first-run review, direct server recovery).
-Tavi's 21 Oct 2026 anonymous browsing decision adds a working Browse public projects
+Octavian's 21 Oct 2026 anonymous browsing decision adds a working Browse public projects
 action to setup/sign-in; selecting it MUST preserve a legitimate saved private account
 and retire its current page/request authority without signing out.
 
@@ -132,18 +132,18 @@ and retire its current page/request authority without signing out.
 Saving server configuration MUST distinguish a failed connection from a check replaced
 by newer discovery. Supersession alone MUST NOT display an Unreachable error; an actual
 failure MUST keep that attempt's recovery category rather than a later global category.
-Source: Tavi's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
+Source: Octavian's 21 Oct 2026 first-run request and review of concurrent Save/discovery.
 
 @cc [owner:OctavianTocan,label:product;security] settings-agent-keys-on-the-phone
 Settings has an Account section with the signed-in email and an Agent keys page. The page
 lists each key by its name and first letters, makes a key from a name and shows the new key
 once with Copy, and revokes one from its own page, which says what revoking does first
-("please make sure this is possible from the phone": Tavi, 16 Oct 12:47).
+("please make sure this is possible from the phone": Octavian, 16 Oct 12:47).
 This key flow applies to existing-server connections. Personal GitHub workspaces MUST
 keep the Agent keys destination but explain that external-agent posting is unavailable,
 without offering creation, loading or exporting keys, or claiming legacy /api/v1 access.
 Account, Profile, menus and the rest of the native workspace MUST keep their existing
-presentation. Source: Tavi25Oct2026, bounded integration decision that external-agent
+presentation. Source: Octavian25Oct2026, bounded integration decision that external-agent
 ingress is outside the fixed phone workspace wire; no new ingress or baked credential
 export is authorized.
 
@@ -156,8 +156,8 @@ does not save or send that URL, and that tapping opens the repository through Pu
 usual server connection. It MUST say an unknown URL hides the button and browser support
 varies. Continuing MAY record consent and open Android's accessibility settings, but MUST
 NOT enable the service programmatically. The consent disclosure is required permission
-information, rather than a helper line under a setting (Tavi, 18 Oct 2026, browser helper
-request). Its move into Experimental is Tavi's 21 Oct 2026 browser-floaty follow-up;
+information, rather than a helper line under a setting (Octavian, 18 Oct 2026, browser helper
+request). Its move into Experimental is Octavian's 21 Oct 2026 browser-floaty follow-up;
 the experiment also requires an explicit local opt-in, independently of old consent.
 
 @cc [owner:OctavianTocan,label:product;security] settings-browser-helper-status-and-stop
@@ -165,7 +165,7 @@ The Browser helper page MUST read both Pully's consent and Android's enabled-ser
 state again whenever Pully resumes. Android permission alone MUST NOT display the helper
 as on when Pully consent is off. After consent, the page MUST offer Disable helper, which
 withdraws Pully's consent and hides the helper immediately without requiring the reader
-to change Android settings first (Tavi, 18 Oct 2026, opt-in browser helper request).
+to change Android settings first (Octavian, 18 Oct 2026, opt-in browser helper request).
 
 @cc [owner:OctavianTocan,label:security;product] settings-palette-belongs-to-opening-android-entry
 Both public and existing-server palette sheets MUST capture their opening native entry
@@ -195,4 +195,4 @@ The native Settings provider services MUST retain their opening account/session 
 an ordinary browser pause while denying new paused requests. Their foreground readiness
 MUST restart Codex waiting on resume without replacing its pending code or Claude's
 pending paste descriptor/input. Actual source retirement MUST synchronously clear
-provider state and revoke retained callbacks. Source: Tavi's 25 Oct 2026 review-fix #2.
+provider state and revoke retained callbacks. Source: Octavian's 25 Oct 2026 review-fix #2.

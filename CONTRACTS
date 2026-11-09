@@ -7,7 +7,7 @@ have to be in contracts ... so we do not make the same mistakes" (recording 15 O
 07:13; K15).
 
 @cc [owner:OctavianTocan,label:architecture] contracts-cite-their-source
-A contract written from Tavi's feedback MUST name where it came from in its prose: the
+A contract written from Octavian's feedback MUST name where it came from in its prose: the
 recording and the time, the point (F, H, J or K numbers of the design notes) or the
 `android/DESIGN.md` rule. A contract with no traceable source is a guess and is not added.
 
@@ -31,13 +31,13 @@ signed in until Sign out: with Google (see `google-sign-in-same-account`), or wi
 password for the one test account seeded from the environment. Nobody can make an account
 with a password in that compatibility flow. The account's own methods (its keys,
 synced settings and posted diffs) MUST need that session; the rest of the phone API is
-reached as before. This replaces "no login" by Tavi's decision of 16 Oct 12:40 and 12:47
+reached as before. This replaces "no login" by Octavian's decision of 16 Oct 12:40 and 12:47
 (plan "Posted diffs"); Google accounts and the password kept for test users are his of
-16 Oct 16:52. Tavi's 21 Oct 2026 any-account GitHub and anonymous browsing decision adds
+16 Oct 16:52. Octavian's 21 Oct 2026 any-account GitHub and anonymous browsing decision adds
 separate guest and personal principals; it MUST NOT broaden the legacy private API's
 ingress or adopt its shared operator GitHub credential. Anonymous native browsing MAY
 use fixed tokenless public GitHub REST reads. Personal GitHub sign-in MUST use a
-server-owned authorization flow (GitHub CLI device sign-in since Tavi's 23 Oct 13:36
+server-owned authorization flow (GitHub CLI device sign-in since Octavian's 23 Oct 13:36
 "what you get when you use GH auth login"), verified immutable GitHub identity and the user's own
 isolated credential/state. Existing Google accounts MUST remain compatible; email
 matching alone MUST NOT link a personal GitHub identity to an existing account.
@@ -49,12 +49,12 @@ Cloudflare or Pully account sign-in. Its workspace RPC MUST resolve the canonica
 personal bearer and immutable account identity, use only that account's GitHub authority,
 persisted workspace and Claude Code/Codex container, and reject a missing, revoked or
 public-only session. It MUST NOT adopt legacy owner data or credentials. Anonymous and
-existing-server compatibility flows retain their own authority. Source: Tavi, 25 Oct
+existing-server compatibility flows retain their own authority. Source: Octavian, 25 Oct
 2026, rejecting the replacement tabs/profile/menu and requesting GitHub as the sole login.
 
 @cc [owner:OctavianTocan,label:security;product] staging-access-credential-is-app-transport-only
 The staging APK MAY embed a dedicated Access service credential supplied only through
-the build environment; Tavi explicitly accepts extraction on 25 Oct 2026. Its policy
+the build environment; Octavian explicitly accepts extraction on 25 Oct 2026. Its policy
 MUST authorize only the staging workspace and staging download paths, never production
 or the legacy private RPC. Native requests MUST confine it to the exact built-in HTTPS
 staging origin and those paths; personal sign-in/read requests MUST remain independent.
@@ -64,7 +64,7 @@ committed or exposed in logs, errors or analytics, and stable builds MUST contai
 @cc [owner:OctavianTocan,label:security;product] google-sign-in-same-account
 Google sign-in makes the email's account the first time and signs in to it after, with no
 step to create it, and MUST be refused, with no account made, for every email but
-tocanoctavian@gmail.com and addresses at @octaviantocan.com (Tavi, 16 Oct 16:52: "The
+tocanoctavian@gmail.com and addresses at @octaviantocan.com (Octavian, 16 Oct 16:52: "The
 Google sign-in should be restricted to tocanoctavian@gmail.com and emails with a
 @octaviantocan.com domain"). The server MUST check the Google ID token's signature against
 Google's keys, its issuer, that it was made out to the server's web client ID
@@ -75,12 +75,12 @@ configured as the environment-seeded test account. Without that client ID the se
 @cc [owner:OctavianTocan,label:security] agent-api-needs-a-key
 The account-key agent API `/api/v1/*` may sit outside Cloudflare Access, and it
 MUST answer 401 to every call without a valid account key, whatever the path's case or
-doubled slashes (`/API/v1`, `//api//v1`; Tavi, 16 Oct 14:32). A key reaches only its own
+doubled slashes (`/API/v1`, `//api//v1`; Octavian, 16 Oct 14:32). A key reaches only its own
 account's posted diffs and its feedback: no phone method, no GitHub token, no AI run, no
-other account (Tavi, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything
-unless they pass a valid API key"). The feedback is added by Tavi's ask of 20 Oct 06:10 ("we
+other account (Octavian, 16 Oct 12:47: "that endpoint doesn't really allow them to do anything
+unless they pass a valid API key"). The feedback is added by Octavian's ask of 20 Oct 06:10 ("we
 can then act on all my feedback later on"); a key reads it and marks it done or open, and
-can do nothing else to it. Tavi's 21 Oct 2026 anonymous public-browsing decision also
+can do nothing else to it. Octavian's 21 Oct 2026 anonymous public-browsing decision also
 permits a separately configured, default-disabled read-only public service with only
 `GET /api/public/v1/capabilities`, `/api/public/v1/repositories` and
 `/api/public/v1/repositories/{owner}/{repo}/pulls`. That service MUST use a tokenless
@@ -91,7 +91,7 @@ arbitrary legacy RPC, and MUST NOT initialize operator account, Git, agent or AI
 A diff an agent posted opens only in the phone app, signed in to the account. The web page
 MUST NOT read one: the web RPC refuses a `posted:` target or key and hides a posted diff's
 stored records and cache entries, and `/-/<id>` on the web only says to open it in the app
-(Tavi, 16 Oct 14:17: "just block access for everyone. On the web, I mean. And I mean
+(Octavian, 16 Oct 14:17: "just block access for everyone. On the web, I mean. And I mean
 specifically for these new agent diffs").
 
 @cc [owner:OctavianTocan,label:security] account-secrets-kept-as-hashes
@@ -108,7 +108,7 @@ log, or be readable through any method the phone may call.
 @cc [owner:OctavianTocan,label:security] secrets-come-from-the-environment
 Keys for the LegacyPrivate/default paid-service capability (TypeSafe, the Pi endpoint,
 model providers) come only from the server's environment; its generic engine/model
-requests MUST NOT override a URL or credential. Tavi's 21 Oct 2026 per-user Claude
+requests MUST NOT override a URL or credential. Octavian's 21 Oct 2026 per-user Claude
 subscription, ChatGPT subscription and Pi endpoint decision intentionally adds separate
 typed, owner-scoped provider connections: their supported setup/auth flow MAY accept that
 user's own endpoint or credential into protected custody (for Pi, an encrypted
@@ -119,7 +119,7 @@ personal authority MUST NOT silently fall back to operator credentials or paid d
 use. A guest has no personal paid authority. GitHub sign-in MUST NOT be a prerequisite
 for all AI; a separately verified Pully/local principal or explicitly labelled
 anonymous/shared-default allowance MUST have its own credential and budget boundary and
-MUST NOT impersonate a GitHub account (Tavi, 22 Oct 2026). No answer, notice, error,
+MUST NOT impersonate a GitHub account (Octavian, 22 Oct 2026). No answer, notice, error,
 Debug output or log line MAY echo a key or any part of it.
 
 @cc [owner:OctavianTocan,label:architecture;design] one-look-two-clients
@@ -168,5 +168,5 @@ writing anything, its own events included. Day files older than 365 days are del
 The HTTP/RPC server, its background orchestration and local Git source provider MUST
 run in Rust. Current builds and launchers MUST NOT start or fall back to TypeScript or
 Node server implementations. Shared browser and Action code and external agent CLIs
-remain separate runtime boundaries (Tavi, 16 Oct 2026 10:40:28 UTC,
+remain separate runtime boundaries (Octavian, 16 Oct 2026 10:40:28 UTC,
 "remove all the TypeScript backend", in the same Rust pull request).

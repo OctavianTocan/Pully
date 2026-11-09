@@ -215,7 +215,7 @@ fun EditableText(
  * the sheet with the caret at the place in the text the tap was over (Q3), its Markdown read as rendered while typed (Q4),
  * and the page does not scroll or move under it. Leaving the sheet, by Save, ✕,
  * Back or a swipe down, saves a changed text, as leaving an in-place field does (rule 83). A link or a picture in the
- * text at rest opens itself and never the sheet. Tavi chose this for the description; the title stays in place ("if I
+ * text at rest opens itself and never the sheet. Octavian chose this for the description; the title stays in place ("if I
  * tap to edit it, you just open a bottom sheet with it in a nice like text editor ... the title, you can leave for
  * editing here", recording 15 Oct 15:37, 08:29 to 08:56; L13).
  */

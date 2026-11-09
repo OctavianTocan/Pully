@@ -995,7 +995,7 @@ fn rollup(state: &Value) -> Value {
 /// @cc [owner:OctavianTocan,label:product] github-lifecycle-preserves-merged-state
 /// A merged flag, MERGED state or merge timestamp MUST produce merged before closed or
 /// draft. Missing or unrecognized state without terminal evidence MUST NOT become open
-/// (Tavi, 20 Oct 2026, "On PRs that have already been merged, we have no indication that
+/// (Octavian, 20 Oct 2026, "On PRs that have already been merged, we have no indication that
 /// they've been merged").
 fn pr_state(pr: &Value) -> &'static str {
     if bool_at(pr, "merged") || pr["state"] == "MERGED" || !text(pr, "mergedAt").is_empty() {

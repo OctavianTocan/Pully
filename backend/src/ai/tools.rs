@@ -318,7 +318,7 @@ fn path_glob(pattern: &str) -> Result<regex::Regex> {
 /// @cc [owner:OctavianTocan,label:security;architecture] rust-source-search-reports-incomplete
 /// Server-owned source search MUST read only its captured revision, and MUST identify any
 /// read failure or bounded scan limit rather than report a partial search as complete
-/// (Tavi's Rust parity request, 16 Oct 2026; agents-act-through-pr-tools).
+/// (Octavian's Rust parity request, 16 Oct 2026; agents-act-through-pr-tools).
 async fn search_source(state: Option<&AppState>, ctx: &Value, args: &Value) -> Result<String> {
     let pattern = crate::required(args, "pattern")?;
     let re = regex::RegexBuilder::new(pattern)

@@ -165,7 +165,7 @@ impl PersonalAuth {
     /// A personal read handler MUST obtain its current request identity only from the
     /// canonical session/vault resolver, including refresh and delivery confirmation.
     /// A status body, caller account/email or inherited OAuth scope MUST NOT construct
-    /// that authority. Source: Tavi's 21 Oct 2026 isolation-before-ingress decision and
+    /// that authority. Source: Octavian's 21 Oct 2026 isolation-before-ingress decision and
     /// 22 Oct requirement to complete the executable personal read boundary.
     pub(crate) async fn authenticate(&self, session: &str) -> Result<CurrentPersonalSession> {
         let resolved = self
@@ -232,7 +232,7 @@ impl PersonalAuth {
     /// Connect GitHub MUST request repository consent in the initial authorization and issue
     /// privateRepositories authority only after verified GitHub approval and the owned claim.
     /// The older public-only start MUST retain its publicRead maximum for installed clients.
-    /// Source: Tavi, 25 Oct 2026, one login including private repositories, opening them immediately.
+    /// Source: Octavian, 25 Oct 2026, one login including private repositories, opening them immediately.
     pub(crate) async fn connect(&self, request: StartRequest) -> Result<StartReply> {
         self.begin(request, GitHubAuthority::PrivateRepositories, None, None)
             .await
@@ -339,7 +339,7 @@ impl PersonalAuth {
     /// MUST show the person only GitHub's user code and fixed device page, and MUST keep the device
     /// code on the server, which alone polls GitHub at GitHub's interval (slowing when told) until
     /// approval, denial or the attempt's end. Approval MUST pass the same identity verification and
-    /// single-use claim as the callback. Source: Tavi, 23 Oct 2026 13:36 ("what you get when you use
+    /// single-use claim as the callback. Source: Octavian, 23 Oct 2026 13:36 ("what you get when you use
     /// GH auth login") and GitHub's device flow documentation.
     async fn begin_device(&self, challenge: [u8; 32], grant: Grant) -> Result<StartReply> {
         let id = random_secret().map_err(|_| AuthError::Unavailable)?;

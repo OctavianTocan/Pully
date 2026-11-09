@@ -9,7 +9,7 @@ pub(crate) fn merge_risk_enabled(request: &Value) -> bool {
 /// @cc [owner:OctavianTocan,label:product;architecture] rust-review-experiments-default-off
 /// Only an explicit true request flag MAY extend the review prompt, schema or result.
 /// Missing and false flags MUST leave ordinary review independent of merge-risk.
-/// Source: Tavi, 21 Oct 2026, opt-in experimental features and easy removal request.
+/// Source: Octavian, 21 Oct 2026, opt-in experimental features and easy removal request.
 pub(crate) fn schema(mut base: Value, request: &Value) -> Value {
     if merge_risk_enabled(request) {
         base["properties"]["mergeRisk"] = crate::merge_risk::schema();

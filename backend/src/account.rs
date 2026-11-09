@@ -192,7 +192,7 @@ impl Accounts {
             .cloned()
     }
     /// @cc [owner:OctavianTocan,label:security] rust-account-seed-hashes-password
-    /// Environment seeding MUST store only salted PBKDF2 password hashes, with no registration route (Tavi, 16 Oct 12:40; plan 13).
+    /// Environment seeding MUST store only salted PBKDF2 password hashes, with no registration route (Octavian, 16 Oct 12:40; plan 13).
     pub async fn seed(
         &self,
         email: Option<String>,
@@ -292,7 +292,7 @@ impl Accounts {
     }
     /// @cc [owner:OctavianTocan,label:security] rust-google-account-creation-serialized
     /// A verified Google email MUST reuse its existing account; concurrent creation
-    /// and session writes MUST serialize, with no password created (Tavi, 16 Oct 16:52).
+    /// and session writes MUST serialize, with no password created (Octavian, 16 Oct 16:52).
     pub(crate) async fn sign_in_with_google(&self, email: &str) -> Result<SignIn> {
         let this = self.clone();
         let email = email.trim().to_lowercase();
@@ -467,7 +467,7 @@ impl Accounts {
             .unwrap_or(json!({})))
     }
     /// @cc [owner:OctavianTocan,label:product;architecture] rust-settings-merge-is-atomic
-    /// Each setting MUST replace stored data only with a strictly newer timestamp; merges MUST serialize and enforce 200 settings, 8 KB per value and 64 KB total (Tavi, 16 Oct 12:47).
+    /// Each setting MUST replace stored data only with a strictly newer timestamp; merges MUST serialize and enforce 200 settings, 8 KB per value and 64 KB total (Octavian, 16 Oct 12:47).
     pub fn merge_settings(&self, account_id: &str, values: Value) -> Result<Value> {
         let values =
             clean_settings(&values).context("Settings need `values`: { name: { value, at } }.")?;

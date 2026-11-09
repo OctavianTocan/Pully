@@ -2,11 +2,11 @@
 The Rust rewrite MUST implement backend work without rewriting the web or Android UI.
 Transport adapters MAY change to connect those clients. Its migration notes MUST name
 remaining TypeScript runtime dependencies and unsupported features rather than claiming
-parity that is not implemented (Tavi, 15 Oct 2026 21:21 UTC, Rust rewrite request).
+parity that is not implemented (Octavian, 15 Oct 2026 21:21 UTC, Rust rewrite request).
 
 @cc [owner:OctavianTocan,label:architecture] rust-verification-stays-lightweight
 Verification of this rewrite MUST prioritize compilation and bounded compatibility
-checks, not compute-intensive test suites or benchmarks (Tavi, 15 Oct 2026 21:21:47 UTC).
+checks, not compute-intensive test suites or benchmarks (Octavian, 15 Oct 2026 21:21:47 UTC).
 
 @cc [owner:OctavianTocan,label:security] rust-native-and-browser-methods-separated
 The native HTTP API MUST keep storage and credential-proxy methods off its allowlist.
@@ -44,7 +44,7 @@ before fetching; an older overlapping result MUST NOT replace a newer snapshot
 The Rust backend MUST preserve the existing clients' backend wire contracts for model
 catalogs, streamed work, chat grouping, source tools, TypeSafe classification, compressed
 sharing, persistent full-file caching and periodic preanalysis. It MUST NOT substitute
-empty success responses for missing functionality (Tavi, 16 Oct 2026 05:01 UTC,
+empty success responses for missing functionality (Octavian, 16 Oct 2026 05:01 UTC,
 "Continue until you've fixed all the parity gaps").
 
 @cc [owner:OctavianTocan,label:security] rust-container-tools-use-scoped-capabilities
@@ -54,20 +54,20 @@ selected immutable review context, and MUST NOT grant general RPC, storage or Gi
 credentials. Shared CLI login state MUST be copied as selected credential files into
 an isolated job home; unrelated shared settings and skills MUST NOT reach the job. In the
 hosted agent container, where jobs are plain processes, a job MUST run as a user that cannot
-read the login homes (Tavi's 16 Oct parity request; agents-act-through-pr-tools; Tavi's 24 Oct
+read the login homes (Octavian's 16 Oct parity request; agents-act-through-pr-tools; Octavian's 24 Oct
 "Rewrite it as a Worker").
 
 @cc [owner:OctavianTocan,label:architecture;security] rust-openui-inert-wire-parity
 Brief parsing MUST preserve the locked OpenUI plain-tree behavior, including reactive
 syntax as inert AST and the distinction between generated validation and recovered
 saved trees. Input and expansion MUST be bounded; parsing MUST NOT execute actions,
-tool calls, expressions or JavaScript (Tavi's 16 Oct parity request; core briefTree
+tool calls, expressions or JavaScript (Octavian's 16 Oct parity request; core briefTree
 and briefProblems contracts).
 
 @cc [owner:OctavianTocan,label:architecture] rust-background-does-not-mark-viewed
 Cache warming and preanalysis MUST NOT count as user views or overwrite a newly stored
 head. Preanalysis MUST be opt-in and attempt each requested PR head at most once per
-server lifetime, including failed attempts (Tavi's 16 Oct parity request; original
+server lifetime, including failed attempts (Octavian's 16 Oct parity request; original
 preanalysis-commits-observed-head and server-store-answers-first contracts).
 
 @cc [owner:OctavianTocan,label:product;architecture] server-ai-work-outlives-the-page
@@ -91,11 +91,11 @@ Every CLI process the server starts, jobs and the model catalog alike, MUST go t
 read-write; its selected PR inputs and native helper are read-only, and repository
 reads go through the PR tools. Stopping a run MUST kill its container. The native
 runtime is Docker-only and MUST fail closed rather than run on the host (architecture,
-Where the CLIs run; recording 14 Oct 19:19, 01:31; Tavi's 15 Oct 2026 Rust rewrite and
+Where the CLIs run; recording 14 Oct 19:19, 01:31; Octavian's 15 Oct 2026 Rust rewrite and
 16 Oct 2026 parity requests, replacing the former host-or-Docker runtime). The one
 exception is the hosted agent container, which is itself the sandbox: there the AI kit's runner
 (`ai-kit/src/runner.rs`), which refuses to start outside that image, runs the same jobs as plain processes with the
-same job folder, inputs and PR tools, and stopping a run MUST kill its process (Tavi, 24 Oct
+same job folder, inputs and PR tools, and stopping a run MUST kill its process (Octavian, 24 Oct
 2026, "Rewrite it as a Worker"; packages/worker `hosted-ai-in-the-logins-own-container`).
 
 @cc [owner:OctavianTocan,label:security] server-curated-skills-only
@@ -105,7 +105,7 @@ the account it runs under (architecture, Where the CLIs run).
 @cc [owner:OctavianTocan,label:security] server-pi-has-only-pr-tools
 A Pi job gets exactly the PR tools the CLIs get over MCP and nothing more: no shell, files
 or web. A LegacyPrivate Pi job's endpoint and key come only from its environment, and
-without a base URL it fails with how to set it up (architecture, Pi). By Tavi's
+without a base URL it fails with how to set it up (architecture, Pi). By Octavian's
 21 Oct 2026 per-user provider decision and 22 Oct clarification that AI does not require
 GitHub login, a separately authorized personal/local/default AI capability MAY supply
 its own captured credential and model. That capability MUST retain its own owner,
@@ -181,7 +181,7 @@ unpublished artifacts MUST answer 404. `/android/pulls.apk` MUST answer 404, wit
 redirect or SPA fallback. The old latest-manifest and history metadata/assets MAY
 remain read-only aliases for installed clients, but their manifest MUST name the
 new binary URL and MUST NOT name the HTML page as an installer. Historical apps MUST
-be described honestly as side-by-side versions opened through Pully. Source: Tavi's
+be described honestly as side-by-side versions opened through Pully. Source: Octavian's
 repeated 22 Oct 2026 request for the HTML download page, available real versions and
 removal of the old direct APK route.
 
@@ -222,19 +222,19 @@ truncation, including after clearing and restoring a conversation (repository re
 @cc [owner:OctavianTocan,label:security] web-github-operations-stay-server-side
 The local web client MUST receive GitHub operation results, never the server's raw GitHub
 credential. Its GitHub transport MUST restrict requests to the GitHub API origin and MUST
-NOT follow redirects with server credentials (Tavi, 15 October 2026, fix the full-review
+NOT follow redirects with server credentials (Octavian, 15 October 2026, fix the full-review
 findings, issue 5; github-token-stays-on-server).
 
 @cc [owner:OctavianTocan,label:architecture] web-cache-writes-preserve-server-state
 Local web diff mutations MUST execute through the shared server diff repository; raw
 browser writes MUST NOT replace its split metadata or body documents. Other browser
-cache writes MUST reject a changed last-observed value (Tavi, 15 October 2026, fix the
+cache writes MUST reject a changed last-observed value (Octavian, 15 October 2026, fix the
 full-review findings, issue 6; server-store-answers-first).
 
 @cc [owner:OctavianTocan,label:security] jobs-codex-pr-tools-only
 Every Codex job MUST disable shell_tool, unified_exec and view_image; repository reads
 go through the PR MCP tools (agents-act-through-pr-tools; review finding 2, 15 Oct 2026).
-The native runtime permits only isolated Docker jobs, with no host fallback (Tavi's
+The native runtime permits only isolated Docker jobs, with no host fallback (Octavian's
 15 Oct 2026 Rust rewrite and 16 Oct 2026 parity requests).
 
 @cc [owner:OctavianTocan,label:architecture] jobs-release-acquired-slots
@@ -266,7 +266,7 @@ not changed since the run began. Its writes MUST NOT count as views
 RPCs, native requests, tasks and preanalysis for one principal and credential binding
 MUST share its AppState storage and cache coordinator. Guest and personal account
 contexts MUST NOT share the legacy private server's state or another account's state.
-Tavi's 21 Oct 2026 personal-account/public-browsing decision replaces the former global
+Octavian's 21 Oct 2026 personal-account/public-browsing decision replaces the former global
 scope; the existing LegacyPrivate context retains its shared instance
 (server-ai-work-outlives-the-page; review finding 6, 15 Oct 2026).
 
@@ -275,7 +275,7 @@ Nonlegacy contexts MUST NOT start AI work, query operator model catalogs or seed
 operator's environment account until an explicit personal provider authority and budget
 have been installed for that context. Public ingress MUST remain unavailable until its
 own allowlist, session validation and tenant isolation are implemented and reviewed.
-Source: Tavi's 21 Oct 2026 request for each user's own Claude/ChatGPT/Pi connection.
+Source: Octavian's 21 Oct 2026 request for each user's own Claude/ChatGPT/Pi connection.
 
 @cc [owner:OctavianTocan,label:architecture] stored-opening-keeps-newer-heads
 A fetch MUST NOT replace a head stored since this opening observed the cache, including
@@ -316,20 +316,20 @@ The password test account is `PULLY_ACCOUNT_EMAIL` and `PULLY_ACCOUNT_PASSWORD`,
 on first use and updated when they change; there is no password registration endpoint.
 Google sign-in follows `google-sign-in-same-account`; `account-status` answers
 `hasAccount: true` when either password seeding or the Google client ID is configured.
-After five wrong passwords in fifteen minutes password sign-in waits, even for the right one (Tavi, 16 Oct 12:40: "you don't need to add
+After five wrong passwords in fifteen minutes password sign-in waits, even for the right one (Octavian, 16 Oct 12:40: "you don't need to add
 any register functionality ... you can just seed the database").
 
 
 @cc [owner:OctavianTocan,label:product;architecture] server-posted-diffs-kept-forever
 A posted diff is stored as the agent sent it, the patch and its fields, and everything
 else is worked out again from them; the cache budget MUST NOT evict it and only a DELETE
-removes it, with everything kept under its key (Tavi, 16 Oct 12:40: "Link is actually
+removes it, with everything kept under its key (Octavian, 16 Oct 12:40: "Link is actually
 forever", "store what the agent gave us as opposed to the final result").
 
 
 @cc [owner:OctavianTocan,label:product] server-posted-links-from-the-environment
 The link a post answers is `PULLY_PUBLIC_URL` (such as `https://prs.octaviantocan.com`)
-followed by `/-/<id>`, or the request's own origin when it is unset (Tavi, 16 Oct 12:40:
+followed by `/-/<id>`, or the request's own origin when it is unset (Octavian, 16 Oct 12:40:
 "the domain should probably just be like an environment variable").
 
 
@@ -340,7 +340,7 @@ with 422 naming the file, line and kind, never the secret itself, unless the age
 
 
 @cc [owner:OctavianTocan,label:product] server-agent-results-checked
-An agent MAY send its own groups, tour, brief and review with a post (Tavi, 16 Oct 12:40:
+An agent MAY send its own groups, tour, brief and review with a post (Octavian, 16 Oct 12:40:
 "the agent can actually add its own grouping and tour"). Each is checked against its
 schema and against the diff: a path the diff does not have is dropped with a warning in
 the answer, and a part that does not fit is left out with a warning, so the post itself
@@ -351,7 +351,7 @@ still goes through.
 The account's synced settings are merged one setting at a time: a value replaces the
 kept one only when its time is newer, so two phones never undo each other's other
 choices, and merges of one account run one at a time. At most 200 settings are kept, each
-at most 8 KB and 64 KB in all (Tavi, 16 Oct 12:47).
+at most 8 KB and 64 KB in all (Octavian, 16 Oct 12:47).
 
 @cc [owner:OctavianTocan,label:architecture] rust-browser-cache-transport-budget
 Authenticated browser cache RPCs MUST accept serialized supported source diffs above
@@ -379,12 +379,12 @@ cleanup before releasing the job folder (R14 reliability finding 7, 16 Oct 2026)
 @cc [owner:OctavianTocan,label:architecture] rust-browser-origin-matches-listener
 Browser origin checks and startup URLs MUST use the actual bound port, including when
 port zero selects one, bracket IPv6 literals, and omit HTTP's default port like browser
-Origin headers (Tavi, 16 Oct 19:27 UTC, final operational setup/parity request).
+Origin headers (Octavian, 16 Oct 19:27 UTC, final operational setup/parity request).
 
 @cc [owner:OctavianTocan,label:architecture;security] rust-native-failures-reach-analytics
 Failed responses from account and general native RPC handlers MUST record one error.server event
 through the existing analytics privacy/opt-out boundary, without replacing dispatched
-RPC timing events or changing response bodies (Tavi, 16 Oct 19:27 UTC, operational
+RPC timing events or changing response bodies (Octavian, 16 Oct 19:27 UTC, operational
 parity request; main native-api.ts noteFailure behavior).
 
 @cc [owner:OctavianTocan,label:product;security] server-feedback-kept-for-agents
@@ -396,14 +396,14 @@ is never evicted. The account's keys read it newest first at `GET /api/v1/feedba
 (`?status=open|done`) and `GET /api/v1/feedback/<id>`, and `PATCH` marks it `done` with an
 optional note on what was done, or `open` again; no other account sees it, and its words
 MUST NOT reach usage analytics ("a button somewhere for me to leave feedback from the app
-itself ... It obviously needs to be stored with timestamps, app version, etc": Tavi, 20 Oct
-2026 06:10; iOS metadata added by Tavi's 21 Oct 2026 same-app iOS request).
+itself ... It obviously needs to be stored with timestamps, app version, etc": Octavian, 20 Oct
+2026 06:10; iOS metadata added by Octavian's 21 Oct 2026 same-app iOS request).
 
 @cc [owner:OctavianTocan,label:security;architecture] rust-ios-analytics-keeps-the-existing-cleaner
 The first-party analytics endpoint MUST accept the native ios app label through the
 same event, content redaction, size, batching and retention policy as Android/web.
 Unknown app labels MUST remain rejected; enabling iOS MUST NOT bypass the cleaner or
-add a telemetry service. Source: Tavi's 21 Oct 2026 full shared iOS app request and
+add a telemetry service. Source: Octavian's 21 Oct 2026 full shared iOS app request and
 root analytics-stays-on-our-server and analytics-what-not-how-much.
 
 @cc [owner:OctavianTocan,label:security;product] ai-runs-on-the-callers-own-sign-in
@@ -414,7 +414,7 @@ refused rather than fall back. A running run MUST NOT be joined by another login
 identical request. Requests without a Pully account and the server's own background work
 use the server's sign-in from setup.sh. Claude Code and Codex MUST NOT be given an API
 key (ANTHROPIC_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, OPENAI_API_KEY) on any path. Source:
-Tavi, 23 Oct 2026 13:39: "Claude Code and Codex SUBSCRIPTION login. Not any other kind
+Octavian, 23 Oct 2026 13:39: "Claude Code and Codex SUBSCRIPTION login. Not any other kind
 of thing. I don't even care to implement API Key for those. We need to be able to use
 people's subscription usage."
 
@@ -425,11 +425,11 @@ that login's own agent container), with no job inputs, PR tools or prompt. The s
 NOT read the resulting tokens; it passes the person's pasted code only to that CLI's stdin.
 It MUST NOT store them either, except that the hosted server keeps each login's sign-in
 files as text in that login's own `AgentHome` Durable Object while its container sleeps
-(Tavi, 24 Oct 2026 19:27, "store them as text in there or something and convert back to
+(Octavian, 24 Oct 2026 19:27, "store them as text in there or something and convert back to
 whatever file or token the CLIs need"). Only a signed-in Pully
 account MAY start, finish or sign out a sign-in. The phone MUST be given only links on
 the providers' own sign-in hosts, and status MUST count only subscription sign-ins
-(claude.ai, ChatGPT), never a Console or API key login. Source: Tavi, 23 Oct 2026 13:39,
+(claude.ai, ChatGPT), never a Console or API key login. Source: Octavian, 23 Oct 2026 13:39,
 and Anthropic's Claude Code legal and compliance page checked that day ("sign-in to a
 Claude account must complete through Anthropic's own flow"; hosting the unmodified
 binary for users who sign in with their own subscription is allowed).
@@ -439,7 +439,7 @@ The library MUST build for `wasm32-unknown-unknown` as well as natively, so the 
 this code running in a Worker (`packages/worker`). Code outside the native-only modules MUST use
 `rt` for tasks, timers, environment, files and programs, `net` for outbound HTTP and
 `store::Records` for storage, never tokio's runtime, `std::env` or reqwest's `send` directly. In
-the Worker, files and programs MUST fail closed and outbound HTTP MUST NOT follow redirects (Tavi,
+the Worker, files and programs MUST fail closed and outbound HTTP MUST NOT follow redirects (Octavian,
 24 Oct 2026, "Rewrite it as a Worker"; plan 12, Update 24 Oct).
 
 @cc [owner:OctavianTocan,label:product;security;architecture] personal-workspace-is-the-full-native-service-for-its-own-account
@@ -450,7 +450,7 @@ private review experience, with account identity and CLI login derived only from
 vault's immutable account. It MUST NOT mint a legacy session or label that identity
 LegacyPrivate. Access credentials authorize transport only. Account status and display
 MAY use the GitHub login as email for existing clients; email, login and client account
-fields MUST NOT select authority. Source: Tavi25Oct2026, one GitHub login and the full
+fields MUST NOT select authority. Source: Octavian25Oct2026, one GitHub login and the full
 production workspace, replacing the limited GitHub Home and second app login.
 
 @cc [owner:OctavianTocan,label:security] personal-workspace-never-spends-operator-ai
@@ -460,17 +460,17 @@ remain unable to use those services. Personal work, model lists and follow-ups M
 use Pi, TypeSafe, server login homes or operator/default paid credentials, with one
 exception: the single GitHub account whose id the server's PULLY_PI_GITHUB_ID names MAY
 run Pi on the server's own proxy settings, and an unset or malformed id admits nobody
-(Tavi's recording of 26 Oct 2026, 02:21 to 02:36: Pi "hooked up to my proxy API"). Binding
+(Octavian's recording of 26 Oct 2026, 02:21 to 02:36: Pi "hooked up to my proxy API"). Binding
 revocation MUST retire captured work and prevent further saved-state access. Provider
 subscription login remains separate provider setup, never another app login. Source:
-Tavi25Oct2026 single GitHub app login and own Claude/Codex subscriptions.
+Octavian25Oct2026 single GitHub app login and own Claude/Codex subscriptions.
 
 @cc [owner:OctavianTocan,label:architecture;security] workspace-durable-mutations-share-account-serialization
 All live workspace bindings of the same stable account store MUST serialize complete
 persistent reads, transformations and writes, including multi-key compare/exchange.
 The record adapter MUST NOT recursively acquire that transaction lock. Binding revocation
 checks and transient cache isolation MUST remain effective, and diff metadata MUST observe
-durable mutations from every binding. Source: Tavi25Oct2026 review-fix batch, finding 9;
+durable mutations from every binding. Source: Octavian25Oct2026 review-fix batch, finding 9;
 server-settings-newer-wins and rust-store-atomic-mutations.
 
 @cc [owner:OctavianTocan,label:architecture] workspace-stats-reads-only-matching-records
@@ -478,7 +478,7 @@ Workspace Stats MUST use literal encoded-prefix record lookups without enumerati
 saved records for each UTC day, and MUST tally event lines without buffering a whole day's
 lines. The existing Stats response, event sanitization, opt-out and 365-day retention MUST
 remain unchanged. Native and Worker storage MUST honor the same lookup and legacy key-alias
-semantics. Source: Tavi25Oct2026 review-fix batch, finding 8.
+semantics. Source: Octavian25Oct2026 review-fix batch, finding 8.
 
 @cc [owner:OctavianTocan,label:architecture;security] server-sync-feed-names-only-own-changes
 Every write to a store's Inbox, Jev, marks, diff or Ask records MUST be noted on that
@@ -487,7 +487,7 @@ MUST answer with only the topic names changed since the caller's version: never 
 record, a posted diff, or another account's change. It is a phone method behind the same
 allowlist, schemas, workspace checks and identity retirement as every other one, and it
 holds a request for at most 25 seconds. A caller from another epoch or too far behind is
-told to read everything. Source: Tavi, 28 Oct 2026 ("Go") on the plan in thread "Build a
+told to read everything. Source: Octavian, 28 Oct 2026 ("Go") on the plan in thread "Build a
 sync engine like Wholana's", building Zero's design that Omar named (call of 26 Oct 2026,
 1:01:29).
 
@@ -505,5 +505,5 @@ NOT replace a newer copy. For every pull request its warm round refreshes, it MU
 reviews and stack again only when the pull request's `updatedAt` differs from the copy's.
 A diff it does not have MUST read the comparison, files and commits together after the
 first read of the pull request, and MUST still refuse a diff whose head or base moved
-meanwhile. Source: Tavi, 28 Oct 2026 15:36, thread "Build a sync engine like Wholana's":
+meanwhile. Source: Octavian, 28 Oct 2026 15:36, thread "Build a sync engine like Wholana's":
 "even the things that the user hasn't actually opened yet load immediately".

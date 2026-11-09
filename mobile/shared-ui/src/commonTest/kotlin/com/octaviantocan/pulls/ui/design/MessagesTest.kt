@@ -26,8 +26,8 @@ class MessagesTest {
             }
         }
         val messages = catalog.load("es")
-        assertEquals("Hola Tavi, {pending}", messages.t("home.hello", "name" to "Tavi"))
-        assertEquals("Hello Tavi", messages.t("home.fallback", "name" to "Tavi"))
+        assertEquals("Hola Octavian, {pending}", messages.t("home.hello", "name" to "Octavian"))
+        assertEquals("Hello Octavian", messages.t("home.fallback", "name" to "Octavian"))
     }
 
     @Test

@@ -24,5 +24,5 @@ own Vibration switch (rule 109).
 The process-wide sound and haptics services MUST read the current account settings
 for each cue, rather than retain the preference owner selected during Application
 startup. Switching back to ExistingServer MUST restore that flow's own feedback
-choices. Hardware initialization MAY remain one-shot. Source: Tavi's 25 Oct 2026
+choices. Hardware initialization MAY remain one-shot. Source: Octavian's 25 Oct 2026
 review-fix batch #1 and sound-follows-the-phone.

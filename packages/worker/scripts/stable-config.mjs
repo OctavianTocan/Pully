@@ -1,7 +1,7 @@
 // Prints the Worker config for the stable server: wrangler.jsonc as its own Worker
 // (`pully-stable`, so its Durable Objects and data are apart from staging's), with its own
 // Android bucket and the stable host as its custom domain and public URL. The host comes from
-// the PULLY_STABLE_HOST repository variable, which the operator sets only with Tavi's go-ahead
+// the PULLY_STABLE_HOST repository variable, which the operator sets only with Octavian's go-ahead
 // to move that host to Cloudflare, after its Access application exists (CONTRACTS,
 // hosted-server-only-behind-access).
 //

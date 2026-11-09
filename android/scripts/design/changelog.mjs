@@ -2,10 +2,10 @@
 // latest.json. The versionName in app/build.gradle.kts must have a section there with a summary and
 // at least one bullet, and the sections run newest first, so a pull request that bumps the version
 // cannot ship without saying what changed. The app parses the same file (core Changelog.kt).
-// Since 0.40.0 every section also shows what changed in pictures, or GIFs for what moves (Tavi,
+// Since 0.40.0 every section also shows what changed in pictures, or GIFs for what moves (Octavian,
 // 16 Oct 10:49): `![what it shows](changelog/<version>/<name>.png)` lines, unindented after a blank
 // line, with the files in android/changelog/<version>/, which the app bundles and the server serves.
-// Since 26 Oct 2026 every section also says when it was released (Tavi, 26 Oct 13:28: "add a date and
+// Since 26 Oct 2026 every section also says when it was released (Octavian, 26 Oct 13:28: "add a date and
 // time to each changelog entry from now on"): `#### 2026-10-26 14:30 UTC` right under the heading. Builds
 // from before then skip any `#` line that is not `## ` or `### `, so the line hides from them.
 import { existsSync, readFileSync, statSync } from 'node:fs'

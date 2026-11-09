@@ -8,7 +8,7 @@ The web is drawn from the phone's sources: tokens, `Lu` icons and fonts come fro
 generated files in `src/design`, and `src/components/kit/` holds the phone's pieces.
 The standalone web MUST use the Android mobile layout at every host width, centered
 in a portrait viewport with blank side padding on wide screens. Every piece is the
-phone's piece, with no link-out arrows or AI sparkles. Tavi explicitly replaced the
+phone's piece, with no link-out arrows or AI sparkles. Octavian explicitly replaced the
 wide-layout allowance with 1-to-1 Android parity on 6 Nov 2026 (rule 106).
 
 @cc [owner:OctavianTocan,label:security;architecture] web-is-static
@@ -49,28 +49,28 @@ superseded discovery MUST NOT apply results or repopulate candidates
 @cc [owner:OctavianTocan,label:security;product] web-public-site-untracked
 Only the build our server serves (`PR_LOCAL`) tracks usage, through `src/local/analytics.ts`
 and `POST /api/events`. The public pulls.review site MUST NOT send analytics anywhere until
-Tavi decides it should (plan "Pulls analytics on our own server", Open questions).
+Octavian decides it should (plan "Pulls analytics on our own server", Open questions).
 
 @cc [owner:OctavianTocan,label:product;design] web-mobile-viewport-owns-every-layer
 The standalone web MUST render pages, fixed controls, sheets, menus and toasts in the
 same portrait viewport. Wide host windows MUST NOT activate desktop layouts inside
 that viewport. Narrow phone windows MUST fill the available width. Browser links,
 deep links, reload, Back and Forward MUST continue to address the visible route.
-Source: Tavi's 6 Nov 2026 request for the web to feel like Android with blank side padding.
+Source: Octavian's 6 Nov 2026 request for the web to feel like Android with blank side padding.
 
 @cc [owner:OctavianTocan,label:product;design] web-inbox-matches-android
 The standalone home MUST use Android's Inbox and Tours capsule, Waiting on you,
 Authored and All filters, grouped rows, bottom search pill and adjacent sort button.
 Row swipes MUST commit only after horizontal intent; vertical scrolling MUST NOT
 open or archive a row. Archiving MUST offer Undo and remain local to the inbox.
-Source: Tavi's 6 Nov 2026 1-to-1 Android request and shared HomeScreen.kt/Triage.kt.
+Source: Octavian's 6 Nov 2026 1-to-1 Android request and shared HomeScreen.kt/Triage.kt.
 
 @cc [owner:OctavianTocan,label:product;architecture] web-feedback-uses-android-recipes
 Web control sounds MUST use Android's Cuelume recipe asset, materials, role-based
 cues and emphasis shaping. Secondary controls MUST use subtle emphasis. Text entry
 and opening, closing or navigating a page by themselves MUST remain silent. Sound
 MUST play only on committed activation; disabling sound MUST fade current voices.
-Audio unavailability MUST NOT prevent an action. Source: Tavi's 6 Nov 2026 request
+Audio unavailability MUST NOT prevent an action. Source: Octavian's 6 Nov 2026 request
 for the same sound as Android and DESIGN.md rules 109, 120 and 125.
 
 @cc [owner:OctavianTocan,label:product;design] web-review-matches-android-frame
@@ -80,13 +80,13 @@ comments, and permit split layout in portrait. Overview MUST retain access to
 conversation, commits, checks, files and existing review/state actions through sheets.
 Tours MUST use the existing tour cache and server tasks, reserve busy state before
 starting a task, and detach without cancelling when the page leaves. Source:
-Tavi's 6 Nov 2026 1-to-1 Android request and shared ReviewScreen.kt/PrDiffScreen.kt.
+Octavian's 6 Nov 2026 1-to-1 Android request and shared ReviewScreen.kt/PrDiffScreen.kt.
 
 @cc [owner:OctavianTocan,label:product;design] web-sheets-use-phone-interactions
 Standalone dialogs MUST use the phone's paper sheet, rounded top corners, grabber,
 press feedback and reduced-motion preference. Only the topmost sheet MAY handle
 keyboard dismissal or trap focus; background scrolling MUST stay locked until the
-last sheet closes, and closing a sheet MUST restore focus. Source: Tavi's 6 Nov
+last sheet closes, and closing a sheet MUST restore focus. Source: Octavian's 6 Nov
 2026 Android parity request and DESIGN.md rules 78, 82 and 108.
 
 @cc [owner:OctavianTocan,label:product;architecture] web-parity-preserves-authority
@@ -94,51 +94,51 @@ The mobile web presentation MUST retain the existing static-client and local-RPC
 boundaries. The static client MUST use only viewer-supplied GitHub authority; local
 inbox questions and tours MUST use existing typed task APIs. The mobile frame MUST
 NOT grant browser access to posted diffs or expose server-held credentials. Source:
-Tavi's 6 Nov 2026 request to match Android with minimal backend changes; root
+Octavian's 6 Nov 2026 request to match Android with minimal backend changes; root
 posted-diffs-not-on-the-web and github-token-stays-on-server contracts.
 
 @cc [owner:OctavianTocan,label:product;security] web-tour-diagrams-use-native-renderer
 Tour diagrams MUST use the bundled Pele renderer Android uses and the shared phone
 palette. Rendering MUST disable links and images and bound source and SVG sizes.
 Executable SVG elements, event handlers and remote resource references MUST NOT
-reach the document. Source: Tavi's 6 Nov 2026 Android parity request and the native
+reach the document. Source: Octavian's 6 Nov 2026 Android parity request and the native
 PeleSvg.kt rendering boundary.
 
 @cc [owner:OctavianTocan,label:product;design] web-stacks-use-native-rows
 Inbox stacks MUST collapse into Android's outlined stack row with aggregate facts and
-open their layers on activation. Source: Tavi's 7 Nov 2026 request for a second full
+open their layers on activation. Source: Octavian's 7 Nov 2026 request for a second full
 1-to-1 pass; PullRowContent.kt and InboxStacks.kt.
 
 @cc [owner:OctavianTocan,label:product;design] web-tours-retain-reading-progress
 Saved tours MUST use the native progress tile and retain reading progress across
-navigation and reload. Source: Tavi's 7 Nov 2026 full Android parity pass; PullRows.kt
+navigation and reload. Source: Octavian's 7 Nov 2026 full Android parity pass; PullRows.kt
 and PrTourScreen.kt.
 
 @cc [owner:OctavianTocan,label:product;design] web-native-reading-preferences
 Settings MUST offer Android's fonts, palettes, code sizes and wrapping, and selected
-fonts MUST reach code in shadow DOM. Source: Tavi's 7 Nov 2026 full Android parity
+fonts MUST reach code in shadow DOM. Source: Octavian's 7 Nov 2026 full Android parity
 pass; SettingsScreen.kt and Samples.kt.
 
 @cc [owner:OctavianTocan,label:design] web-native-diff-washes
 Diff line washes MUST use the native colors without the renderer diluting them.
-Source: Tavi's 7 Nov 2026 full Android parity pass; FileDiff.kt.
+Source: Octavian's 7 Nov 2026 full Android parity pass; FileDiff.kt.
 
 @cc [owner:OctavianTocan,label:product;design] web-commands-match-native
 Pulling the Inbox beyond its top MUST open Commands after Android's resisted
 threshold while bottom controls stay pinned. Commands MUST use a tall sheet with
 plain grouped rows and search; secondary groups MUST initially limit their rows and
-allow expansion. Source: Tavi's 7 Nov 2026 full Android parity pass; PullToCommands.kt
+allow expansion. Source: Octavian's 7 Nov 2026 full Android parity pass; PullToCommands.kt
 and CommandPalette.kt.
 
 @cc [owner:OctavianTocan,label:product;design] web-ask-pill-follows-native
 The Overview and Tour Ask bar MUST rest as Android's compact Ask pill, expand with
 focus on activation and collapse when left empty. Tapping the field's padding MUST
-focus it. The Tour MUST show Ask only once there is a tour to discuss. Source: Tavi's
+focus it. The Tour MUST show Ask only once there is a tour to discuss. Source: Octavian's
 7 Nov 2026 full Android parity pass; AskBar.kt, FootBar.kt and PrTourScreen.kt (Q5, Q6).
 
 @cc [owner:OctavianTocan,label:design;architecture] web-phone-layers-have-real-depth
 The search dim MUST cover the page header, the foot bar MUST stay above that dim,
 and Tour's pinned section strip MUST cover scrolling cards. These layers MUST use
 named Uno shortcuts, since the design preset blocks literal arbitrary z-index
-utilities in templates. Source: Tavi's 7 Nov 2026 full Android parity pass; observed
+utilities in templates. Source: Octavian's 7 Nov 2026 full Android parity pass; observed
 header and card overlap, and PrTourScreen.kt / AskBar.kt (N29).

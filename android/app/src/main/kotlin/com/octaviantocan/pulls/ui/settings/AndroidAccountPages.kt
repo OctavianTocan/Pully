@@ -129,7 +129,7 @@ internal suspend fun checkAccount(context: Context): ConnectionCheckResult {
 
 /**
  * The sign-in page: while the server takes a sign-in and this phone is not signed in, it covers the app, as the update
- * screen does ("it actually should get a sign in screen, but once you sign in it's just signed in": Tavi, 16 Oct
+ * screen does ("it actually should get a sign in screen, but once you sign in it's just signed in": Octavian, 16 Oct
  * 12:47). Back leaves Pully.
  */
 @Composable
@@ -143,7 +143,7 @@ internal fun SignInGate(onLeave: () -> Unit, onExplore: (() -> Unit)? = null) {
 /**
  * The heading at the top and everything to do at the bottom, under the thumb, as Zillow and Detail lay theirs out
  * (Appllama, 16 Oct): Continue with Google first, then "or" and the email field alone; Continue shows the password
- * under it, for the test account (Tavi, 16 Oct 16:52). Without Google on the server the email is the page's one action.
+ * under it, for the test account (Octavian, 16 Oct 16:52). Without Google on the server the email is the page's one action.
  */
 @Composable
 internal fun SignInPage(onExplore: (() -> Unit)? = null) {

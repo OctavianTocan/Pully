@@ -25,7 +25,7 @@ pub(crate) struct VaultContext<'a> {
 /// SIWC credentials MUST authenticate the verified AI owner, connection ID/revision and
 /// OpenAI issuer, issued client and immutable subject in a domain distinct from GitHub
 /// credentials/sessions. Email equality and dynamic_agent_client MUST NOT select an issued
-/// registration. Existing GitHub/session AAD bytes MUST remain unchanged. Source: Tavi's
+/// registration. Existing GitHub/session AAD bytes MUST remain unchanged. Source: Octavian's
 /// 22 Oct independent AI-principal decision and official SIWC accounts/session contract.
 pub(crate) struct AiVaultContext<'a> {
     pub owner_id: &'a str,

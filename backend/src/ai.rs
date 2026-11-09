@@ -459,7 +459,7 @@ fn snapshot(run: &Run, after: f64) -> Value {
 /// A personal workspace run MUST retain every server-selected context repository's
 /// immutable ID before publishing provider output. Completion, answer citations and
 /// snapshot cursors MUST NOT reduce that set, and caller hints MUST NOT replace it.
-/// Source: confirmed ce-code-review finding 4 and Tavi's 25 Oct 2026 assigned fix batch.
+/// Source: confirmed ce-code-review finding 4 and Octavian's 25 Oct 2026 assigned fix batch.
 async fn retain_workspace_context(
     state: &AppState,
     run: &Run,
@@ -1013,7 +1013,7 @@ pub fn begin_shutdown(state: &AppState) {
 /// An automatic update MUST defer while an AI admission, running task or follow-up
 /// is active. Once idle is accepted, new admissions MUST be fenced before shutdown,
 /// so deploying cannot cancel work between an idle check and stopping the process.
-/// Source: Tavi, 21 Oct 2026, "Resolve all reviews and merge those PRs", deployment review.
+/// Source: Octavian, 21 Oct 2026, "Resolve all reviews and merge those PRs", deployment review.
 pub fn begin_idle_update_shutdown(state: &AppState) -> bool {
     // start_async queues admission under handles; start/followups reserve under
     // runs. Hold both while testing and fencing, in the admission lock order.

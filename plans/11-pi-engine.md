@@ -9,7 +9,7 @@ Status: **step 1 built** (the `pi` engine, opt-in). Claude Code stays the defaul
 Every AI feature on the server ran through the Claude Code or Codex CLI. That ties
 Pulls to two vendors' tools, their release cadence and their quirks (a Codex
 sandbox that needs namespaces, Claude's stream format, sign-ins that only a
-terminal can do). Tavi runs CLIProxyAPI, which serves Claude, GPT, Gemini and
+terminal can do). Octavian runs CLIProxyAPI, which serves Claude, GPT, Gemini and
 others through one OpenAI-compatible API on his own subscriptions. With an agent
 loop of our own in front of it, Pulls can use any of those models and decide for
 itself what the model may do.

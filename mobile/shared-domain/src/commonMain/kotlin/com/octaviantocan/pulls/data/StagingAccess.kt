@@ -1,6 +1,6 @@
 package com.octaviantocan.pulls.data
 
-/** Tavi25Oct: extractable APK credential, confined to staging workspace and staging downloads. */
+/** Octavian25Oct: extractable APK credential, confined to staging workspace and staging downloads. */
 fun stagingAccessHeaders(
     server: String,
     path: String,

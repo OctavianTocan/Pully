@@ -182,7 +182,7 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
     val systemDark = isSystemInDarkTheme()
     val zoomIndex = ZOOMS.indexOfFirst { kotlin.math.abs(settings.codeZoom - it.second) < 0.04f }.coerceAtLeast(0)
 
-    // Who is signed in and the keys agents post with, first: the phone is where they are made (Tavi, 16 Oct 12:47).
+    // Who is signed in and the keys agents post with, first: the phone is where they are made (Octavian, 16 Oct 12:47).
     AccountGroup(services.account, open)
     if (onGitHubAccount != null) Group(t("personal.title")) {
         SheetCard {
@@ -318,7 +318,7 @@ private fun ColumnScope.MainPage(nav: Nav, services: SettingsServices, open: (Se
         }
     }
     services.platform.afterModel(this, open)
-    // Feedback on the app, kept on the server for agents to act on later (Tavi, 20 Oct 06:10; nav-feedback-from-anywhere).
+    // Feedback on the app, kept on the server for agents to act on later (Octavian, 20 Oct 06:10; nav-feedback-from-anywhere).
     Box(Modifier.padding(top = 24.dp)) {
         SheetCard {
             SheetRow("Send feedback", { open(SettingsPage.Feedback) }, first = true, iconless = true) {

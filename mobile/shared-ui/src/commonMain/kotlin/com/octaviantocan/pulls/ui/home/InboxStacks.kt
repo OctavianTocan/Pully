@@ -17,7 +17,7 @@ import com.octaviantocan.pulls.ui.review.StackSheet
 /*
  * Stacks in the Inbox. The layers of one stack that are in a section show as one row, and a tap on it lists them
  * ("since PR stacks are so common nowadays, I would actually group them into one row, and make the stack the row, and
- * when you tap it can show you which PRs are in there": Tavi, 17 Oct 17:40; rule 202).
+ * when you tap it can show you which PRs are in there": Octavian, 17 Oct 17:40; rule 202).
  */
 
 /** One row of an Inbox section: a pull request on its own, or the layers of one stack. */
